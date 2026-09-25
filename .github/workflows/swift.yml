@@ -1,4 +1,4 @@
-# This workflow will build a Swift project
+# This workflow builds and tests the Swift packages of the CoreLedger monorepo.
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
 
 name: Swift
@@ -11,12 +11,18 @@ on:
 
 jobs:
   build:
-
-    runs-on: macos-latest
-
+    name: ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    container: swift:6.0-jammy
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [Kaus-Media, Kaus-Australis]
     steps:
     - uses: actions/checkout@v4
     - name: Build
       run: swift build -v
+      working-directory: ${{ matrix.package }}
     - name: Run tests
       run: swift test -v
+      working-directory: ${{ matrix.package }}

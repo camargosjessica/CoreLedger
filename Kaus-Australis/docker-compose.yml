@@ -1,16 +1,19 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: kaus_user
-      POSTGRES_PASSWORD: kaus_password
-      POSTGRES_DB: kaus_db
+      POSTGRES_USER: ${DATABASE_USERNAME:-kaus_user}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-kaus_password}
+      POSTGRES_DB: ${DATABASE_NAME:-kaus_db}
     ports:
-      - "5432:5432"
+      - "${DATABASE_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USERNAME:-kaus_user} -d ${DATABASE_NAME:-kaus_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   pgdata:

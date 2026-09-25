@@ -14,15 +14,22 @@ struct App {
         
         let app = try await Application.make(env)
         
-        app.databases.use(.postgres(
-            configuration: .init(
-                hostname: "localhost",
-                username: "kaus_user",
-                password: "kaus_password",
-                database: "kaus_db",
-                tls: .disable
-            )
-        ), as: .psql)
+        let hostname: String = Environment.get("DATABASE_HOST") ?? "localhost"
+        let port: Int = Environment.get("DATABASE_PORT").flatMap(Int.init)
+            ?? SQLPostgresConfiguration.ianaPortNumber
+        let username: String = Environment.get("DATABASE_USERNAME") ?? "kaus_user"
+        let password: String = Environment.get("DATABASE_PASSWORD") ?? "kaus_password"
+        let databaseName: String = Environment.get("DATABASE_NAME") ?? "kaus_db"
+
+        let postgresConfiguration = SQLPostgresConfiguration(
+            hostname: hostname,
+            port: port,
+            username: username,
+            password: password,
+            database: databaseName,
+            tls: .disable
+        )
+        app.databases.use(.postgres(configuration: postgresConfiguration), as: .psql)
         
         app.migrations.add(CreateTransactionMigration())
         try await app.autoMigrate()
@@ -30,38 +37,17 @@ struct App {
         // ROTA POST: Criação
         app.post("api", "transactions") { req async throws -> TransactionDTO in
             let dto = try req.content.decode(TransactionDTO.self)
-            
-            let model = TransactionModel(
-                description: dto.description,
-                amount: dto.amount,
-                category: dto.category ?? "Geral", // Fallback caso o frontend não envie
-                date: dto.date
-            )
-            
+            let model = TransactionModel(newFrom: dto)
             try await model.save(on: req.db)
-            
-            return TransactionDTO(
-                id: model.id,
-                description: model.description,
-                amount: model.amount,
-                date: model.date,
-                category: model.category
-            )
+            return model.toDTO()
         }
 
         // ROTA GET: Listagem
         app.get("api", "transactions") { req async throws -> [TransactionDTO] in
-            let models = try await TransactionModel.query(on: req.db).all()
-            
-            return models.map { model in
-                TransactionDTO(
-                    id: model.id,
-                    description: model.description,
-                    amount: model.amount,
-                    date: model.date,
-                    category: model.category
-                )
-            }
+            let models = try await TransactionModel.query(on: req.db)
+                .sort(\.$date, .descending)
+                .all()
+            return models.map { $0.toDTO() }
         }
 
         try await app.execute()
