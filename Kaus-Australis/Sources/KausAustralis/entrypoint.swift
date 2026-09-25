@@ -1,9 +1,10 @@
 import Vapor
+import Fluent
+import FluentPostgresDriver
 import KausMedia
 
-// 💡 O Pulo do Gato: Ensinamos o Vapor que o DTO do nosso pacote compartilhado 
-// pode ser convertido para JSON na rede, sem sujar o pacote original!
-extension TransactionDTO: Content {}
+// O DTO agora já é Sendable nativamente, precisamos apenas do Content do Vapor
+extension TransactionDTO: @retroactive Content {}
 
 @main
 struct App {
@@ -11,25 +12,58 @@ struct App {
         var env = try Environment.detect()
         try LoggingSystem.bootstrap(from: &env)
         
-        // Inicialização moderna (totalmente assíncrona)
         let app = try await Application.make(env)
         
-        // Rota de Health Check
-        app.get("health") { req async -> String in
-            return "Kaus Australis (Backend) está online e respirando! 🚀"
-        }
-
-        // Rota testando o Kaus-Media
-        app.get("api", "test-transaction") { req async -> TransactionDTO in
+        app.databases.use(.postgres(
+            configuration: .init(
+                hostname: "localhost",
+                username: "kaus_user",
+                password: "kaus_password",
+                database: "kaus_db",
+                tls: .disable
+            )
+        ), as: .psql)
+        
+        app.migrations.add(CreateTransactionMigration())
+        try await app.autoMigrate()
+        
+        // ROTA POST: Criação
+        app.post("api", "transactions") { req async throws -> TransactionDTO in
+            let dto = try req.content.decode(TransactionDTO.self)
+            
+            let model = TransactionModel(
+                description: dto.description,
+                amount: dto.amount,
+                category: dto.category ?? "Geral", // Fallback caso o frontend não envie
+                date: dto.date
+            )
+            
+            try await model.save(on: req.db)
+            
             return TransactionDTO(
-                description: "Setup do Servidor CoreLedger",
-                amount: 0.0,
-                date: Date(),
-                category: "Infraestrutura"
+                id: model.id,
+                description: model.description,
+                amount: model.amount,
+                date: model.date,
+                category: model.category
             )
         }
 
-        // Executa o servidor e limpa a memória ao desligar
+        // ROTA GET: Listagem
+        app.get("api", "transactions") { req async throws -> [TransactionDTO] in
+            let models = try await TransactionModel.query(on: req.db).all()
+            
+            return models.map { model in
+                TransactionDTO(
+                    id: model.id,
+                    description: model.description,
+                    amount: model.amount,
+                    date: model.date,
+                    category: model.category
+                )
+            }
+        }
+
         try await app.execute()
         try await app.asyncShutdown()
     }
