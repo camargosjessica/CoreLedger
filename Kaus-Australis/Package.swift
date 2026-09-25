@@ -21,6 +21,13 @@ let package = Package(
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
                 .product(name: "KausMedia", package: "Kaus-Media")
             ]
+        ),
+        .testTarget(
+            name: "KausAustralisTests",
+            dependencies: [
+                .target(name: "KausAustralis"),
+                .product(name: "KausMedia", package: "Kaus-Media")
+            ]
         )
     ]
 )
