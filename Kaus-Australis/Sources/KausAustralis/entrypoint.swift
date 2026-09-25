@@ -1,6 +1,7 @@
 import Vapor
 import Fluent
 import FluentPostgresDriver
+import NIOSSL
 import KausMedia
 
 // O DTO agora já é Sendable nativamente, precisamos apenas do Content do Vapor
@@ -20,6 +21,10 @@ struct App {
         let username: String = Environment.get("DATABASE_USERNAME") ?? "kaus_user"
         let password: String = Environment.get("DATABASE_PASSWORD") ?? "kaus_password"
         let databaseName: String = Environment.get("DATABASE_NAME") ?? "kaus_db"
+        let requiresTLS: Bool = Environment.get("DATABASE_TLS").map { $0.lowercased() != "disable" } ?? false
+        let tls: PostgresConnection.Configuration.TLS = requiresTLS
+            ? .require(try NIOSSLContext(configuration: .makeClientConfiguration()))
+            : .disable
 
         let postgresConfiguration = SQLPostgresConfiguration(
             hostname: hostname,
@@ -27,7 +32,7 @@ struct App {
             username: username,
             password: password,
             database: databaseName,
-            tls: .disable
+            tls: tls
         )
         app.databases.use(.postgres(configuration: postgresConfiguration), as: .psql)
         
