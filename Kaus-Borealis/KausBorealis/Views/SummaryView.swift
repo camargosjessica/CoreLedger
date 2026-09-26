@@ -65,7 +65,7 @@ private struct MonthRow: View {
                 Spacer()
                 Text(summary.balance.brl)
                     .font(.headline)
-                    .foregroundStyle(summary.balance < 0 ? .red : .green)
+                    .foregroundStyle(summary.balance < 0 ? Color.red : Color.green)
             }
             HStack(spacing: 12) {
                 Label(summary.income.brl, systemImage: "arrow.down.left")
@@ -81,23 +81,30 @@ private struct MonthRow: View {
     }
 }
 
+private struct CategoryTotal: Identifiable {
+    var category: String
+    var total: Double
+
+    var id: String { category }
+}
+
 private struct MonthDetail: View {
     let summary: MonthlySummary
 
-    private var sortedCategories: [(category: String, total: Double)] {
+    private var sortedCategories: [CategoryTotal] {
         summary.byCategory
-            .map { (category: $0.key, total: $0.value) }
+            .map { CategoryTotal(category: $0.key, total: $0.value) }
             .sorted { $0.total < $1.total }
     }
 
     var body: some View {
         MonthRow(summary: summary)
-        ForEach(sortedCategories, id: \.category) { entry in
+        ForEach(sortedCategories) { entry in
             HStack {
                 Text(entry.category)
                 Spacer()
                 Text(entry.total.brl)
-                    .foregroundStyle(entry.total < 0 ? .primary : .green)
+                    .foregroundStyle(entry.total < 0 ? Color.primary : Color.green)
             }
             .font(.subheadline)
         }

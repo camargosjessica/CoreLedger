@@ -54,7 +54,7 @@ private struct AccountRow: View {
                 Spacer()
                 if let balance = account.balance {
                     Text(balance.brl)
-                        .foregroundStyle(balance < 0 ? .red : .green)
+                        .foregroundStyle(balance < 0 ? Color.red : Color.green)
                 }
             }
             .font(.caption)

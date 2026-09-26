@@ -7,9 +7,9 @@ struct RulesView: View {
     @State private var isAdding = false
     @State private var recategorizeResult: Int?
 
-    private var grouped: [(category: String, rules: [CategoryRule])] {
+    private var grouped: [RuleGroup] {
         Dictionary(grouping: store.rules, by: \.category)
-            .map { (category: $0.key, rules: $0.value.sorted { $0.term < $1.term }) }
+            .map { RuleGroup(category: $0.key, rules: $0.value.sorted { $0.term < $1.term }) }
             .sorted { $0.category < $1.category }
     }
 
@@ -27,7 +27,7 @@ struct RulesView: View {
                     }
                 }
 
-                ForEach(grouped, id: \.category) { group in
+                ForEach(grouped) { group in
                     Section(group.category) {
                         ForEach(group.rules) { rule in
                             NavigationLink {
@@ -53,6 +53,13 @@ struct RulesView: View {
             }
         }
     }
+}
+
+private struct RuleGroup: Identifiable {
+    var category: String
+    var rules: [CategoryRule]
+
+    var id: String { category }
 }
 
 private struct RuleRow: View {

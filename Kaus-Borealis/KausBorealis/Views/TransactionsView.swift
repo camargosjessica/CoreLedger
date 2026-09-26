@@ -7,9 +7,9 @@ struct TransactionsView: View {
     @State private var isAdding = false
     @State private var isImporting = false
 
-    private var grouped: [(day: Date, items: [TransactionDTO])] {
+    private var grouped: [DayGroup] {
         Dictionary(grouping: store.transactions) { LedgerCalendar.startOfDay($0.date) }
-            .map { (day: $0.key, items: $0.value) }
+            .map { DayGroup(day: $0.key, items: $0.value) }
             .sorted { $0.day > $1.day }
     }
 
@@ -26,7 +26,7 @@ struct TransactionsView: View {
                     )
                 }
 
-                ForEach(grouped, id: \.day) { group in
+                ForEach(grouped) { group in
                     Section(group.day.shortDay) {
                         ForEach(group.items) { transaction in
                             TransactionRow(transaction: transaction)
@@ -51,6 +51,13 @@ struct TransactionsView: View {
             .sheet(isPresented: $isImporting) { ImportView(store: store) }
         }
     }
+}
+
+private struct DayGroup: Identifiable {
+    var day: Date
+    var items: [TransactionDTO]
+
+    var id: Date { day }
 }
 
 struct TransactionRow: View {
@@ -79,7 +86,7 @@ struct TransactionRow: View {
             Spacer()
             Text(transaction.amount.brl)
                 .font(.headline)
-                .foregroundStyle(transaction.amount < 0 ? .primary : .green)
+                .foregroundStyle(transaction.amount < 0 ? Color.primary : Color.green)
         }
         .padding(.vertical, 2)
     }
