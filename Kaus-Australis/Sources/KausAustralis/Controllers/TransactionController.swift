@@ -69,8 +69,10 @@ struct TransactionController: RouteCollection {
         return try await model.toDTO().encodeResponse(status: .created, for: req)
     }
 
-    /// Edição manual. A chave de dedup é recalculada, senão o lançamento
-    /// corrigido continuaria bloqueando a importação do original.
+    /// Edição manual. A chave de dedup só é recalculada quando era derivada dos
+    /// próprios campos editados: chaves de FITID ou numeradas por ocorrência
+    /// identificam a linha do arquivo, não o conteúdo, e recalculá-las duplicaria
+    /// a próxima importação ou colidiria com a ocorrência anterior.
     func update(req: Request) async throws -> TransactionDTO {
         guard let id = req.parameters.get("transactionID", as: UUID.self) else {
             throw Abort(.badRequest, reason: "Identificador inválido")
@@ -89,6 +91,17 @@ struct TransactionController: RouteCollection {
         let date = LedgerCalendar.startOfDay(dto.date)
         let category = dto.category?.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        let previousCanonicalKey = DedupKey.make(
+            accountID: model.$account.id,
+            date: model.date,
+            description: model.description,
+            amount: model.amount,
+            installment: model.installmentNumber.flatMap { number in
+                model.installmentTotal.map { Installment(number: number, total: $0) }
+            }
+        )
+        let keyWasCanonical = model.dedupKey == previousCanonicalKey
+
         model.description = dto.description
         model.amount = dto.amount
         model.date = date
@@ -102,13 +115,15 @@ struct TransactionController: RouteCollection {
             model.category = try await req.categoryRules.categorizer()
                 .category(for: dto.description, amount: dto.amount)
         }
-        model.dedupKey = DedupKey.make(
-            accountID: dto.accountID,
-            date: date,
-            description: dto.description,
-            amount: dto.amount,
-            installment: dto.installment
-        )
+        if keyWasCanonical {
+            model.dedupKey = DedupKey.make(
+                accountID: dto.accountID,
+                date: date,
+                description: dto.description,
+                amount: dto.amount,
+                installment: dto.installment
+            )
+        }
 
         do {
             try await model.update(on: req.db)
@@ -179,9 +194,13 @@ struct TransactionController: RouteCollection {
         }
 
         return try await req.db.transaction { db -> BulkDeleteResponse in
+            // As projeções confirmadas também pertencem ao lote, mas não foram
+            // criadas por ele: são revertidas, não apagadas.
+            let confirmed = Set(batch.confirmations.map(\.transactionID))
             let created = try await TransactionModel.query(on: db)
                 .filter(\.$importBatch.$id == id)
                 .all()
+                .filter { model in model.id.map { !confirmed.contains($0) } ?? true }
             for model in created {
                 try await model.delete(on: db)
             }
@@ -189,10 +208,22 @@ struct TransactionController: RouteCollection {
             var restored = 0
             for snapshot in batch.confirmations {
                 guard let model = try await TransactionModel.find(snapshot.transactionID, on: db) else { continue }
+                // Editado depois da confirmação: a correção do usuário vale mais
+                // do que o estado que esta importação deixou.
+                if let confirmedDate = snapshot.confirmedDate, let confirmedAmount = snapshot.confirmedAmount {
+                    guard model.date == confirmedDate, model.amount == confirmedAmount, !model.isProjected else { continue }
+                }
                 model.isProjected = true
                 model.date = snapshot.date
                 model.amount = snapshot.amount
                 model.externalID = snapshot.externalID
+                // O lote que projetou a parcela pode já ter sido desfeito: nesse
+                // caso a projeção fica órfã em vez de apontar para um lote morto.
+                if let previousBatchID = snapshot.previousBatchID {
+                    model.$importBatch.id = try await ImportBatchModel.find(previousBatchID, on: db)?.id
+                } else {
+                    model.$importBatch.id = nil
+                }
                 try await model.update(on: db)
                 restored += 1
             }

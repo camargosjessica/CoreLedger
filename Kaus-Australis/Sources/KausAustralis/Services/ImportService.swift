@@ -56,24 +56,33 @@ struct ImportService {
                     .first()
                 else { continue }
 
-                // Estado anterior guardado antes da escrita: é o que desfaz a
-                // confirmação sem transformar a projeção num lançamento real.
-                if let id = model.id {
-                    snapshots.append(
-                        ImportBatchModel.ConfirmationSnapshot(
-                            transactionID: id,
-                            date: model.date,
-                            amount: model.amount,
-                            externalID: model.externalID
-                        )
-                    )
-                }
+                let previousBatchID = model.$importBatch.id
+                let previous = (date: model.date, amount: model.amount, externalID: model.externalID)
 
                 model.isProjected = false
                 model.date = confirmation.transaction.date
                 model.amount = confirmation.transaction.amount
                 model.externalID = confirmation.transaction.externalID ?? model.externalID
+                // A projeção passa a pertencer a esta importação: desfazer o lote
+                // que a criou não pode apagar uma compra que já virou real.
+                model.$importBatch.id = batch.id
                 try await model.update(on: db)
+
+                // Estado anterior e estado deixado aqui: desfazer só reverte o
+                // que continua como esta importação deixou.
+                if let id = model.id {
+                    snapshots.append(
+                        ImportBatchModel.ConfirmationSnapshot(
+                            transactionID: id,
+                            date: previous.date,
+                            amount: previous.amount,
+                            externalID: previous.externalID,
+                            previousBatchID: previousBatchID,
+                            confirmedDate: model.date,
+                            confirmedAmount: model.amount
+                        )
+                    )
+                }
             }
 
             if !snapshots.isEmpty {

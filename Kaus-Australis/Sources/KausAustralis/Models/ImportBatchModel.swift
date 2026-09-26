@@ -8,12 +8,18 @@ import KausMedia
 final class ImportBatchModel: Model, @unchecked Sendable {
     static let schema = "import_batches"
 
-    /// Estado de uma projeção antes de ser confirmada pela fatura.
+    /// Estado de uma projeção antes de ser confirmada pela fatura, mais o estado
+    /// deixado pela confirmação: desfazer só reverte o que ainda está como a
+    /// importação deixou, para não apagar correções manuais posteriores.
     struct ConfirmationSnapshot: Codable, Sendable {
         var transactionID: UUID
         var date: Date
         var amount: Double
         var externalID: String?
+        /// Lote que havia criado a projeção; ao desfazer, ela volta a pertencer a ele.
+        var previousBatchID: UUID?
+        var confirmedDate: Date?
+        var confirmedAmount: Double?
     }
 
     @ID(key: .id)

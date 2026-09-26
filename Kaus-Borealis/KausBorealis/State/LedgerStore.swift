@@ -58,6 +58,14 @@ final class LedgerStore {
             case .last12Months: return LedgerCalendar.startOfMonth(LedgerCalendar.addingMonths(-11, to: now))
             }
         }
+
+        /// Último dia do intervalo. Sem ele, um lançamento datado no futuro
+        /// (ou uma parcela projetada) entraria no total do período escolhido.
+        var end: Date? {
+            guard self != .all else { return nil }
+            let nextMonth = LedgerCalendar.addingMonths(1, to: LedgerCalendar.startOfMonth(Date()))
+            return LedgerCalendar.addingDays(-1, to: nextMonth)
+        }
     }
 
     var configuration: APIConfiguration {
@@ -86,7 +94,8 @@ final class LedgerStore {
             async let transactions = client.transactions(
                 accountID: self.selectedAccountID,
                 search: self.searchTerm.isEmpty ? nil : self.searchTerm,
-                from: self.period.start
+                from: self.period.start,
+                to: self.period.end
             )
             async let rules = client.categoryRules()
             async let projection = client.summary(accountID: self.selectedAccountID)
@@ -163,7 +172,8 @@ final class LedgerStore {
             let all = try await self.client.transactions(
                 accountID: self.selectedAccountID,
                 search: self.searchTerm.isEmpty ? nil : self.searchTerm,
-                from: self.period.start
+                from: self.period.start,
+                to: self.period.end
             )
             self.transactions = self.applyingCategoryFilter(to: all)
         }
@@ -211,6 +221,27 @@ final class LedgerStore {
         guard let id = rule.id else { return }
         await run { try await self.client.deleteRule(id: id) }
         await reload()
+    }
+
+    /// Apaga a categoria inteira: as regras que a produzem somem e os
+    /// lançamentos que a usavam voltam a passar pelas regras restantes.
+    func deleteCategory(_ name: String) async -> DeleteCategoryResponse? {
+        var response: DeleteCategoryResponse?
+        await run { response = try await self.client.deleteCategory(name) }
+        if selectedCategory == name { selectedCategory = nil }
+        await reload()
+        return response
+    }
+
+    // MARK: Manutenção
+
+    func reset(scope: ResetScope) async -> ResetResponse? {
+        var response: ResetResponse?
+        await run { response = try await self.client.reset(scope: scope) }
+        selectedAccountID = nil
+        selectedCategory = nil
+        await reload()
+        return response
     }
 
     func preview(description: String, amount: Double, rule: CategoryRule?) async -> CategoryPreviewResponse? {

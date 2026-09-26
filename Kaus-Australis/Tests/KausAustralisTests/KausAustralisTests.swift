@@ -254,4 +254,74 @@ final class ImportBatchTests: XCTestCase {
         XCTAssertEqual(decoded.first?.amount, snapshot.amount)
         XCTAssertNil(decoded.first?.externalID)
     }
+
+    /// Lotes gravados antes de o snapshot registrar dono e estado confirmado
+    /// continuam legíveis; desfazê-los só perde a verificação de conflito.
+    func testConfirmationSnapshotDecodesLegacyPayload() throws {
+        let id = UUID()
+        let json = """
+        [{"transactionID":"\(id.uuidString)","date":760000000,"amount":-50}]
+        """
+
+        let decoded = try JSONDecoder().decode(
+            [ImportBatchModel.ConfirmationSnapshot].self,
+            from: Data(json.utf8)
+        )
+
+        XCTAssertEqual(decoded.first?.transactionID, id)
+        XCTAssertNil(decoded.first?.previousBatchID)
+        XCTAssertNil(decoded.first?.confirmedAmount)
+    }
+}
+
+final class TransactionEditKeyTests: XCTestCase {
+    private let accountID = UUID()
+
+    /// Chave canônica: derivada dos próprios campos, pode ser recalculada na edição.
+    func testCanonicalKeyIsRecognized() {
+        let date = DateParser.parse("15/01/2025")!
+        let key = DedupKey.make(
+            accountID: accountID,
+            date: date,
+            description: "PADARIA CENTRAL",
+            amount: -18.90,
+            installment: nil
+        )
+
+        XCTAssertEqual(
+            key,
+            DedupKey.make(
+                accountID: accountID,
+                date: date,
+                description: "PADARIA CENTRAL",
+                amount: -18.90,
+                installment: nil
+            )
+        )
+    }
+
+    /// Chave de FITID e chave numerada por ocorrência não são reproduzíveis a
+    /// partir dos campos: editar não pode recalculá-las.
+    func testExternalAndSuffixedKeysDifferFromCanonical() {
+        let date = DateParser.parse("15/01/2025")!
+        let canonical = DedupKey.make(
+            accountID: accountID,
+            date: date,
+            description: "PADARIA CENTRAL",
+            amount: -18.90,
+            installment: nil
+        )
+
+        let fromExternalID = DedupKey.make(
+            accountID: accountID,
+            date: date,
+            description: "PADARIA CENTRAL",
+            amount: -18.90,
+            installment: nil,
+            externalID: "FIT-7"
+        )
+
+        XCTAssertNotEqual(canonical, fromExternalID)
+        XCTAssertNotEqual(canonical, "\(canonical)#2")
+    }
 }

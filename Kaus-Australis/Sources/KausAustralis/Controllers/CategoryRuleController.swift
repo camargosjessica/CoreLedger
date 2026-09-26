@@ -17,6 +17,7 @@ struct CategoryRuleController: RouteCollection {
             rule.delete(use: delete)
         }
         routes.post("api", "transactions", "recategorize", use: recategorize)
+        routes.delete("api", "categories", ":category", use: deleteCategory)
     }
 
     func index(req: Request) async throws -> [CategoryRule] {
@@ -88,6 +89,37 @@ struct CategoryRuleController: RouteCollection {
             changed += 1
         }
         return RecategorizeResponse(updated: changed)
+    }
+
+    /// Apaga uma categoria: as regras que a produzem somem e os lançamentos que
+    /// a usavam passam pelas regras restantes, em vez de ficarem com o nome de
+    /// uma categoria que não existe mais.
+    func deleteCategory(req: Request) async throws -> DeleteCategoryResponse {
+        guard let name = req.parameters.get("category"), !name.isEmpty else {
+            throw Abort(.badRequest, reason: "Categoria inválida")
+        }
+
+        return try await req.db.transaction { db in
+            let rules = try await CategoryRuleModel.query(on: db)
+                .filter(\.$category == name)
+                .all()
+            for rule in rules {
+                try await rule.delete(on: db)
+            }
+
+            let categorizer = try await CategoryRuleService(database: db).categorizer()
+            var recategorized = 0
+            let affected = try await TransactionModel.query(on: db)
+                .filter(\.$category == name)
+                .all()
+            for model in affected {
+                model.category = categorizer.category(for: model.description, amount: model.amount)
+                try await model.update(on: db)
+                recategorized += 1
+            }
+
+            return DeleteCategoryResponse(removedRules: rules.count, recategorized: recategorized)
+        }
     }
 
     private func validate(_ rule: CategoryRule) throws {

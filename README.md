@@ -62,7 +62,7 @@ As migrations são aplicadas automaticamente no arranque. O servidor fica dispon
 ### 5. Executar o Frontend (`Kaus-Borealis`)
 Abra `Kaus-Borealis/KausBorealis.xcodeproj` no Xcode e execute no simulador de iOS ou no macOS. O app tem cinco abas — Resumo, Lançamentos, Contas, Regras e Ajustes — e consome a API em `http://127.0.0.1:8080` por omissão.
 
-Em **Lançamentos** dá para editar (toque na linha), selecionar vários para apagar de uma vez e desfazer uma importação inteira pela tela de importação. Em **Ajustes** é possível trocar o endereço do servidor e informar o `API_TOKEN` (deixe vazio quando o backend roda em `development`, onde o token não é exigido).
+Em **Resumo** há gráficos de receitas/despesas por mês (incluindo os meses previstos) e a rosca de despesas por categoria do mês corrente. Em **Lançamentos** dá para editar (toque na linha), selecionar vários para apagar de uma vez e desfazer uma importação inteira pela tela de importação. Em **Regras**, o botão de lixeira no cabeçalho de cada categoria apaga a categoria inteira e recategoriza os lançamentos pelas regras restantes. Em **Ajustes** é possível trocar o endereço do servidor e informar o `API_TOKEN` (deixe vazio quando o backend roda em `development`, onde o token não é exigido), além do "Apagar tudo" com escolha de escopo — só lançamentos e importações, também as contas, ou tudo inclusive as regras.
 
 ---
 
@@ -78,6 +78,8 @@ Em **Lançamentos** dá para editar (toque na linha), selecionar vários para ap
 | `POST` | `/api/imports` | `ImportRequestDTO` | `ImportReportDTO` (com o `batchID` do lote) |
 | `GET` | `/api/imports` | — | `[ImportBatchDTO]` |
 | `DELETE` | `/api/imports/:batchID` | — | `BulkDeleteResponse` (desfaz a importação) |
+| `DELETE` | `/api/categories/:category` | — | `DeleteCategoryResponse` (apaga as regras e recategoriza os lançamentos) |
+| `POST` | `/api/reset` | `ResetRequest` (`scope` + `confirmation: "APAGAR TUDO"`) | `ResetResponse` com o que foi apagado |
 
 `TransactionDTO`:
 ```json

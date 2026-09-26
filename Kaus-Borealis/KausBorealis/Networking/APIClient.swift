@@ -82,6 +82,7 @@ struct APIClient: Sendable {
         search: String? = nil,
         includeProjected: Bool = true,
         from: Date? = nil,
+        to: Date? = nil,
         limit: Int = 500
     ) async throws -> [TransactionDTO] {
         var items = [URLQueryItem(name: "limit", value: String(limit))]
@@ -90,6 +91,9 @@ struct APIClient: Sendable {
         }
         if let from {
             items.append(URLQueryItem(name: "from", value: ISO8601DateFormatter().string(from: from)))
+        }
+        if let to {
+            items.append(URLQueryItem(name: "to", value: ISO8601DateFormatter().string(from: to)))
         }
         if let search, !search.isEmpty {
             items.append(URLQueryItem(name: "search", value: search))
@@ -167,6 +171,19 @@ struct APIClient: Sendable {
             items.append(URLQueryItem(name: "onlyUncategorized", value: "true"))
         }
         return try await send(.post, "api/transactions/recategorize", query: items)
+    }
+
+    /// Apaga a categoria inteira: some das regras e os lançamentos que a usavam
+    /// voltam a passar pelas regras restantes.
+    func deleteCategory(_ name: String) async throws -> DeleteCategoryResponse {
+        let escaped = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? name
+        return try await send(.delete, "api/categories/\(escaped)")
+    }
+
+    // MARK: Manutenção
+
+    func reset(scope: ResetScope) async throws -> ResetResponse {
+        try await send(.post, "api/reset", body: ResetRequest(scope: scope))
     }
 
     // MARK: Resumo
