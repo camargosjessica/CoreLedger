@@ -120,23 +120,7 @@ struct CategoryRuleController: RouteCollection {
     }
 }
 
-struct CategoryPreviewRequest: Content {
-    var description: String
-    var amount: Double
-    /// Regra ainda não salva, para simular o efeito antes de criar.
-    var rule: CategoryRule?
-}
-
-struct CategoryPreviewResponse: Content {
-    var category: String
-    var matchedTerm: String?
-}
-
 struct RecategorizeQuery: Content {
     var accountID: UUID?
     var onlyUncategorized: Bool?
-}
-
-struct RecategorizeResponse: Content {
-    var updated: Int
 }

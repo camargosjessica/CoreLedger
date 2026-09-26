@@ -12,6 +12,9 @@ extension ImportRequestDTO: @retroactive Content {}
 extension ImportReportDTO: @retroactive Content {}
 extension MonthlySummary: @retroactive Content {}
 extension LedgerProjection: @retroactive Content {}
+extension CategoryPreviewRequest: @retroactive Content {}
+extension CategoryPreviewResponse: @retroactive Content {}
+extension RecategorizeResponse: @retroactive Content {}
 
 @main
 struct App {
@@ -57,6 +60,15 @@ func configure(_ app: Application) async throws {
 
     // Faturas em CSV/OFX cabem folgadamente em 2 MB.
     app.routes.defaultMaxBodySize = "2mb"
+
+    // Datas em ISO-8601 nos dois sentidos: o padrão do Vapor é o intervalo desde
+    // 2001 em ponto flutuante, que o cliente Swift não lê sem configuração extra.
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    ContentConfiguration.global.use(encoder: encoder, for: .json)
+    ContentConfiguration.global.use(decoder: decoder, for: .json)
 
     app.migrations.add(CreateTransactionMigration())
     app.migrations.add(CreateAccountMigration())
