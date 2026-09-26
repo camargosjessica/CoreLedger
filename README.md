@@ -62,7 +62,7 @@ As migrations são aplicadas automaticamente no arranque. O servidor fica dispon
 ### 5. Executar o Frontend (`Kaus-Borealis`)
 Abra `Kaus-Borealis/KausBorealis.xcodeproj` no Xcode e execute no simulador de iOS ou no macOS. O app tem cinco abas — Resumo, Lançamentos, Contas, Regras e Ajustes — e consome a API em `http://127.0.0.1:8080` por omissão.
 
-Em **Ajustes** é possível trocar o endereço do servidor e informar o `API_TOKEN` (deixe vazio quando o backend roda em `development`, onde o token não é exigido).
+Em **Lançamentos** dá para editar (toque na linha), selecionar vários para apagar de uma vez e desfazer uma importação inteira pela tela de importação. Em **Ajustes** é possível trocar o endereço do servidor e informar o `API_TOKEN` (deixe vazio quando o backend roda em `development`, onde o token não é exigido).
 
 ---
 
@@ -72,6 +72,12 @@ Em **Ajustes** é possível trocar o endereço do servidor e informar o `API_TOK
 | --- | --- | --- | --- |
 | `GET` | `/api/transactions` | — | `[TransactionDTO]` ordenado por data (mais recente primeiro) |
 | `POST` | `/api/transactions` | `TransactionDTO` (o `id` é ignorado) | `TransactionDTO` criado |
+| `PUT` | `/api/transactions/:id` | `TransactionDTO` | `TransactionDTO` atualizado |
+| `DELETE` | `/api/transactions/:id` | — | `204` |
+| `DELETE` | `/api/transactions` | `BulkDeleteRequest` (`ids`) | `BulkDeleteResponse` |
+| `POST` | `/api/imports` | `ImportRequestDTO` | `ImportReportDTO` (com o `batchID` do lote) |
+| `GET` | `/api/imports` | — | `[ImportBatchDTO]` |
+| `DELETE` | `/api/imports/:batchID` | — | `BulkDeleteResponse` (desfaz a importação) |
 
 `TransactionDTO`:
 ```json

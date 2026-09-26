@@ -15,6 +15,9 @@ extension LedgerProjection: @retroactive Content {}
 extension CategoryPreviewRequest: @retroactive Content {}
 extension CategoryPreviewResponse: @retroactive Content {}
 extension RecategorizeResponse: @retroactive Content {}
+extension ImportBatchDTO: @retroactive Content {}
+extension BulkDeleteRequest: @retroactive Content {}
+extension BulkDeleteResponse: @retroactive Content {}
 
 @main
 struct App {
@@ -70,9 +73,16 @@ func configure(_ app: Application) async throws {
     ContentConfiguration.global.use(encoder: encoder, for: .json)
     ContentConfiguration.global.use(decoder: decoder, for: .json)
 
+    // Os filtros de período chegam na query string; sem isto o Vapor esperaria
+    // segundos desde 1970 nos parâmetros `from`/`to`.
+    ContentConfiguration.global.use(
+        urlDecoder: URLEncodedFormDecoder(configuration: .init(dateDecodingStrategy: .iso8601))
+    )
+
     app.migrations.add(CreateTransactionMigration())
     app.migrations.add(CreateAccountMigration())
     app.migrations.add(CreateCategoryRuleMigration())
+    app.migrations.add(CreateImportBatchMigration())
     app.migrations.add(AddTransactionImportFieldsMigration())
     app.migrations.add(SeedCategoryRulesMigration())
     try await app.autoMigrate()

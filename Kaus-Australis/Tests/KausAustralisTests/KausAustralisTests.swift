@@ -212,3 +212,46 @@ final class ImportPlannerTests: XCTestCase {
         XCTAssertEqual(plan.inserts.filter(\.transaction.isProjected).count, 7)
     }
 }
+
+final class ImportBatchTests: XCTestCase {
+
+    func testBatchDTOCarriesConfirmationCount() {
+        let accountID = UUID()
+        let sut = ImportBatchModel(
+            accountID: accountID,
+            filename: "fatura.csv",
+            confirmations: [
+                ImportBatchModel.ConfirmationSnapshot(
+                    transactionID: UUID(),
+                    date: DateParser.parse("15/01/2025")!,
+                    amount: -120,
+                    externalID: "FIT-1"
+                )
+            ]
+        )
+
+        let dto = sut.toDTO(transactionCount: 7)
+
+        XCTAssertEqual(dto.accountID, accountID)
+        XCTAssertEqual(dto.filename, "fatura.csv")
+        XCTAssertEqual(dto.transactionCount, 7)
+        XCTAssertEqual(dto.confirmedCount, 1)
+    }
+
+    /// O estado anterior é o que permite devolver a parcela à condição de projeção.
+    func testConfirmationSnapshotRoundTrip() throws {
+        let snapshot = ImportBatchModel.ConfirmationSnapshot(
+            transactionID: UUID(),
+            date: DateParser.parse("10/02/2025")!,
+            amount: -89.90,
+            externalID: nil
+        )
+
+        let data = try JSONEncoder().encode([snapshot])
+        let decoded = try JSONDecoder().decode([ImportBatchModel.ConfirmationSnapshot].self, from: data)
+
+        XCTAssertEqual(decoded.first?.transactionID, snapshot.transactionID)
+        XCTAssertEqual(decoded.first?.amount, snapshot.amount)
+        XCTAssertNil(decoded.first?.externalID)
+    }
+}

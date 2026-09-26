@@ -28,9 +28,13 @@ struct ImportService {
         )
         let plan = ImportPlanner.plan(transactions: transactions, accountID: accountID, existing: existing)
 
+        let batch = ImportBatchModel(accountID: accountID, filename: request.filename)
+
         // Tudo ou nada: um extrato meio importado deixaria o usuário sem saber
         // o que reimportar, e a segunda tentativa processaria outro conjunto de linhas.
         try await database.transaction { db in
+            try await batch.create(on: db)
+
             for insert in plan.inserts {
                 let model = TransactionModel(
                     imported: insert.transaction,
@@ -41,20 +45,40 @@ struct ImportService {
                     ),
                     dedupKey: insert.key
                 )
+                model.$importBatch.id = batch.id
                 try await model.create(on: db)
             }
 
+            var snapshots: [ImportBatchModel.ConfirmationSnapshot] = []
             for confirmation in plan.confirmations {
                 guard let model = try await TransactionModel.query(on: db)
                     .filter(\.$dedupKey == confirmation.key)
                     .first()
                 else { continue }
 
+                // Estado anterior guardado antes da escrita: é o que desfaz a
+                // confirmação sem transformar a projeção num lançamento real.
+                if let id = model.id {
+                    snapshots.append(
+                        ImportBatchModel.ConfirmationSnapshot(
+                            transactionID: id,
+                            date: model.date,
+                            amount: model.amount,
+                            externalID: model.externalID
+                        )
+                    )
+                }
+
                 model.isProjected = false
                 model.date = confirmation.transaction.date
                 model.amount = confirmation.transaction.amount
                 model.externalID = confirmation.transaction.externalID ?? model.externalID
                 try await model.update(on: db)
+            }
+
+            if !snapshots.isEmpty {
+                batch.confirmations = snapshots
+                try await batch.update(on: db)
             }
         }
 
@@ -63,7 +87,8 @@ struct ImportService {
             duplicates: plan.duplicates,
             projectedInstallments: plan.inserts.filter(\.transaction.isProjected).count,
             confirmedInstallments: plan.confirmations.count,
-            failures: parsed.failures
+            failures: parsed.failures,
+            batchID: batch.id
         )
     }
 
