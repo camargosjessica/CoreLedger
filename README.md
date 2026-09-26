@@ -49,6 +49,7 @@ cp .env.example .env
 | `DATABASE_PASSWORD` | `kaus_password` |
 | `DATABASE_NAME` | `kaus_db` |
 | `DATABASE_TLS` | `disable` (use `require` para bases remotas) |
+| `API_TOKEN` | vazio (em desenvolvimento as rotas ficam abertas; nos demais ambientes é obrigatório e vai no cabeçalho `Authorization: Bearer <token>`) |
 
 > O PostgreSQL só cria o utilizador e a base na primeira inicialização do volume `pgdata`. Defina o `.env` **antes** do primeiro `docker compose up`; para alterar credenciais depois, remova o volume (`docker compose down -v`) ou altere-as diretamente na base.
 
