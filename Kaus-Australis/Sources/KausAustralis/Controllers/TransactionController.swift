@@ -24,7 +24,8 @@ struct TransactionController: RouteCollection {
             builder = builder.filter(\.$date >= LedgerCalendar.startOfDay(from))
         }
         if let to = query.to {
-            builder = builder.filter(\.$date <= to)
+            // O filtro é por dia: `to` na meia-noite ainda inclui o dia inteiro.
+            builder = builder.filter(\.$date < LedgerCalendar.addingDays(1, to: LedgerCalendar.startOfDay(to)))
         }
         if query.includeProjected == false {
             builder = builder.filter(\.$isProjected == false)

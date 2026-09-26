@@ -43,23 +43,30 @@ public enum Projection {
             return LedgerProjection(history: history, forecast: [])
         }
 
-        let average = monthlyAverage(of: history.filter { $0.month < currentMonth }, lastMonths: baseMonths)
+        let closed = history.filter { $0.month < currentMonth }
+        let average = monthlyAverage(of: closed, lastMonths: baseMonths)
+        // Entradas e saídas são projetadas separadamente: somar o líquido por
+        // categoria esconderia a despesa de uma categoria que também recebe
+        // estornos ou reembolsos.
+        let averageIncome = mean(of: closed, lastMonths: baseMonths) { $0.income }
+        let averageExpenses = mean(of: closed, lastMonths: baseMonths) { $0.expenses }
         let committedByMonth = Dictionary(grouping: committed) { LedgerCalendar.startOfMonth($0.date) }
 
         let forecast: [MonthlySummary] = (1...forecastMonths).map { offset in
             let month = LedgerCalendar.addingMonths(offset, to: currentMonth)
             var byCategory = average
             var committedExpenses: Double = 0
+            var committedIncome: Double = 0
 
             for input in committedByMonth[month] ?? [] {
                 byCategory[input.category, default: 0] += input.amount
-                if input.amount < 0 { committedExpenses += input.amount }
+                if input.amount < 0 { committedExpenses += input.amount } else { committedIncome += input.amount }
             }
 
             return MonthlySummary(
                 month: month,
-                income: byCategory.values.filter { $0 > 0 }.reduce(0, +),
-                expenses: byCategory.values.filter { $0 < 0 }.reduce(0, +),
+                income: averageIncome + committedIncome,
+                expenses: averageExpenses + committedExpenses,
                 byCategory: byCategory,
                 isForecast: true,
                 committedExpenses: committedExpenses
@@ -94,6 +101,16 @@ public enum Projection {
             for (category, value) in month.byCategory { totals[category, default: 0] += value }
         }
         return totals.mapValues { $0 / Double(base.count) }
+    }
+
+    private static func mean(
+        of history: [MonthlySummary],
+        lastMonths: Int,
+        value: (MonthlySummary) -> Double
+    ) -> Double {
+        let base = Array(history.sorted { $0.month < $1.month }.suffix(max(1, lastMonths)))
+        guard !base.isEmpty else { return 0 }
+        return base.reduce(0) { $0 + value($1) } / Double(base.count)
     }
 }
 

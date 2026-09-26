@@ -23,8 +23,12 @@ public enum StatementParser {
         return .csv
     }
 
-    public static func parse(content: String, filename: String? = nil) -> ParsedStatement {
-        switch detectFormat(filename: filename, content: content) {
+    public static func parse(
+        content: String,
+        filename: String? = nil,
+        format: StatementFormat? = nil
+    ) -> ParsedStatement {
+        switch format ?? detectFormat(filename: filename, content: content) {
         case .ofx: return parseOFX(content)
         case .csv: return parseCSV(content)
         }
@@ -36,22 +40,13 @@ public enum StatementParser {
         var transactions: [ImportedTransaction] = []
         var failures: [ImportFailure] = []
 
-        let blocks = content.components(separatedBy: .newlines).joined(separator: "\n")
-        let pattern = "<STMTTRN>(.*?)</STMTTRN>"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators, .caseInsensitive]) else {
-            return ParsedStatement(failures: [ImportFailure(line: 0, content: "", reason: "Não foi possível interpretar o arquivo OFX")])
-        }
-
-        let range = NSRange(blocks.startIndex..., in: blocks)
-        let matches = regex.matches(in: blocks, range: range)
-        if matches.isEmpty {
+        let content = content.components(separatedBy: .newlines).joined(separator: "\n")
+        let blocks = transactionBlocks(in: content)
+        if blocks.isEmpty {
             return ParsedStatement(failures: [ImportFailure(line: 0, content: "", reason: "Nenhuma transação (<STMTTRN>) encontrada no arquivo OFX")])
         }
 
-        for (index, match) in matches.enumerated() {
-            guard let blockRange = Range(match.range(at: 1), in: blocks) else { continue }
-            let block = String(blocks[blockRange])
-
+        for (index, block) in blocks.enumerated() {
             let rawDate = tag("DTPOSTED", in: block) ?? tag("DTUSER", in: block)
             let rawAmount = tag("TRNAMT", in: block)
             let description = tag("MEMO", in: block) ?? tag("NAME", in: block) ?? "Sem descrição"
@@ -76,6 +71,30 @@ public enum StatementParser {
         }
 
         return ParsedStatement(transactions: transactions, failures: failures)
+    }
+
+    /// OFX é SGML: `</STMTTRN>` é opcional. Quando não existe, cada transação vai
+    /// da abertura de `<STMTTRN>` até a próxima abertura (ou o fim da lista).
+    private static func transactionBlocks(in content: String) -> [String] {
+        var starts: [String.Index] = []
+        var cursor = content.startIndex
+        while let range = content.range(of: "<STMTTRN>", options: .caseInsensitive, range: cursor..<content.endIndex) {
+            starts.append(range.upperBound)
+            cursor = range.upperBound
+        }
+
+        return starts.enumerated().compactMap { offset, start in
+            let next = offset + 1 < starts.count ? starts[offset + 1] : content.endIndex
+            var block = content[start..<next]
+            for terminator in ["</STMTTRN>", "</BANKTRANLIST>"] {
+                if let end = block.range(of: terminator, options: .caseInsensitive) {
+                    block = block[block.startIndex..<end.lowerBound]
+                    break
+                }
+            }
+            let text = String(block)
+            return text.trimmed().isEmpty ? nil : text
+        }
     }
 
     /// OFX usa SGML: a tag de fechamento é opcional, o valor vai até a próxima tag ou fim de linha.

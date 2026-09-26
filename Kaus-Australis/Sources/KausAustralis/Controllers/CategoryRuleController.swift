@@ -5,6 +5,8 @@ import KausMedia
 /// CRUD das regras de categorização: é o que torna a categorização configurável
 /// em vez de uma lista fixa no código.
 struct CategoryRuleController: RouteCollection {
+    private static let regexLengthLimit = 200
+
     func boot(routes: any RoutesBuilder) throws {
         let rules = routes.grouped("api", "category-rules")
         rules.get(use: index)
@@ -96,6 +98,11 @@ struct CategoryRuleController: RouteCollection {
             throw Abort(.badRequest, reason: "A categoria da regra é obrigatória")
         }
         if rule.matchKind == .regex {
+            // A regra é aplicada a cada lançamento em importações e recategorizações
+            // em massa: um padrão longo e ambíguo custa caro multiplicado por milhares.
+            guard rule.term.count <= Self.regexLengthLimit else {
+                throw Abort(.badRequest, reason: "Expressão regular longa demais (máximo \(Self.regexLengthLimit) caracteres)")
+            }
             guard (try? NSRegularExpression(pattern: rule.term)) != nil else {
                 throw Abort(.badRequest, reason: "Expressão regular inválida: \(rule.term)")
             }

@@ -14,42 +14,54 @@ struct ImportService {
             throw Abort(.internalServerError, reason: "Conta sem identificador")
         }
 
-        let parsed = StatementParser.parse(content: request.content, filename: request.filename)
+        let parsed = StatementParser.parse(
+            content: request.content,
+            filename: request.filename,
+            format: request.format
+        )
         let expand = request.expandInstallments ?? account.accountKind.expandsInstallments
         let transactions = expand ? InstallmentExpander.expand(parsed.transactions) : parsed.transactions
 
         let categorizer = try await CategoryRuleService(database: database).categorizer()
         let existing = try await existingKeys(
-            for: transactions.map { DedupKey.make(accountID: accountID, transaction: $0) }
+            for: ImportPlanner.keys(for: transactions, accountID: accountID)
         )
         let plan = ImportPlanner.plan(transactions: transactions, accountID: accountID, existing: existing)
 
-        for transaction in plan.inserts {
-            let model = TransactionModel(
-                imported: transaction,
-                accountID: accountID,
-                category: categorizer.category(for: transaction.description, amount: transaction.amount)
-            )
-            try await model.create(on: database)
-        }
+        // Tudo ou nada: um extrato meio importado deixaria o usuário sem saber
+        // o que reimportar, e a segunda tentativa processaria outro conjunto de linhas.
+        try await database.transaction { db in
+            for insert in plan.inserts {
+                let model = TransactionModel(
+                    imported: insert.transaction,
+                    accountID: accountID,
+                    category: categorizer.category(
+                        for: insert.transaction.description,
+                        amount: insert.transaction.amount
+                    ),
+                    dedupKey: insert.key
+                )
+                try await model.create(on: db)
+            }
 
-        for confirmation in plan.confirmations {
-            guard let model = try await TransactionModel.query(on: database)
-                .filter(\.$dedupKey == confirmation.key)
-                .first()
-            else { continue }
+            for confirmation in plan.confirmations {
+                guard let model = try await TransactionModel.query(on: db)
+                    .filter(\.$dedupKey == confirmation.key)
+                    .first()
+                else { continue }
 
-            model.isProjected = false
-            model.date = confirmation.transaction.date
-            model.amount = confirmation.transaction.amount
-            model.externalID = confirmation.transaction.externalID ?? model.externalID
-            try await model.update(on: database)
+                model.isProjected = false
+                model.date = confirmation.transaction.date
+                model.amount = confirmation.transaction.amount
+                model.externalID = confirmation.transaction.externalID ?? model.externalID
+                try await model.update(on: db)
+            }
         }
 
         return ImportReportDTO(
             imported: plan.inserts.count,
             duplicates: plan.duplicates,
-            projectedInstallments: plan.inserts.filter(\.isProjected).count,
+            projectedInstallments: plan.inserts.filter(\.transaction.isProjected).count,
             confirmedInstallments: plan.confirmations.count,
             failures: parsed.failures
         )

@@ -114,6 +114,61 @@ final class StatementParserTests: XCTestCase {
         XCTAssertEqual(result.transactions[1].description, "SALARIO")
     }
 
+    /// OFX é SGML: muitos bancos omitem `</STMTTRN>`.
+    func testOFXWithoutClosingTransactionTags() {
+        let ofx = """
+        OFXHEADER:100
+        <OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>
+        <STMTTRN>
+        <TRNTYPE>DEBIT
+        <DTPOSTED>20250115
+        <TRNAMT>-1234.56
+        <FITID>202501150001
+        <MEMO>PAGAMENTO ALUGUEL
+        <STMTTRN>
+        <TRNTYPE>CREDIT
+        <DTPOSTED>20250116
+        <TRNAMT>4200.00
+        <FITID>202501160002
+        <NAME>SALARIO
+        </BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>
+        """
+
+        let result = StatementParser.parse(content: ofx, filename: "extrato.ofx")
+
+        XCTAssertTrue(result.failures.isEmpty)
+        XCTAssertEqual(result.transactions.count, 2)
+        XCTAssertEqual(result.transactions[0].description, "PAGAMENTO ALUGUEL")
+        XCTAssertEqual(result.transactions[1].externalID, "202501160002")
+        XCTAssertEqual(result.transactions[1].amount, 4200, accuracy: 0.001)
+    }
+
+    /// Sem o `format`, um OFX com nome de arquivo enganoso seria lido como CSV.
+    func testExplicitFormatOverridesDetection() {
+        let ofx = "<STMTTRN><DTPOSTED>20250115<TRNAMT>-10.00<MEMO>PADARIA</STMTTRN>"
+
+        let result = StatementParser.parse(content: ofx, filename: "extrato.csv", format: .ofx)
+
+        XCTAssertEqual(result.transactions.count, 1)
+        XCTAssertEqual(result.transactions[0].description, "PADARIA")
+    }
+
+    /// Vírgulas dentro da descrição não podem ganhar do separador real.
+    func testSeparatorDetectionIgnoresQuotedFields() {
+        let csv = """
+        Data;Descrição;Valor
+        15/01/2025;"MERCADO, PADARIA, ACOUGUE, FEIRA";-250,00
+        16/01/2025;"LOJA, FILIAL, CENTRO";-99,90
+        """
+
+        let result = StatementParser.parse(content: csv, filename: "extrato.csv")
+
+        XCTAssertTrue(result.failures.isEmpty)
+        XCTAssertEqual(result.transactions.count, 2)
+        XCTAssertEqual(result.transactions[0].description, "MERCADO, PADARIA, ACOUGUE, FEIRA")
+        XCTAssertEqual(result.transactions[0].amount, -250, accuracy: 0.001)
+    }
+
     func testFormatDetectionWithoutFilename() {
         XCTAssertEqual(StatementParser.detectFormat(filename: nil, content: "<OFX><STMTTRN>"), .ofx)
         XCTAssertEqual(StatementParser.detectFormat(filename: nil, content: "Data;Valor"), .csv)

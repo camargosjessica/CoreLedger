@@ -26,6 +26,10 @@ public enum LedgerCalendar {
         return calendar.date(from: components) ?? startOfDay(date)
     }
 
+    public static func addingDays(_ days: Int, to date: Date) -> Date {
+        calendar.date(byAdding: .day, value: days, to: date) ?? date
+    }
+
     public static func addingMonths(_ months: Int, to date: Date) -> Date {
         calendar.date(byAdding: .month, value: months, to: date) ?? date
     }

@@ -29,14 +29,16 @@ extension TransactionModel {
         )
     }
 
-    convenience init(imported: ImportedTransaction, accountID: UUID, category: String) {
+    /// - Parameter dedupKey: calculada pelo `ImportPlanner`, que numera compras
+    ///   repetidas dentro do mesmo arquivo.
+    convenience init(imported: ImportedTransaction, accountID: UUID, category: String, dedupKey: String) {
         self.init(
             description: imported.description,
             amount: imported.amount,
             category: category,
             date: imported.date,
             accountID: accountID,
-            dedupKey: DedupKey.make(accountID: accountID, transaction: imported),
+            dedupKey: dedupKey,
             isProjected: imported.isProjected,
             installment: imported.installment,
             externalID: imported.externalID

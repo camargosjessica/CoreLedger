@@ -80,12 +80,32 @@ enum CSVReader {
         return rows
     }
 
+    /// Vírgulas e ponto e vírgulas dentro de aspas pertencem à descrição, não à
+    /// estrutura: contá-los escolheria o separador errado em extratos com
+    /// descrições longas entre aspas.
     private static func detectSeparator(in text: String) -> Character {
-        let sample = text.split(separator: "\n").prefix(5).joined(separator: "\n")
         let candidates: [Character] = [";", ",", "\t"]
-        let counts = candidates.map { candidate in
-            (candidate, sample.filter { $0 == candidate }.count)
+        var counts: [Character: Int] = [:]
+        var insideQuotes = false
+        var lines = 0
+
+        for character in text {
+            if character == "\"" {
+                insideQuotes.toggle()
+                continue
+            }
+            if insideQuotes { continue }
+            if character == "\n" {
+                lines += 1
+                if lines >= 5 { break }
+                continue
+            }
+            if candidates.contains(character) { counts[character, default: 0] += 1 }
         }
-        return counts.max { $0.1 < $1.1 }.flatMap { $0.1 > 0 ? $0.0 : nil } ?? ";"
+
+        return candidates
+            .map { ($0, counts[$0] ?? 0) }
+            .max { $0.1 < $1.1 }
+            .flatMap { $0.1 > 0 ? $0.0 : nil } ?? ";"
     }
 }

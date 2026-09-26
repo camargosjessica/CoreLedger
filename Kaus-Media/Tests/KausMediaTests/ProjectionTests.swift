@@ -111,6 +111,22 @@ final class ProjectionTests: XCTestCase {
         XCTAssertTrue(result.history.isEmpty)
         XCTAssertEqual(result.forecast[0].expenses, -199.90, accuracy: 0.001)
     }
+    func testForecastKeepsIncomeAndExpensesSeparateWithinACategory() {
+        let result = Projection.project(
+            [
+                input("05/01/2025", -500, "Compras"),
+                input("20/01/2025", 500, "Compras"),
+                input("05/02/2025", -500, "Compras"),
+                input("20/02/2025", 500, "Compras")
+            ],
+            forecastMonths: 1,
+            reference: reference
+        )
+
+        XCTAssertEqual(result.forecast[0].expenses, -500, accuracy: 0.001)
+        XCTAssertEqual(result.forecast[0].income, 500, accuracy: 0.001)
+        XCTAssertEqual(result.forecast[0].byCategory["Compras"], 0)
+    }
 }
 
 final class FormattingTests: XCTestCase {

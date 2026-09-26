@@ -119,17 +119,21 @@ final class ImportPlannerTests: XCTestCase {
         XCTAssertEqual(plan.duplicates, 0)
     }
 
-    func testIgnoresDuplicatesWithinTheSameFile() {
+    /// Três compras iguais no mesmo dia são três compras — mas reimportar o
+    /// arquivo não pode gerar mais nenhuma.
+    func testRepeatedPurchasesAreKeptAndReimportIsIdempotent() {
         let repeated = transaction("PADARIA", -18.90, "15/01/2025")
+        let file = [repeated, repeated, repeated]
 
-        let plan = ImportPlanner.plan(
-            transactions: [repeated, repeated, repeated],
-            accountID: accountID,
-            existing: [:]
-        )
+        let first = ImportPlanner.plan(transactions: file, accountID: accountID, existing: [:])
+        XCTAssertEqual(first.inserts.count, 3)
+        XCTAssertEqual(Set(first.inserts.map(\.key)).count, 3)
 
-        XCTAssertEqual(plan.inserts.count, 1)
-        XCTAssertEqual(plan.duplicates, 2)
+        let stored = Dictionary(uniqueKeysWithValues: first.inserts.map { ($0.key, false) })
+        let second = ImportPlanner.plan(transactions: file, accountID: accountID, existing: stored)
+
+        XCTAssertTrue(second.inserts.isEmpty)
+        XCTAssertEqual(second.duplicates, 3)
     }
 
     func testIgnoresTransactionsAlreadyInTheDatabase() {
@@ -189,7 +193,7 @@ final class ImportPlannerTests: XCTestCase {
         )
 
         XCTAssertEqual(plan.inserts.count, 1)
-        XCTAssertFalse(plan.inserts[0].isProjected, "A parcela real substitui a projetada")
+        XCTAssertFalse(plan.inserts[0].transaction.isProjected, "A parcela real substitui a projetada")
         XCTAssertEqual(plan.duplicates, 0, "Substituição não conta como duplicata descartada")
     }
 
@@ -205,6 +209,6 @@ final class ImportPlannerTests: XCTestCase {
         let plan = ImportPlanner.plan(transactions: expanded, accountID: accountID, existing: [:])
 
         XCTAssertEqual(plan.inserts.count, 9, "8 parcelas (3/10 a 10/10) + padaria")
-        XCTAssertEqual(plan.inserts.filter(\.isProjected).count, 7)
+        XCTAssertEqual(plan.inserts.filter(\.transaction.isProjected).count, 7)
     }
 }

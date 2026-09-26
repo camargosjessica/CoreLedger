@@ -67,7 +67,18 @@ func configure(_ app: Application) async throws {
 }
 
 func routes(_ app: Application) throws {
-    try app.register(collection: AccountController())
-    try app.register(collection: CategoryRuleController())
-    try app.register(collection: TransactionController())
+    let api: any RoutesBuilder
+    switch (Environment.get("API_TOKEN"), app.environment) {
+    case let (.some(token), _) where !token.isEmpty:
+        api = app.grouped(APITokenMiddleware(token: token))
+    case (_, .development), (_, .testing):
+        app.logger.warning("API_TOKEN ausente: rotas expostas sem autenticação (apenas desenvolvimento)")
+        api = app
+    default:
+        throw Abort(.internalServerError, reason: "API_TOKEN é obrigatório fora de desenvolvimento")
+    }
+
+    try api.register(collection: AccountController())
+    try api.register(collection: CategoryRuleController())
+    try api.register(collection: TransactionController())
 }

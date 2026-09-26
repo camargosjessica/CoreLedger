@@ -21,9 +21,10 @@ struct AccountController: RouteCollection {
         let grouped = Dictionary(grouping: transactions) { $0.$account.id }
         return accounts.map { account in
             let own = grouped[account.id] ?? []
+            // Parcelas futuras são previsão: entram na projeção, não no saldo.
             return account.toDTO(
                 transactionCount: own.count,
-                balance: own.reduce(0) { $0 + $1.amount }
+                balance: own.filter { !$0.isProjected }.reduce(0) { $0 + $1.amount }
             )
         }
     }
