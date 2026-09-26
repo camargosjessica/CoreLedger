@@ -4,11 +4,23 @@ O **CoreLedger** é uma aplicação *Full-Stack* desenvolvida inteiramente em **
 
 ---
 
+## 🌌 A constelação por trás dos nomes
+
+"Ledger" remete ao livro-razão contábil, a fonte da verdade onde os lançamentos ficam resguardados; "Core" marca este sistema como o motor central da gestão.
+
+A divisão interna foi inspirada no arco da constelação de Sagitário. **Kaus** vem do árabe *qaws* ("arco") e nomeia as três estrelas que o desenham — e cada módulo ocupa a posição da sua estrela:
+
+*   **`Kaus-Australis` (ε Sgr, a ponta sul):** o **backend** em Vapor com PostgreSQL — a base estrutural que trabalha nos bastidores.
+*   **`Kaus-Borealis` (λ Sgr, a ponta norte):** o **frontend** em SwiftUI — a camada visível com que a pessoa interage.
+*   **`Kaus-Media` (δ Sgr, o centro):** os **contratos partilhados (DTOs)** — a peça no meio, que liga as duas pontas sem duplicação de código.
+
+---
+
 ## 🏗️ Arquitetura do Monorepo
 
 O repositório está estruturado em três módulos principais:
 
-*   **`Kaus-Media`**: Pacote Swift independente (`Swift Package`) que centraliza os contratos de dados e DTOs partilhados (`TransactionDTO`).
+*   **`Kaus-Media`**: Pacote Swift independente (`Swift Package`) que centraliza os contratos de dados e DTOs partilhados (`TransactionDTO`, `AccountDTO`, `CategoryRule`), além da lógica pura de categorização, leitura de extratos CSV/OFX, parcelas, deduplicação e projeção.
 *   **`Kaus-Australis`**: O backend do sistema, construído com o framework **Vapor**, utilizando o ORM *Fluent* e **PostgreSQL** para persistência robusta de dados.
 *   **`Kaus-Borealis`**: O frontend nativo desenvolvido em **SwiftUI** para ecossistemas Apple (iOS / macOS), consumindo diretamente a API REST do backend.
 
@@ -16,7 +28,7 @@ O repositório está estruturado em três módulos principais:
 
 ## 🚀 Tecnologias Utilizadas
 
-*   **Linguagem:** Swift (Swift 5.9+ / Swift 6)
+*   **Linguagem:** Swift 6 (o `Kaus-Media` declara `swift-tools-version: 6.0`, portanto é preciso Xcode 16 ou toolchain Swift 6.0+)
 *   **Backend:** Vapor, Fluent ORM, PostgreSQL (via Docker)
 *   **Frontend:** SwiftUI, Concorrência Nativa (`async/await`)
 *   **Infraestrutura:** Docker Desktop, Git & GitHub
@@ -70,6 +82,16 @@ Em **Resumo** há gráficos de receitas/despesas por mês (incluindo os meses pr
 
 | Método | Rota | Corpo | Resposta |
 | --- | --- | --- | --- |
+| `GET` | `/api/accounts` | — | `[AccountDTO]` com saldo e contagem |
+| `POST` | `/api/accounts` | `AccountDTO` | `AccountDTO` criada |
+| `PUT` | `/api/accounts/:accountID` | `AccountDTO` | `AccountDTO` atualizada |
+| `DELETE` | `/api/accounts/:accountID` | — | `204` |
+| `GET` | `/api/category-rules` | — | `[CategoryRule]` |
+| `POST` | `/api/category-rules` | `CategoryRule` | `CategoryRule` criada |
+| `PUT` | `/api/category-rules/:ruleID` | `CategoryRule` | `CategoryRule` atualizada |
+| `DELETE` | `/api/category-rules/:ruleID` | — | `204` |
+| `POST` | `/api/category-rules/preview` | `CategoryPreviewRequest` | `CategoryPreviewResponse` (simula a regra antes de salvar) |
+| `POST` | `/api/transactions/recategorize` | — | `RecategorizeResponse` (reaplica as regras a tudo) |
 | `GET` | `/api/transactions` | — | `[TransactionDTO]` ordenado por data (mais recente primeiro) |
 | `POST` | `/api/transactions` | `TransactionDTO` (o `id` é ignorado) | `TransactionDTO` criado |
 | `PUT` | `/api/transactions/:id` | `TransactionDTO` | `TransactionDTO` atualizado |
@@ -80,6 +102,9 @@ Em **Resumo** há gráficos de receitas/despesas por mês (incluindo os meses pr
 | `DELETE` | `/api/imports/:batchID` | — | `BulkDeleteResponse` (desfaz a importação) |
 | `DELETE` | `/api/categories/:category` | — | `DeleteCategoryResponse` (apaga as regras e recategoriza os lançamentos) |
 | `POST` | `/api/reset` | `ResetRequest` (`scope` + `confirmation: "APAGAR TUDO"`) | `ResetResponse` com o que foi apagado |
+| `GET` | `/api/summary` | — | `MonthlySummary` por mês, com os meses projetados |
+
+`GET /api/transactions` aceita os filtros `accountID`, `from`, `to` (por dia inteiro), `search`, `includeProjected`, `limit` (máx. 1000) e `offset`.
 
 `TransactionDTO`:
 ```json
@@ -88,10 +113,18 @@ Em **Resumo** há gráficos de receitas/despesas por mês (incluindo os meses pr
   "description": "Compra Mercado",
   "amount": -150.50,
   "date": "2025-01-31T12:00:00Z",
-  "category": "Alimentação"
+  "category": "Alimentação",
+  "accountID": "7C41...",
+  "isProjected": false,
+  "installment": { "number": 2, "total": 10 },
+  "dedupKey": "..."
 }
 ```
-`category` é opcional; quando omitida o servidor grava `"Geral"`.
+As datas trafegam em ISO-8601. `category` é opcional; quando omitida o servidor aplica as regras e, sem correspondência, grava `"Geral"`. `isProjected` marca parcelas futuras ainda não confirmadas pela fatura, e `dedupKey` é atribuída pelo servidor (somente leitura).
+
+### Importação
+
+`POST /api/imports` recebe o extrato em texto (`ImportRequestDTO`: `accountID`, `content`, `filename`, `format`, `expandInstallments`). O formato (CSV ou OFX) é detectado pelo conteúdo, contas do tipo `creditCard` expandem as parcelas futuras como lançamentos projetados, e lançamentos já existentes são ignorados pela chave de deduplicação — o relatório devolve `imported`, `duplicates`, `projectedInstallments`, `confirmedInstallments`, `failures` e o `batchID` usado para desfazer.
 
 ---
 
