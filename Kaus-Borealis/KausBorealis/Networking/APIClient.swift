@@ -81,11 +81,19 @@ struct APIClient: Sendable {
         accountID: UUID? = nil,
         search: String? = nil,
         includeProjected: Bool = true,
+        from: Date? = nil,
+        to: Date? = nil,
         limit: Int = 500
     ) async throws -> [TransactionDTO] {
         var items = [URLQueryItem(name: "limit", value: String(limit))]
         if let accountID {
             items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))
+        }
+        if let from {
+            items.append(URLQueryItem(name: "from", value: ISO8601DateFormatter().string(from: from)))
+        }
+        if let to {
+            items.append(URLQueryItem(name: "to", value: ISO8601DateFormatter().string(from: to)))
         }
         if let search, !search.isEmpty {
             items.append(URLQueryItem(name: "search", value: search))
@@ -100,14 +108,36 @@ struct APIClient: Sendable {
         try await send(.post, "api/transactions", body: transaction)
     }
 
+    func updateTransaction(id: UUID, _ transaction: TransactionDTO) async throws -> TransactionDTO {
+        try await send(.put, "api/transactions/\(id.uuidString)", body: transaction)
+    }
+
     func deleteTransaction(id: UUID) async throws {
         try await sendIgnoringResponse(.delete, "api/transactions/\(id.uuidString)")
+    }
+
+    func deleteTransactions(ids: [UUID]) async throws -> BulkDeleteResponse {
+        try await send(.delete, "api/transactions", body: BulkDeleteRequest(ids: ids))
     }
 
     // MARK: Importação
 
     func importStatement(_ request: ImportRequestDTO) async throws -> ImportReportDTO {
         try await send(.post, "api/imports", body: request)
+    }
+
+    func importBatches(accountID: UUID? = nil) async throws -> [ImportBatchDTO] {
+        var items: [URLQueryItem] = []
+        if let accountID {
+            items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))
+        }
+        return try await send(.get, "api/imports", query: items)
+    }
+
+    /// Apaga os lançamentos criados por uma importação e restaura as projeções
+    /// que ela havia confirmado.
+    func undoImport(batchID: UUID) async throws -> BulkDeleteResponse {
+        try await send(.delete, "api/imports/\(batchID.uuidString)")
     }
 
     // MARK: Regras
@@ -141,6 +171,19 @@ struct APIClient: Sendable {
             items.append(URLQueryItem(name: "onlyUncategorized", value: "true"))
         }
         return try await send(.post, "api/transactions/recategorize", query: items)
+    }
+
+    /// Apaga a categoria inteira: some das regras e os lançamentos que a usavam
+    /// voltam a passar pelas regras restantes.
+    func deleteCategory(_ name: String) async throws -> DeleteCategoryResponse {
+        let escaped = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? name
+        return try await send(.delete, "api/categories/\(escaped)")
+    }
+
+    // MARK: Manutenção
+
+    func reset(scope: ResetScope) async throws -> ResetResponse {
+        try await send(.post, "api/reset", body: ResetRequest(scope: scope))
     }
 
     // MARK: Resumo

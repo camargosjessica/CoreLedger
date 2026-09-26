@@ -28,9 +28,13 @@ struct ImportService {
         )
         let plan = ImportPlanner.plan(transactions: transactions, accountID: accountID, existing: existing)
 
+        let batch = ImportBatchModel(accountID: accountID, filename: request.filename)
+
         // Tudo ou nada: um extrato meio importado deixaria o usuário sem saber
         // o que reimportar, e a segunda tentativa processaria outro conjunto de linhas.
         try await database.transaction { db in
+            try await batch.create(on: db)
+
             for insert in plan.inserts {
                 let model = TransactionModel(
                     imported: insert.transaction,
@@ -41,20 +45,49 @@ struct ImportService {
                     ),
                     dedupKey: insert.key
                 )
+                model.$importBatch.id = batch.id
                 try await model.create(on: db)
             }
 
+            var snapshots: [ImportBatchModel.ConfirmationSnapshot] = []
             for confirmation in plan.confirmations {
                 guard let model = try await TransactionModel.query(on: db)
                     .filter(\.$dedupKey == confirmation.key)
                     .first()
                 else { continue }
 
+                let previousBatchID = model.$importBatch.id
+                let previous = (date: model.date, amount: model.amount, externalID: model.externalID)
+
                 model.isProjected = false
                 model.date = confirmation.transaction.date
                 model.amount = confirmation.transaction.amount
                 model.externalID = confirmation.transaction.externalID ?? model.externalID
+                // A projeção passa a pertencer a esta importação: desfazer o lote
+                // que a criou não pode apagar uma compra que já virou real.
+                model.$importBatch.id = batch.id
                 try await model.update(on: db)
+
+                // Estado anterior e estado deixado aqui: desfazer só reverte o
+                // que continua como esta importação deixou.
+                if let id = model.id {
+                    snapshots.append(
+                        ImportBatchModel.ConfirmationSnapshot(
+                            transactionID: id,
+                            date: previous.date,
+                            amount: previous.amount,
+                            externalID: previous.externalID,
+                            previousBatchID: previousBatchID,
+                            confirmedDate: model.date,
+                            confirmedAmount: model.amount
+                        )
+                    )
+                }
+            }
+
+            if !snapshots.isEmpty {
+                batch.confirmations = snapshots
+                try await batch.update(on: db)
             }
         }
 
@@ -63,7 +96,8 @@ struct ImportService {
             duplicates: plan.duplicates,
             projectedInstallments: plan.inserts.filter(\.transaction.isProjected).count,
             confirmedInstallments: plan.confirmations.count,
-            failures: parsed.failures
+            failures: parsed.failures,
+            batchID: batch.id
         )
     }
 

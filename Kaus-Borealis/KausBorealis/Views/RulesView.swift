@@ -6,6 +6,8 @@ struct RulesView: View {
     @Bindable var store: LedgerStore
     @State private var isAdding = false
     @State private var recategorizeResult: Int?
+    @State private var pendingCategoryDeletion: String?
+    @State private var categoryDeletionResult: String?
 
     private var grouped: [RuleGroup] {
         Dictionary(grouping: store.rules, by: \.category)
@@ -25,10 +27,15 @@ struct RulesView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    if let categoryDeletionResult {
+                        Text(categoryDeletionResult)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 ForEach(grouped) { group in
-                    Section(group.category) {
+                    Section {
                         ForEach(group.rules) { rule in
                             NavigationLink {
                                 RuleForm(store: store, rule: rule)
@@ -39,6 +46,18 @@ struct RulesView: View {
                         .onDelete { offsets in
                             let selected = offsets.map { group.rules[$0] }
                             Task { for rule in selected { await store.deleteRule(rule) } }
+                        }
+                    } header: {
+                        HStack {
+                            Text(group.category)
+                            Spacer()
+                            Button(role: .destructive) {
+                                pendingCategoryDeletion = group.category
+                            } label: {
+                                Label("Apagar categoria", systemImage: "trash")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .buttonStyle(.borderless)
                         }
                     }
                 }
@@ -51,6 +70,35 @@ struct RulesView: View {
             .sheet(isPresented: $isAdding) {
                 NavigationStack { RuleForm(store: store, rule: nil) }
             }
+            .confirmationDialog(
+                pendingCategoryDeletion.map { "Apagar a categoria \($0)?" } ?? "",
+                isPresented: isConfirmingCategoryDeletion,
+                titleVisibility: .visible
+            ) {
+                Button("Apagar categoria", role: .destructive) { deleteCategory() }
+                Button("Cancelar", role: .cancel) { pendingCategoryDeletion = nil }
+            } message: {
+                Text("As regras somem e os lançamentos dessa categoria passam pelas regras restantes.")
+            }
+        }
+    }
+}
+
+extension RulesView {
+    private var isConfirmingCategoryDeletion: Binding<Bool> {
+        Binding(
+            get: { pendingCategoryDeletion != nil },
+            set: { if !$0 { pendingCategoryDeletion = nil } }
+        )
+    }
+
+    private func deleteCategory() {
+        guard let category = pendingCategoryDeletion else { return }
+        pendingCategoryDeletion = nil
+        Task {
+            guard let response = await store.deleteCategory(category) else { return }
+            categoryDeletionResult =
+                "\(response.removedRules) regra(s) apagada(s), \(response.recategorized) lançamento(s) recategorizado(s)."
         }
     }
 }

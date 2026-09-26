@@ -11,13 +11,61 @@ final class LedgerStore {
     private(set) var transactions: [TransactionDTO] = []
     private(set) var rules: [CategoryRule] = []
     private(set) var projection: LedgerProjection?
+    private(set) var batches: [ImportBatchDTO] = []
 
     private(set) var isLoading = false
     var errorMessage: String?
+    private var searchTerm = ""
 
     /// Conta selecionada nos filtros; `nil` significa todas.
     var selectedAccountID: UUID? {
         didSet { Task { await reload() } }
+    }
+
+    /// Filtros da lista de lançamentos.
+    var selectedCategory: String? {
+        didSet { Task { await reloadTransactions() } }
+    }
+
+    var period: Period = .all {
+        didSet { Task { await reloadTransactions() } }
+    }
+
+    enum Period: String, CaseIterable, Identifiable {
+        case all
+        case thisMonth
+        case last3Months
+        case last12Months
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .all: return "Tudo"
+            case .thisMonth: return "Mês"
+            case .last3Months: return "3 meses"
+            case .last12Months: return "12 meses"
+            }
+        }
+
+        /// Primeiro dia do intervalo; `nil` quando não há limite inferior.
+        var start: Date? {
+            let now = Date()
+            switch self {
+            case .all: return nil
+            case .thisMonth: return LedgerCalendar.startOfMonth(now)
+            case .last3Months: return LedgerCalendar.startOfMonth(LedgerCalendar.addingMonths(-2, to: now))
+            case .last12Months: return LedgerCalendar.startOfMonth(LedgerCalendar.addingMonths(-11, to: now))
+            }
+        }
+
+        /// Último dia do intervalo. Sem ele, um lançamento datado no futuro
+        /// (ou uma parcela projetada) entraria no total do período escolhido.
+        var end: Date? {
+            guard self != .all else { return nil }
+            let nextMonth = LedgerCalendar.addingMonths(1, to: LedgerCalendar.startOfMonth(Date()))
+            return LedgerCalendar.addingDays(-1, to: nextMonth)
+        }
     }
 
     var configuration: APIConfiguration {
@@ -43,14 +91,21 @@ final class LedgerStore {
         await run {
             let client = self.client
             async let accounts = client.accounts()
-            async let transactions = client.transactions(accountID: self.selectedAccountID)
+            async let transactions = client.transactions(
+                accountID: self.selectedAccountID,
+                search: self.searchTerm.isEmpty ? nil : self.searchTerm,
+                from: self.period.start,
+                to: self.period.end
+            )
             async let rules = client.categoryRules()
             async let projection = client.summary(accountID: self.selectedAccountID)
+            async let batches = client.importBatches(accountID: self.selectedAccountID)
 
             self.accounts = try await accounts
-            self.transactions = try await transactions
+            self.transactions = self.applyingCategoryFilter(to: try await transactions)
             self.rules = try await rules
             self.projection = try await projection
+            self.batches = try await batches
         }
     }
 
@@ -82,19 +137,51 @@ final class LedgerStore {
         await reload()
     }
 
+    func updateTransaction(_ transaction: TransactionDTO) async {
+        guard let id = transaction.id else { return }
+        await run { _ = try await self.client.updateTransaction(id: id, transaction) }
+        await reload()
+    }
+
+    /// Atalho do menu de contexto da lista, sem abrir o editor.
+    func setCategory(_ category: String, on transaction: TransactionDTO) async {
+        var updated = transaction
+        updated.category = category
+        await updateTransaction(updated)
+    }
+
     func deleteTransaction(_ transaction: TransactionDTO) async {
         guard let id = transaction.id else { return }
         await run { try await self.client.deleteTransaction(id: id) }
         await reload()
     }
 
+    func deleteTransactions(ids: [UUID]) async {
+        guard !ids.isEmpty else { return }
+        await run { _ = try await self.client.deleteTransactions(ids: ids) }
+        await reload()
+    }
+
     func search(_ term: String) async {
+        searchTerm = term
+        await reloadTransactions()
+    }
+
+    private func reloadTransactions() async {
         await run {
-            self.transactions = try await self.client.transactions(
+            let all = try await self.client.transactions(
                 accountID: self.selectedAccountID,
-                search: term
+                search: self.searchTerm.isEmpty ? nil : self.searchTerm,
+                from: self.period.start,
+                to: self.period.end
             )
+            self.transactions = self.applyingCategoryFilter(to: all)
         }
+    }
+
+    private func applyingCategoryFilter(to items: [TransactionDTO]) -> [TransactionDTO] {
+        guard let category = selectedCategory else { return items }
+        return items.filter { $0.category == category }
     }
 
     // MARK: Importação
@@ -106,6 +193,15 @@ final class LedgerStore {
         await run { report = try await self.client.importStatement(request) }
         await reload()
         return report
+    }
+
+    /// Desfaz a importação inteira: apaga o que ela criou e devolve as projeções
+    /// confirmadas ao estado anterior.
+    func undoImport(batchID: UUID) async -> BulkDeleteResponse? {
+        var response: BulkDeleteResponse?
+        await run { response = try await self.client.undoImport(batchID: batchID) }
+        await reload()
+        return response
     }
 
     // MARK: Regras
@@ -125,6 +221,27 @@ final class LedgerStore {
         guard let id = rule.id else { return }
         await run { try await self.client.deleteRule(id: id) }
         await reload()
+    }
+
+    /// Apaga a categoria inteira: as regras que a produzem somem e os
+    /// lançamentos que a usavam voltam a passar pelas regras restantes.
+    func deleteCategory(_ name: String) async -> DeleteCategoryResponse? {
+        var response: DeleteCategoryResponse?
+        await run { response = try await self.client.deleteCategory(name) }
+        if selectedCategory == name { selectedCategory = nil }
+        await reload()
+        return response
+    }
+
+    // MARK: Manutenção
+
+    func reset(scope: ResetScope) async -> ResetResponse? {
+        var response: ResetResponse?
+        await run { response = try await self.client.reset(scope: scope) }
+        selectedAccountID = nil
+        selectedCategory = nil
+        await reload()
+        return response
     }
 
     func preview(description: String, amount: Double, rule: CategoryRule?) async -> CategoryPreviewResponse? {

@@ -212,3 +212,116 @@ final class ImportPlannerTests: XCTestCase {
         XCTAssertEqual(plan.inserts.filter(\.transaction.isProjected).count, 7)
     }
 }
+
+final class ImportBatchTests: XCTestCase {
+
+    func testBatchDTOCarriesConfirmationCount() {
+        let accountID = UUID()
+        let sut = ImportBatchModel(
+            accountID: accountID,
+            filename: "fatura.csv",
+            confirmations: [
+                ImportBatchModel.ConfirmationSnapshot(
+                    transactionID: UUID(),
+                    date: DateParser.parse("15/01/2025")!,
+                    amount: -120,
+                    externalID: "FIT-1"
+                )
+            ]
+        )
+
+        let dto = sut.toDTO(transactionCount: 7)
+
+        XCTAssertEqual(dto.accountID, accountID)
+        XCTAssertEqual(dto.filename, "fatura.csv")
+        XCTAssertEqual(dto.transactionCount, 7)
+        XCTAssertEqual(dto.confirmedCount, 1)
+    }
+
+    /// O estado anterior é o que permite devolver a parcela à condição de projeção.
+    func testConfirmationSnapshotRoundTrip() throws {
+        let snapshot = ImportBatchModel.ConfirmationSnapshot(
+            transactionID: UUID(),
+            date: DateParser.parse("10/02/2025")!,
+            amount: -89.90,
+            externalID: nil
+        )
+
+        let data = try JSONEncoder().encode([snapshot])
+        let decoded = try JSONDecoder().decode([ImportBatchModel.ConfirmationSnapshot].self, from: data)
+
+        XCTAssertEqual(decoded.first?.transactionID, snapshot.transactionID)
+        XCTAssertEqual(decoded.first?.amount, snapshot.amount)
+        XCTAssertNil(decoded.first?.externalID)
+    }
+
+    /// Lotes gravados antes de o snapshot registrar dono e estado confirmado
+    /// continuam legíveis; desfazê-los só perde a verificação de conflito.
+    func testConfirmationSnapshotDecodesLegacyPayload() throws {
+        let id = UUID()
+        let json = """
+        [{"transactionID":"\(id.uuidString)","date":760000000,"amount":-50}]
+        """
+
+        let decoded = try JSONDecoder().decode(
+            [ImportBatchModel.ConfirmationSnapshot].self,
+            from: Data(json.utf8)
+        )
+
+        XCTAssertEqual(decoded.first?.transactionID, id)
+        XCTAssertNil(decoded.first?.previousBatchID)
+        XCTAssertNil(decoded.first?.confirmedAmount)
+    }
+}
+
+final class TransactionEditKeyTests: XCTestCase {
+    private let accountID = UUID()
+
+    /// Chave canônica: derivada dos próprios campos, pode ser recalculada na edição.
+    func testCanonicalKeyIsRecognized() {
+        let date = DateParser.parse("15/01/2025")!
+        let key = DedupKey.make(
+            accountID: accountID,
+            date: date,
+            description: "PADARIA CENTRAL",
+            amount: -18.90,
+            installment: nil
+        )
+
+        XCTAssertEqual(
+            key,
+            DedupKey.make(
+                accountID: accountID,
+                date: date,
+                description: "PADARIA CENTRAL",
+                amount: -18.90,
+                installment: nil
+            )
+        )
+    }
+
+    /// Chave de FITID e chave numerada por ocorrência não são reproduzíveis a
+    /// partir dos campos: editar não pode recalculá-las.
+    func testExternalAndSuffixedKeysDifferFromCanonical() {
+        let date = DateParser.parse("15/01/2025")!
+        let canonical = DedupKey.make(
+            accountID: accountID,
+            date: date,
+            description: "PADARIA CENTRAL",
+            amount: -18.90,
+            installment: nil
+        )
+
+        let fromExternalID = DedupKey.make(
+            accountID: accountID,
+            date: date,
+            description: "PADARIA CENTRAL",
+            amount: -18.90,
+            installment: nil,
+            externalID: "FIT-7"
+        )
+
+        XCTAssertNotEqual(canonical, fromExternalID)
+        XCTAssertNotEqual(canonical, "\(canonical)#2")
+    }
+}

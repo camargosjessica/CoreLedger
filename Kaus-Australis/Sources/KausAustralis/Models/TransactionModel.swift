@@ -41,6 +41,10 @@ final class TransactionModel: Model, @unchecked Sendable {
     @OptionalField(key: "external_id")
     var externalID: String?
 
+    /// Importação que criou o lançamento, para permitir desfazê-la.
+    @OptionalParent(key: "import_batch_id")
+    var importBatch: ImportBatchModel?
+
     init() { }
     
     init(

@@ -1,3 +1,4 @@
+import Charts
 import SwiftUI
 import KausMedia
 
@@ -19,8 +20,16 @@ struct SummaryView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    if !projection.history.isEmpty || !projection.forecast.isEmpty {
+                        Section("Entradas e saídas") {
+                            BalanceChart(
+                                months: Array(projection.history.suffix(6)) + Array(projection.forecast.prefix(3))
+                            )
+                        }
+                    }
                     if let current = projection.history.last {
                         Section("Mês atual") {
+                            CategoryChart(summary: current)
                             MonthDetail(summary: current)
                         }
                     }
@@ -78,6 +87,76 @@ private struct MonthRow: View {
             .foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// Receitas e despesas por mês; os meses previstos ficam esmaecidos para não
+/// serem lidos como realizado.
+private struct BalanceChart: View {
+    let months: [MonthlySummary]
+
+    private struct Bar: Identifiable {
+        var label: String
+        var kind: String
+        var value: Double
+
+        var id: String { "\(label)-\(kind)" }
+    }
+
+    private var bars: [Bar] {
+        months.flatMap { month -> [Bar] in
+            let label = month.isForecast ? "\(month.month.monthYear) (prev.)" : month.month.monthYear
+            return [
+                Bar(label: label, kind: "Receitas", value: month.income),
+                Bar(label: label, kind: "Despesas", value: abs(month.expenses))
+            ]
+        }
+    }
+
+    var body: some View {
+        Chart(bars) { bar in
+            BarMark(
+                x: .value("Mês", bar.label),
+                y: .value("Valor", bar.value)
+            )
+            .foregroundStyle(by: .value("Tipo", bar.kind))
+            .position(by: .value("Tipo", bar.kind))
+        }
+        .chartForegroundStyleScale(["Receitas": Color.green, "Despesas": Color.red])
+        .frame(height: 200)
+        .padding(.vertical, 4)
+    }
+}
+
+/// Onde o dinheiro foi no mês: só despesas, porque misturar salário com gastos
+/// numa rosca esconde o que interessa.
+private struct CategoryChart: View {
+    let summary: MonthlySummary
+
+    private var slices: [CategoryTotal] {
+        summary.byCategory
+            .filter { $0.value < 0 }
+            .map { CategoryTotal(category: $0.key, total: abs($0.value)) }
+            .sorted { $0.total > $1.total }
+    }
+
+    var body: some View {
+        if slices.isEmpty {
+            Text("Sem despesas neste mês.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            Chart(slices) { slice in
+                SectorMark(
+                    angle: .value("Total", slice.total),
+                    innerRadius: .ratio(0.6),
+                    angularInset: 1
+                )
+                .foregroundStyle(by: .value("Categoria", slice.category))
+            }
+            .frame(height: 220)
+            .padding(.vertical, 4)
+        }
     }
 }
 

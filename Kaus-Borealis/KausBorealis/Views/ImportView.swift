@@ -16,6 +16,8 @@ struct ImportView: View {
     @State private var isChoosingFile = false
     @State private var report: ImportReportDTO?
     @State private var isSending = false
+    @State private var pendingUndo: ImportBatchDTO?
+    @State private var undoSummary: String?
 
     private var selectedAccount: AccountDTO? {
         store.accounts.first { $0.id == accountID }
@@ -69,6 +71,32 @@ struct ImportView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
+                        if let batchID = report.batchID {
+                            Button("Desfazer esta importação", role: .destructive) {
+                                pendingUndo = ImportBatchDTO(id: batchID, accountID: accountID ?? UUID())
+                            }
+                        }
+                    }
+                }
+
+                if let undoSummary {
+                    Section { Text(undoSummary).font(.caption).foregroundStyle(.secondary) }
+                }
+
+                if !store.batches.isEmpty {
+                    Section("Importações recentes") {
+                        ForEach(store.batches) { batch in
+                            Button {
+                                pendingUndo = batch
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(batch.filename ?? "Importação")
+                                    Text(subtitle(for: batch))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -89,6 +117,40 @@ struct ImportView: View {
                 load(result)
             }
             .overlay { if isSending { ProgressView() } }
+            .confirmationDialog(
+                "Desfazer esta importação?",
+                isPresented: isConfirmingUndo,
+                titleVisibility: .visible
+            ) {
+                Button("Desfazer", role: .destructive) { undo() }
+            } message: {
+                Text("Os lançamentos criados por ela serão apagados e as parcelas confirmadas voltam a ser projeções.")
+            }
+        }
+    }
+
+    private var isConfirmingUndo: Binding<Bool> {
+        Binding(
+            get: { pendingUndo != nil },
+            set: { if !$0 { pendingUndo = nil } }
+        )
+    }
+
+    private func subtitle(for batch: ImportBatchDTO) -> String {
+        let date = batch.createdAt.map { $0.shortDay } ?? ""
+        return "\(date) · \(batch.transactionCount) lançamento(s)"
+    }
+
+    private func undo() {
+        guard let batch = pendingUndo, let id = batch.id else { return }
+        pendingUndo = nil
+        isSending = true
+        Task {
+            if let response = await store.undoImport(batchID: id) {
+                undoSummary = "\(response.deleted) apagado(s), \(response.restored) projeção(ões) restaurada(s)."
+                report = nil
+            }
+            isSending = false
         }
     }
 

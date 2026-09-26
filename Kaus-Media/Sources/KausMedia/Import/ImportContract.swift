@@ -36,18 +36,22 @@ public struct ImportReportDTO: Codable, Sendable {
     /// Projeções que a fatura deste mês confirmou (viraram lançamentos reais).
     public var confirmedInstallments: Int
     public var failures: [ImportFailure]
+    /// Lote criado, usado para desfazer a importação inteira.
+    public var batchID: UUID?
 
     public init(
         imported: Int = 0,
         duplicates: Int = 0,
         projectedInstallments: Int = 0,
         confirmedInstallments: Int = 0,
-        failures: [ImportFailure] = []
+        failures: [ImportFailure] = [],
+        batchID: UUID? = nil
     ) {
         self.imported = imported
         self.duplicates = duplicates
         self.projectedInstallments = projectedInstallments
         self.confirmedInstallments = confirmedInstallments
         self.failures = failures
+        self.batchID = batchID
     }
 }
