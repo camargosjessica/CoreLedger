@@ -60,7 +60,9 @@ swift run
 As migrations são aplicadas automaticamente no arranque. O servidor fica disponível em `http://127.0.0.1:8080`.
 
 ### 5. Executar o Frontend (`Kaus-Borealis`)
-Abra `Kaus-Borealis/KausBorealis.xcodeproj` no Xcode e execute no simulador de iOS. A aplicação consome `http://127.0.0.1:8080/api/transactions`.
+Abra `Kaus-Borealis/KausBorealis.xcodeproj` no Xcode e execute no simulador de iOS ou no macOS. O app tem cinco abas — Resumo, Lançamentos, Contas, Regras e Ajustes — e consome a API em `http://127.0.0.1:8080` por omissão.
+
+Em **Ajustes** é possível trocar o endereço do servidor e informar o `API_TOKEN` (deixe vazio quando o backend roda em `development`, onde o token não é exigido).
 
 ---
 
