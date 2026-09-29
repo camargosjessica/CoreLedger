@@ -105,7 +105,7 @@ Em **Resumo** o painel de posição mostra quanto há guardado (contas do tipo c
 | `GET` | `/api/summary` | — | `MonthlySummary` por mês, com os meses projetados |
 | `GET` | `/api/position` | — | `FinancialPosition`: disponível, guardado, dívida do cartão, parcelas futuras e saldo por conta |
 
-Contas têm tipo `checking`, `savings`, `creditCard`, `cash` ou `investment` e nome livre — cada caixinha do banco é uma conta `savings` com o nome que você quiser. Aplicações, resgates e pagamentos de fatura são reconhecidos como transferências pelas regras de seed, então guardar dinheiro não conta como despesa.
+Contas têm tipo `checking`, `savings`, `creditCard`, `cash` ou `investment` e nome livre — cada caixinha do banco é uma conta `savings` com o nome que você quiser. Aplicações, resgates e pagamentos de fatura são reconhecidos como transferências pelas regras de seed, então guardar dinheiro não conta como despesa. As regras novas valem para importações seguintes; para reclassificar o que já está no banco, use `POST /api/transactions/recategorize` (ou o botão de recategorizar em Regras).
 
 `GET /api/transactions` aceita os filtros `accountID`, `from`, `to` (por dia inteiro), `search`, `includeProjected`, `limit` (máx. 1000) e `offset`.
 

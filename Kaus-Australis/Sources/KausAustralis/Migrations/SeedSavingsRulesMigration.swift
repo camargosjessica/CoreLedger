@@ -17,10 +17,19 @@ struct SeedSavingsRulesMigration: AsyncMigration {
         }
     }
 
+    /// Remove só as linhas idênticas ao seed: uma regra que o usuário tenha
+    /// ajustado (outro escopo, prioridade ou desligada) sobrevive ao rollback.
     func revert(on database: Database) async throws {
-        try await CategoryRuleModel.query(on: database)
-            .filter(\.$term ~~ CategoryRule.savingsSeed.map(\.term))
-            .filter(\.$category == "Guardado")
-            .delete()
+        for rule in CategoryRule.savingsSeed {
+            try await CategoryRuleModel.query(on: database)
+                .filter(\.$term == rule.term)
+                .filter(\.$category == rule.category)
+                .filter(\.$amountScope == rule.amountScope.rawValue)
+                .filter(\.$matchKind == rule.matchKind.rawValue)
+                .filter(\.$priority == rule.priority)
+                .filter(\.$isTransfer == rule.isTransfer)
+                .filter(\.$isEnabled == true)
+                .delete()
+        }
     }
 }
