@@ -4,18 +4,24 @@ import Foundation
 /// faturas de cartão passam pela expansão de parcelas.
 public enum AccountKind: String, Codable, Sendable, CaseIterable {
     case checking
+    /// Poupança ou caixinha: dinheiro guardado, com nome livre.
     case savings
     case creditCard
     case cash
+    case investment
 
     public var expandsInstallments: Bool { self == .creditCard }
+
+    /// Contas cujo saldo é dinheiro guardado, não disponível para o dia a dia.
+    public var isSavings: Bool { self == .savings || self == .investment }
 
     public var displayName: String {
         switch self {
         case .checking: return "Conta corrente"
-        case .savings: return "Poupança"
+        case .savings: return "Caixinha ou poupança"
         case .creditCard: return "Cartão de crédito"
         case .cash: return "Dinheiro"
+        case .investment: return "Investimento"
         }
     }
 }

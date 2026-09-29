@@ -12,6 +12,7 @@ final class LedgerStore {
     private(set) var rules: [CategoryRule] = []
     private(set) var projection: LedgerProjection?
     private(set) var batches: [ImportBatchDTO] = []
+    private(set) var position: FinancialPosition?
 
     private(set) var isLoading = false
     var errorMessage: String?
@@ -100,12 +101,14 @@ final class LedgerStore {
             async let rules = client.categoryRules()
             async let projection = client.summary(accountID: self.selectedAccountID)
             async let batches = client.importBatches(accountID: self.selectedAccountID)
+            async let position = client.position()
 
             self.accounts = try await accounts
             self.transactions = self.applyingCategoryFilter(to: try await transactions)
             self.rules = try await rules
             self.projection = try await projection
             self.batches = try await batches
+            self.position = try await position
         }
     }
 

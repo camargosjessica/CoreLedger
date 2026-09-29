@@ -21,6 +21,7 @@ extension BulkDeleteResponse: @retroactive Content {}
 extension ResetRequest: @retroactive Content {}
 extension ResetResponse: @retroactive Content {}
 extension DeleteCategoryResponse: @retroactive Content {}
+extension FinancialPosition: @retroactive Content {}
 
 @main
 struct App {
@@ -88,6 +89,7 @@ func configure(_ app: Application) async throws {
     app.migrations.add(CreateImportBatchMigration())
     app.migrations.add(AddTransactionImportFieldsMigration())
     app.migrations.add(SeedCategoryRulesMigration())
+    app.migrations.add(SeedSavingsRulesMigration())
     try await app.autoMigrate()
 }
 

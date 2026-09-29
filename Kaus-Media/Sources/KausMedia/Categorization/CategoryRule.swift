@@ -126,7 +126,25 @@ extension CategoryRule {
             ])
         ]
 
-        return groups.flatMap { group in
+        return expand(groups) + savingsSeed
+    }()
+
+    /// Movimentos entre a conta e as caixinhas/investimentos da própria pessoa.
+    /// São transferência, não despesa: guardar dinheiro não empobrece ninguém,
+    /// e contar como saída faria a previsão projetar um gasto inexistente.
+    public static let savingsSeed: [CategoryRule] = expand([
+        ("Guardado", 5, true, [
+            ("caixinha", .contains), ("aplicac", .contains), ("aplic aut", .contains),
+            ("resgate", .contains), ("poupanca", .contains), ("rdb", .word),
+            ("cdb", .word), ("tesouro direto", .contains), ("fundo de invest", .contains),
+            ("reserva de emergencia", .contains)
+        ])
+    ])
+
+    private static func expand(
+        _ groups: [(category: String, priority: Int, isTransfer: Bool, terms: [(String, MatchKind)])]
+    ) -> [CategoryRule] {
+        groups.flatMap { group in
             group.terms.map { term, kind in
                 CategoryRule(
                     term: term,
@@ -137,5 +155,5 @@ extension CategoryRule {
                 )
             }
         }
-    }()
+    }
 }

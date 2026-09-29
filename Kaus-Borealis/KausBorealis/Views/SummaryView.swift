@@ -9,6 +9,12 @@ struct SummaryView: View {
     var body: some View {
         NavigationStack {
             List {
+                if let position = store.position {
+                    Section("Posição") {
+                        PositionCard(position: position)
+                    }
+                }
+
                 Section {
                     AccountFilter(store: store)
                 }
@@ -52,6 +58,88 @@ struct SummaryView: View {
             .navigationTitle("Resumo")
             .refreshable { await store.reload() }
             .overlay { if store.isLoading && store.projection == nil { ProgressView() } }
+        }
+    }
+}
+
+/// Guardado, disponível e dívida do cartão lado a lado, com o veredito do
+/// líquido: é a pergunta "estou empatada?" respondida em uma linha.
+private struct PositionCard: View {
+    let position: FinancialPosition
+
+    private var statusColor: Color {
+        switch position.status {
+        case .positive: return .green
+        case .even: return .orange
+        case .negative: return .red
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(position.status.title)
+                        .font(.headline)
+                        .foregroundStyle(statusColor)
+                    Text("guardado + disponível − cartão")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(position.net.brl)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(statusColor)
+            }
+
+            HStack(alignment: .top) {
+                PositionItem(title: "Guardado", value: position.saved, color: .blue)
+                Spacer()
+                PositionItem(title: "Disponível", value: position.available, color: .primary)
+                Spacer()
+                PositionItem(title: "Cartão", value: -position.creditCardDebt, color: .red)
+            }
+
+            if position.upcomingInstallments > 0 {
+                Label(
+                    "\(position.upcomingInstallments.brl) em parcelas ainda por vir",
+                    systemImage: "calendar.badge.clock"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            let savings = position.accounts.filter { $0.kind.isSavings }
+            if !savings.isEmpty {
+                Divider()
+                ForEach(savings) { account in
+                    HStack {
+                        Text(account.name)
+                        Spacer()
+                        Text(account.balance.brl)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct PositionItem: View {
+    let title: String
+    let value: Double
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value.brl)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(color)
         }
     }
 }

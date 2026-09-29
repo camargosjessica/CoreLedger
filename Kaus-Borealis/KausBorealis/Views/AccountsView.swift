@@ -85,6 +85,11 @@ private struct AccountForm: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            if kind.isSavings {
+                Text("O saldo desta conta entra como dinheiro guardado na posição do Resumo. Use uma conta por caixinha.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .navigationTitle(account == nil ? "Nova conta" : "Editar conta")
         .toolbar {
