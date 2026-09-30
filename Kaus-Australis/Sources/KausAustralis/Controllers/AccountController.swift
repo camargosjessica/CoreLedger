@@ -11,6 +11,47 @@ struct AccountController: RouteCollection {
             account.put(use: update)
             account.delete(use: delete)
         }
+
+        routes.get("api", "position", use: position)
+    }
+
+    /// Posição consolidada: quanto está guardado nas caixinhas, quanto está
+    /// disponível em conta e quanto ainda se deve no cartão.
+    func position(req: Request) async throws -> FinancialPosition {
+        let accounts = try await AccountModel.query(on: req.db).sort(\.$name).all()
+        let transactions = try await TransactionModel.query(on: req.db).all()
+        let grouped = Dictionary(grouping: transactions) { $0.$account.id }
+
+        var positions = accounts.map { account in
+            AccountPosition(
+                accountID: account.id,
+                name: account.name,
+                kind: account.accountKind,
+                balance: (grouped[account.id] ?? [])
+                    .filter { !$0.isProjected }
+                    .reduce(0) { $0 + $1.amount }
+            )
+        }
+
+        // Lançamentos anteriores à introdução de contas continuam compondo o
+        // que está disponível, senão a posição ignoraria parte do dinheiro.
+        let orphans = (grouped[nil] ?? []).filter { !$0.isProjected }
+        if !orphans.isEmpty {
+            positions.append(
+                AccountPosition(
+                    accountID: nil,
+                    name: "Sem conta",
+                    kind: .checking,
+                    balance: orphans.reduce(0) { $0 + $1.amount }
+                )
+            )
+        }
+
+        let upcoming = transactions
+            .filter { $0.isProjected && $0.amount < 0 }
+            .reduce(0) { $0 + $1.amount }
+
+        return FinancialPosition.make(accounts: positions, upcomingInstallments: upcoming)
     }
 
     /// Lista as contas já com saldo e quantidade de lançamentos, agregados em SQL.

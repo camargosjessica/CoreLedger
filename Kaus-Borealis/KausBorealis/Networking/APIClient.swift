@@ -196,6 +196,12 @@ struct APIClient: Sendable {
         return try await send(.get, "api/summary", query: items)
     }
 
+    /// Posição consolidada de todas as contas: não aceita filtro por conta,
+    /// porque o sentido dela é justamente somar caixinhas, contas e cartões.
+    func position() async throws -> FinancialPosition {
+        try await send(.get, "api/position")
+    }
+
     // MARK: Transporte
 
     private enum Method: String {

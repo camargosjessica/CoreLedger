@@ -74,7 +74,7 @@ As migrations são aplicadas automaticamente no arranque. O servidor fica dispon
 ### 5. Executar o Frontend (`Kaus-Borealis`)
 Abra `Kaus-Borealis/KausBorealis.xcodeproj` no Xcode e execute no simulador de iOS ou no macOS. O app tem cinco abas — Resumo, Lançamentos, Contas, Regras e Ajustes — e consome a API em `http://127.0.0.1:8080` por omissão.
 
-Em **Resumo** há gráficos de receitas/despesas por mês (incluindo os meses previstos) e a rosca de despesas por categoria do mês corrente. Em **Lançamentos** dá para editar (toque na linha), selecionar vários para apagar de uma vez e desfazer uma importação inteira pela tela de importação. Em **Regras**, o botão de lixeira no cabeçalho de cada categoria apaga a categoria inteira e recategoriza os lançamentos pelas regras restantes. Em **Ajustes** é possível trocar o endereço do servidor e informar o `API_TOKEN` (deixe vazio quando o backend roda em `development`, onde o token não é exigido), além do "Apagar tudo" com escolha de escopo — só lançamentos e importações, também as contas, ou tudo inclusive as regras.
+Em **Resumo** o painel de posição mostra quanto há guardado (contas do tipo caixinha/poupança e investimento), quanto está disponível (corrente e dinheiro), quanto se deve no cartão e se o líquido está positivo, empatado ou negativo; as parcelas contratadas aparecem à parte, por serem compromisso futuro e não dívida já realizada. Ainda em Resumo há gráficos de receitas/despesas por mês (incluindo os meses previstos) e a rosca de despesas por categoria do mês corrente. Em **Lançamentos** dá para editar (toque na linha), selecionar vários para apagar de uma vez e desfazer uma importação inteira pela tela de importação. Em **Regras**, o botão de lixeira no cabeçalho de cada categoria apaga a categoria inteira e recategoriza os lançamentos pelas regras restantes. Em **Ajustes** é possível trocar o endereço do servidor e informar o `API_TOKEN` (deixe vazio quando o backend roda em `development`, onde o token não é exigido), além do "Apagar tudo" com escolha de escopo — só lançamentos e importações, também as contas, ou tudo inclusive as regras.
 
 ---
 
@@ -103,6 +103,9 @@ Em **Resumo** há gráficos de receitas/despesas por mês (incluindo os meses pr
 | `DELETE` | `/api/categories/:category` | — | `DeleteCategoryResponse` (apaga as regras e recategoriza os lançamentos) |
 | `POST` | `/api/reset` | `ResetRequest` (`scope` + `confirmation: "APAGAR TUDO"`) | `ResetResponse` com o que foi apagado |
 | `GET` | `/api/summary` | — | `MonthlySummary` por mês, com os meses projetados |
+| `GET` | `/api/position` | — | `FinancialPosition`: disponível, guardado, dívida do cartão, parcelas futuras e saldo por conta |
+
+Contas têm tipo `checking`, `savings`, `creditCard`, `cash` ou `investment` e nome livre — cada caixinha do banco é uma conta `savings` com o nome que você quiser. Aplicações, resgates e pagamentos de fatura são reconhecidos como transferências pelas regras de seed, então guardar dinheiro não conta como despesa. As regras novas valem para importações seguintes; para reclassificar o que já está no banco, use `POST /api/transactions/recategorize` (ou o botão de recategorizar em Regras).
 
 `GET /api/transactions` aceita os filtros `accountID`, `from`, `to` (por dia inteiro), `search`, `includeProjected`, `limit` (máx. 1000) e `offset`.
 
