@@ -48,6 +48,12 @@ public struct Categorizer: Sendable {
         return match.rule.tags.isEmpty ? TagSet.suggested(for: match.category) : match.rule.tags
     }
 
+    /// Tags das regras da categoria escolhida ou, se nenhuma tiver, as padrão dela.
+    public func tags(forCategory category: String) -> [String] {
+        let fromRules = TagSet.normalize(compiledRules.filter { $0.rule.category == category }.flatMap(\.rule.tags))
+        return fromRules.isEmpty ? TagSet.suggested(for: category) : fromRules
+    }
+
     /// Categorias marcadas como transferência — excluídas das projeções.
     public var transferCategories: Set<String> {
         Set(compiledRules.filter(\.rule.isTransfer).map(\.rule.category))

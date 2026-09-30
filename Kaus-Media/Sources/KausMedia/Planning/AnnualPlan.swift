@@ -94,55 +94,67 @@ public struct AnnualPlan: Codable, Sendable, Hashable {
         // grade: uma na conta de origem, outra na despesa que elas quitam.
         let ignored = transferCategories.subtracting(savingCategories)
 
-        var realized: [String: [String: Double]] = [:]
-        var projected: [String: [String: Double]] = [:]
+        var entries: [String: [String: [TransactionDTO]]] = [:]
         for transaction in transactions {
             let category = transaction.category ?? CategoryRule.uncategorizedDebit
             guard !ignored.contains(category) else { continue }
             let key = YearMonth(date: transaction.date).description
             guard window.contains(key) else { continue }
-            if transaction.isProjected {
-                projected[category, default: [:]][key, default: 0] += transaction.amount
-            } else {
-                realized[category, default: [:]][key, default: 0] += transaction.amount
-            }
+            entries[category, default: [:]][key, default: []].append(transaction)
         }
 
         let commitmentsByCategory = Dictionary(grouping: commitments.filter { !ignored.contains($0.category) }) {
             $0.category
         }
 
-        let categories = Set(realized.keys)
-            .union(projected.keys)
-            .union(commitmentsByCategory.keys)
+        let categories = Set(entries.keys).union(commitmentsByCategory.keys)
 
         var rows: [PlanRow] = []
+        var essentialByMonth: [String: Double] = [:]
         for category in categories {
             let owners = commitmentsByCategory[category] ?? []
+            let byMonth = entries[category] ?? [:]
             let kind = resolveKind(
                 category: category,
                 commitments: owners,
                 savingCategories: savingCategories,
-                realized: realized[category] ?? [:]
+                recorded: byMonth.values.flatMap { $0 }
             )
             let tags = TagSet.normalize(
                 owners.flatMap(\.tags) + (tagsByCategory[category] ?? TagSet.suggested(for: category))
             )
+            // Sem tags próprias, o lançamento ou compromisso herda as da linha.
+            let isEssential: ([String]) -> Bool = { own in
+                (own.isEmpty ? tags : own).contains(TagSet.essential)
+            }
 
             var values: [String: Double] = [:]
             var realizedMonths: [String] = []
             for month in months {
                 let key = month.description
-                let confirmed = realized[category]?[key] ?? 0
-                let actual = confirmed + (projected[category]?[key] ?? 0)
-                let planned = owners.reduce(0) { $0 + $1.plannedAmount(in: month) }
-                // O compromisso só preenche o mês enquanto ele não tem lançamento
-                // próprio, e nunca reescreve um mês já fechado.
-                let usesPlan = actual == 0 && month >= currentMonth
-                let value = usesPlan ? planned : actual
-                guard value != 0 else { continue }
+                let recorded = byMonth[key] ?? []
+                var value = recorded.reduce(0) { $0 + $1.amount }
+                var essential = recorded.reduce(0) { isEssential($1.tags) ? $0 + $1.amount : $0 }
+                // Meses já fechados ficam só com o extrato. Do mês atual em diante,
+                // o que não casou por nome vale o maior entre o lançado e o previsto:
+                // a conta que ainda não caiu continua prevista, e o gasto que já
+                // passou do previsto aparece inteiro.
+                if month >= currentMonth {
+                    let split = match(owners, in: month, recorded: recorded)
+                    let plannedRest = split.open.reduce(0) { $0 + $1.plannedAmount(in: month) }
+                    let actualRest = split.unmatched.reduce(0) { $0 + $1.amount }
+                    if plannedRest != 0 && abs(plannedRest) > abs(actualRest) {
+                        value += plannedRest - actualRest
+                        essential -= split.unmatched.reduce(0) { isEssential($1.tags) ? $0 + $1.amount : $0 }
+                        essential += split.open.reduce(0) {
+                            isEssential($1.tags) ? $0 + $1.plannedAmount(in: month) : $0
+                        }
+                    }
+                }
+                guard value != 0 || !recorded.isEmpty else { continue }
                 values[key] = value
-                if confirmed != 0 { realizedMonths.append(key) }
+                if recorded.contains(where: { !$0.isProjected }) { realizedMonths.append(key) }
+                if kind == .expense { essentialByMonth[key, default: 0] += essential }
             }
 
             guard !values.isEmpty else { continue }
@@ -165,7 +177,6 @@ public struct AnnualPlan: Codable, Sendable, Hashable {
             var income: Double = 0
             var expenses: Double = 0
             var saved: Double = 0
-            var essential: Double = 0
 
             for row in rows {
                 let value = row.value(in: month)
@@ -173,9 +184,7 @@ public struct AnnualPlan: Codable, Sendable, Hashable {
                 switch row.kind {
                 case .income: income += value
                 case .saving: saved += value
-                case .expense:
-                    expenses += value
-                    if row.isEssential { essential += value }
+                case .expense: expenses += value
                 }
             }
 
@@ -189,7 +198,7 @@ public struct AnnualPlan: Codable, Sendable, Hashable {
                     income: income,
                     expenses: expenses,
                     saved: saved,
-                    essentialExpenses: essential,
+                    essentialExpenses: essentialByMonth[month.description] ?? 0,
                     net: net,
                     cashFlow: cashFlow,
                     cumulative: cumulative
@@ -204,11 +213,35 @@ public struct AnnualPlan: Codable, Sendable, Hashable {
         category: String,
         commitments: [RecurringCommitment],
         savingCategories: Set<String>,
-        realized: [String: Double]
+        recorded: [TransactionDTO]
     ) -> RecurringCommitment.Kind {
         if let declared = commitments.first?.kind { return declared }
         if savingCategories.contains(category) { return .saving }
-        return realized.values.reduce(0, +) > 0 ? .income : .expense
+        return recorded.reduce(0) { $0 + $1.amount } > 0 ? .income : .expense
+    }
+
+    /// Separa os compromissos do mês que já têm lançamento com o nome deles na
+    /// descrição. Cada lançamento quita no máximo um compromisso.
+    private static func match(
+        _ commitments: [RecurringCommitment],
+        in month: YearMonth,
+        recorded: [TransactionDTO]
+    ) -> (open: [RecurringCommitment], unmatched: [TransactionDTO]) {
+        var open = commitments.filter { $0.plannedAmount(in: month) != 0 }
+        var unmatched: [TransactionDTO] = []
+        for transaction in recorded {
+            let description = TextNormalizer.normalize(transaction.description)
+            let byName = open.firstIndex { commitment in
+                let name = TextNormalizer.normalize(commitment.name)
+                return !name.isEmpty && description.contains(name)
+            }
+            if let byName {
+                open.remove(at: byName)
+            } else {
+                unmatched.append(transaction)
+            }
+        }
+        return (open, unmatched)
     }
 }
 

@@ -10,10 +10,16 @@ extension TransactionModel {
         let category = dto.category
             ?? categorizer?.category(for: dto.description, amount: dto.amount)
             ?? CategoryRule.uncategorizedDebit
-        // Tags enviadas pelo cliente mandam; sem elas, valem as da regra.
-        let tags = dto.tags.isEmpty
-            ? (categorizer?.tags(for: dto.description, amount: dto.amount) ?? TagSet.suggested(for: category))
-            : dto.tags
+        // Tags enviadas pelo cliente mandam; sem elas, valem as da categoria
+        // escolhida ou, se foi o categorizador quem escolheu, as da regra.
+        let tags: [String]
+        if !dto.tags.isEmpty {
+            tags = dto.tags
+        } else if dto.category != nil {
+            tags = categorizer?.tags(forCategory: category) ?? TagSet.suggested(for: category)
+        } else {
+            tags = categorizer?.tags(for: dto.description, amount: dto.amount) ?? TagSet.suggested(for: category)
+        }
 
         self.init(
             description: dto.description,

@@ -30,6 +30,19 @@ final class TransactionMappingTests: XCTestCase {
         XCTAssertEqual(sut.category, CategoryRule.uncategorizedDebit)
     }
 
+    func testModelFromDTO_ManualCategoryDoesNotInheritTagsFromDescriptionRule() {
+        let categorizer = Categorizer(rules: [
+            CategoryRule(term: "mercado", category: "Mercado", matchKind: .contains, tags: ["variável"]),
+            CategoryRule(term: "aluguel", category: "Moradia", tags: ["casa"])
+        ])
+        let dto = TransactionDTO(description: "Compra Mercado", amount: -80, date: Date(), category: "Moradia")
+
+        let sut = TransactionModel(newFrom: dto, categorizer: categorizer)
+
+        XCTAssertEqual(sut.category, "Moradia")
+        XCTAssertEqual(sut.tags, ["casa"])
+    }
+
     func testModelFromDTO_IgnoresClientProvidedID() {
         let dto = TransactionDTO(
             id: UUID(),

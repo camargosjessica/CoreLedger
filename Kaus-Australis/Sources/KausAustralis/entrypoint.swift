@@ -91,9 +91,9 @@ func configure(_ app: Application) async throws {
     app.migrations.add(CreateCategoryRuleMigration())
     app.migrations.add(CreateImportBatchMigration())
     app.migrations.add(AddTransactionImportFieldsMigration())
+    app.migrations.add(AddTagsMigration())
     app.migrations.add(SeedCategoryRulesMigration())
     app.migrations.add(SeedSavingsRulesMigration())
-    app.migrations.add(AddTagsMigration())
     app.migrations.add(CreateRecurringCommitmentMigration())
     try await app.autoMigrate()
 }

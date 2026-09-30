@@ -8,6 +8,12 @@ final class YearMonthTests: XCTestCase {
         XCTAssertEqual(YearMonth(year: 2026, month: 5).adding(months: -17), YearMonth(year: 2024, month: 12))
     }
 
+    func testRejectsOutOfRangeYears() {
+        XCTAssertNil(YearMonth("99999999999999-01"))
+        XCTAssertNil(YearMonth("0000-01"))
+        XCTAssertEqual(YearMonth("9999-12"), YearMonth(year: 9999, month: 12))
+    }
+
     func testSerializesAsYearDashMonth() throws {
         let encoded = try JSONEncoder().encode(YearMonth(year: 2026, month: 3))
         XCTAssertEqual(String(decoding: encoded, as: UTF8.self), "\"2026-03\"")
@@ -213,5 +219,91 @@ final class AnnualPlanTests: XCTestCase {
         let row = plan.rows.first { $0.category == "Casa" }
         XCTAssertEqual(row?.value(in: future), -250)
         XCTAssertEqual(plan.totals.last?.expenses, -250)
+    }
+
+    func testUnpaidCommitmentStillCountsWhenAnotherInSameCategoryPosted() {
+        let month = YearMonth(year: 2026, month: 3)
+        let plan = AnnualPlan.build(
+            from: month,
+            to: month,
+            transactions: [transaction("PIX JOAO", -1_000, month, category: "Moradia")],
+            commitments: [
+                RecurringCommitment(name: "Aluguel", category: "Moradia", amount: 1_000, start: month),
+                RecurringCommitment(name: "Copel", category: "Moradia", amount: 200, start: month)
+            ],
+            reference: reference
+        )
+
+        XCTAssertEqual(plan.rows.first { $0.category == "Moradia" }?.value(in: month), -1_200)
+    }
+
+    func testOffsettingEntriesDoNotReviveCommitment() {
+        let month = YearMonth(year: 2026, month: 3)
+        let plan = AnnualPlan.build(
+            from: month,
+            to: month,
+            transactions: [
+                transaction("Copel", -100, month, category: "Moradia"),
+                transaction("Estorno Copel", 100, month, category: "Moradia")
+            ],
+            commitments: [RecurringCommitment(name: "Copel", category: "Moradia", amount: 100, start: month)],
+            reference: reference
+        )
+
+        let row = plan.rows.first { $0.category == "Moradia" }
+        XCTAssertEqual(row?.value(in: month), 0)
+        XCTAssertTrue(row?.isRealized(in: month) == true)
+        XCTAssertEqual(plan.totals[0].expenses, 0)
+    }
+
+    func testProjectedCreditsAreIncome() {
+        let future = YearMonth(year: 2026, month: 6)
+        let plan = AnnualPlan.build(
+            from: future,
+            to: future,
+            transactions: [transaction("Reembolso", 500, future, category: "Reembolso", isProjected: true)],
+            commitments: [],
+            reference: reference
+        )
+
+        XCTAssertEqual(plan.totals[0].income, 500)
+        XCTAssertEqual(plan.totals[0].expenses, 0)
+    }
+
+    func testEssentialTotalsFollowTransactionTags() {
+        let month = YearMonth(year: 2026, month: 1)
+        var untagged = transaction("Mercado", -100, month, category: "Mercado")
+        untagged.tags = ["variável"]
+        var tagged = transaction("Presente", -40, month, category: "Presentes")
+        tagged.tags = [TagSet.essential]
+        let inherited = transaction("Supermercado", -60, month, category: "Mercado")
+
+        let plan = AnnualPlan.build(
+            from: month,
+            to: month,
+            transactions: [untagged, tagged, inherited],
+            commitments: [],
+            reference: reference
+        )
+
+        XCTAssertEqual(plan.totals[0].expenses, -200)
+        XCTAssertEqual(plan.totals[0].essentialExpenses, -100)
+    }
+
+    func testVariableSpendingKeepsPlanAsFloorWithinCurrentMonth() {
+        let month = YearMonth(year: 2026, month: 3)
+        let budget = RecurringCommitment(name: "Feira", category: "Mercado", amount: 800, start: month)
+        func plan(_ amounts: [Double]) -> Double? {
+            AnnualPlan.build(
+                from: month,
+                to: month,
+                transactions: amounts.map { transaction("Supermercado", $0, month, category: "Mercado") },
+                commitments: [budget],
+                reference: reference
+            ).rows.first?.value(in: month)
+        }
+
+        XCTAssertEqual(plan([-100]), -800)
+        XCTAssertEqual(plan([-500, -400]), -900)
     }
 }

@@ -26,7 +26,7 @@ public struct YearMonth: Codable, Sendable, Hashable, Comparable, CustomStringCo
     public init?(_ text: String) {
         let parts = text.split(separator: "-")
         guard parts.count == 2, let year = Int(parts[0]), let month = Int(parts[1]),
-              (1...12).contains(month) else { return nil }
+              (1...9999).contains(year), (1...12).contains(month) else { return nil }
         self.init(year: year, month: month)
     }
 

@@ -47,13 +47,21 @@ struct PlanController: RouteCollection {
         return .noContent
     }
 
+    private static func month(_ text: String?, field: String) throws -> YearMonth? {
+        guard let text else { return nil }
+        guard let month = YearMonth(text) else {
+            throw Abort(.badRequest, reason: "\(field) deve ser AAAA-MM com ano entre 1 e 9999")
+        }
+        return month
+    }
+
     /// A grade anual: uma linha por categoria, uma coluna por mês, com o valor
     /// real quando o extrato já trouxe e o planejado quando o mês é futuro.
     func plan(req: Request) async throws -> PlanResponse {
         let query = try req.query.decode(PlanQuery.self)
         let reference = Date()
-        let start = query.from.flatMap(YearMonth.init) ?? YearMonth(date: reference).adding(months: -2)
-        let requestedEnd = query.to.flatMap(YearMonth.init) ?? start.adding(months: 11)
+        let start = try Self.month(query.from, field: "from") ?? YearMonth(date: reference).adding(months: -2)
+        let requestedEnd = try Self.month(query.to, field: "to") ?? start.adding(months: 11)
         let end = min(requestedEnd, start.adding(months: Self.maxPlanMonths - 1))
 
         let commitments = try await RecurringCommitmentModel.query(on: req.db).all().map { $0.toDTO() }
