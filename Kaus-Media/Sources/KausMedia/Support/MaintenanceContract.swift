@@ -40,12 +40,29 @@ public struct ResetResponse: Codable, Sendable {
     public var batches: Int
     public var accounts: Int
     public var rules: Int
+    public var commitments: Int
 
-    public init(transactions: Int = 0, batches: Int = 0, accounts: Int = 0, rules: Int = 0) {
+    public init(
+        transactions: Int = 0,
+        batches: Int = 0,
+        accounts: Int = 0,
+        rules: Int = 0,
+        commitments: Int = 0
+    ) {
         self.transactions = transactions
         self.batches = batches
         self.accounts = accounts
         self.rules = rules
+        self.commitments = commitments
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        transactions = try container.decode(Int.self, forKey: .transactions)
+        batches = try container.decode(Int.self, forKey: .batches)
+        accounts = try container.decode(Int.self, forKey: .accounts)
+        rules = try container.decode(Int.self, forKey: .rules)
+        commitments = try container.decodeIfPresent(Int.self, forKey: .commitments) ?? 0
     }
 }
 

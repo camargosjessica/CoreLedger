@@ -92,4 +92,14 @@ final class CategorizerTests: XCTestCase {
         XCTAssertTrue(sut.transferCategories.contains("Transferências"))
         XCTAssertFalse(sut.transferCategories.contains("Mercado"))
     }
+
+    func testTagsForChosenCategoryIgnoreDescriptionMatch() {
+        let sut = Categorizer(rules: [
+            CategoryRule(term: "netflix", category: "Assinaturas", tags: ["variável"]),
+            CategoryRule(term: "aluguel", category: "Moradia", tags: ["casa"])
+        ])
+
+        XCTAssertEqual(sut.tags(forCategory: "Moradia"), ["casa"])
+        XCTAssertEqual(sut.tags(forCategory: "Saúde"), [TagSet.essential])
+    }
 }

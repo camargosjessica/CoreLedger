@@ -31,6 +31,10 @@ final class CategoryRuleModel: Model, @unchecked Sendable {
     @Field(key: "is_transfer")
     var isTransfer: Bool
 
+    /// Tags aplicadas ao lançamento quando a regra casa.
+    @Field(key: "tags")
+    var tags: [String]
+
     @Timestamp(key: "created_at", on: .create)
     var createdAt: Date?
 
@@ -49,6 +53,7 @@ final class CategoryRuleModel: Model, @unchecked Sendable {
         self.priority = rule.priority
         self.isEnabled = rule.isEnabled
         self.isTransfer = rule.isTransfer
+        self.tags = TagSet.normalize(rule.tags)
     }
 
     func toDTO() -> CategoryRule {
@@ -60,7 +65,8 @@ final class CategoryRuleModel: Model, @unchecked Sendable {
             amountScope: CategoryRule.AmountScope(rawValue: amountScope) ?? .any,
             priority: priority,
             isEnabled: isEnabled,
-            isTransfer: isTransfer
+            isTransfer: isTransfer,
+            tags: tags
         )
     }
 }

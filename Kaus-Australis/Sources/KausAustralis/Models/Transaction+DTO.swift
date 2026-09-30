@@ -10,6 +10,16 @@ extension TransactionModel {
         let category = dto.category
             ?? categorizer?.category(for: dto.description, amount: dto.amount)
             ?? CategoryRule.uncategorizedDebit
+        // Tags enviadas pelo cliente mandam; sem elas, valem as da categoria
+        // escolhida ou, se foi o categorizador quem escolheu, as da regra.
+        let tags: [String]
+        if !dto.tags.isEmpty {
+            tags = dto.tags
+        } else if dto.category != nil {
+            tags = categorizer?.tags(forCategory: category) ?? TagSet.suggested(for: category)
+        } else {
+            tags = categorizer?.tags(for: dto.description, amount: dto.amount) ?? TagSet.suggested(for: category)
+        }
 
         self.init(
             description: dto.description,
@@ -25,13 +35,20 @@ extension TransactionModel {
                 installment: dto.installment
             ),
             isProjected: dto.isProjected,
-            installment: dto.installment
+            installment: dto.installment,
+            tags: tags
         )
     }
 
     /// - Parameter dedupKey: calculada pelo `ImportPlanner`, que numera compras
     ///   repetidas dentro do mesmo arquivo.
-    convenience init(imported: ImportedTransaction, accountID: UUID, category: String, dedupKey: String) {
+    convenience init(
+        imported: ImportedTransaction,
+        accountID: UUID,
+        category: String,
+        dedupKey: String,
+        tags: [String] = []
+    ) {
         self.init(
             description: imported.description,
             amount: imported.amount,
@@ -41,7 +58,8 @@ extension TransactionModel {
             dedupKey: dedupKey,
             isProjected: imported.isProjected,
             installment: imported.installment,
-            externalID: imported.externalID
+            externalID: imported.externalID,
+            tags: tags.isEmpty ? TagSet.suggested(for: category) : tags
         )
     }
 
@@ -55,7 +73,8 @@ extension TransactionModel {
             accountID: $account.id,
             isProjected: isProjected,
             installment: installment,
-            dedupKey: dedupKey
+            dedupKey: dedupKey,
+            tags: tags
         )
     }
 }

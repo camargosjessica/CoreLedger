@@ -14,6 +14,9 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
     public var installment: Installment?
     /// Chave de deduplicação atribuída pelo servidor. Somente leitura para o cliente.
     public var dedupKey: String?
+    /// Marcadores livres. São preenchidos pela regra da categoria na importação
+    /// e podem ser trocados depois — inclusive por tags que o usuário inventar.
+    public var tags: [String]
 
     public init(
         id: UUID? = nil,
@@ -24,7 +27,8 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
         accountID: UUID? = nil,
         isProjected: Bool = false,
         installment: Installment? = nil,
-        dedupKey: String? = nil
+        dedupKey: String? = nil,
+        tags: [String] = []
     ) {
         self.id = id
         self.description = description
@@ -35,6 +39,7 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
         self.isProjected = isProjected
         self.installment = installment
         self.dedupKey = dedupKey
+        self.tags = TagSet.normalize(tags)
     }
 
     // Campos novos são opcionais na decodificação para não quebrar clientes antigos.
@@ -49,5 +54,6 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
         isProjected = try container.decodeIfPresent(Bool.self, forKey: .isProjected) ?? false
         installment = try container.decodeIfPresent(Installment.self, forKey: .installment)
         dedupKey = try container.decodeIfPresent(String.self, forKey: .dedupKey)
+        tags = TagSet.normalize(try container.decodeIfPresent([String].self, forKey: .tags) ?? [])
     }
 }

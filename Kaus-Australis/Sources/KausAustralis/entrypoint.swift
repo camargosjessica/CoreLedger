@@ -22,6 +22,9 @@ extension ResetRequest: @retroactive Content {}
 extension ResetResponse: @retroactive Content {}
 extension DeleteCategoryResponse: @retroactive Content {}
 extension FinancialPosition: @retroactive Content {}
+extension RecurringCommitment: @retroactive Content {}
+extension AnnualPlan: @retroactive Content {}
+extension PlanResponse: @retroactive Content {}
 
 @main
 struct App {
@@ -88,8 +91,10 @@ func configure(_ app: Application) async throws {
     app.migrations.add(CreateCategoryRuleMigration())
     app.migrations.add(CreateImportBatchMigration())
     app.migrations.add(AddTransactionImportFieldsMigration())
+    app.migrations.add(AddTagsMigration())
     app.migrations.add(SeedCategoryRulesMigration())
     app.migrations.add(SeedSavingsRulesMigration())
+    app.migrations.add(CreateRecurringCommitmentMigration())
     try await app.autoMigrate()
 }
 
@@ -108,5 +113,6 @@ func routes(_ app: Application) throws {
     try api.register(collection: AccountController())
     try api.register(collection: CategoryRuleController())
     try api.register(collection: TransactionController())
+    try api.register(collection: PlanController())
     try api.register(collection: MaintenanceController())
 }

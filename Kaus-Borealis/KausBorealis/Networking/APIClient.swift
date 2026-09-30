@@ -180,6 +180,36 @@ struct APIClient: Sendable {
         return try await send(.delete, "api/categories/\(escaped)")
     }
 
+    // MARK: Planejamento
+
+    func commitments() async throws -> [RecurringCommitment] {
+        try await send(.get, "api/commitments")
+    }
+
+    func createCommitment(_ commitment: RecurringCommitment) async throws -> RecurringCommitment {
+        try await send(.post, "api/commitments", body: commitment)
+    }
+
+    func updateCommitment(id: UUID, _ commitment: RecurringCommitment) async throws -> RecurringCommitment {
+        try await send(.put, "api/commitments/\(id.uuidString)", body: commitment)
+    }
+
+    func deleteCommitment(id: UUID) async throws {
+        try await sendIgnoringResponse(.delete, "api/commitments/\(id.uuidString)")
+    }
+
+    /// Grade anual: linhas por categoria, colunas por mês.
+    func plan(from: YearMonth, to: YearMonth, openingBalance: Double? = nil) async throws -> PlanResponse {
+        var items = [
+            URLQueryItem(name: "from", value: from.description),
+            URLQueryItem(name: "to", value: to.description)
+        ]
+        if let openingBalance {
+            items.append(URLQueryItem(name: "openingBalance", value: String(openingBalance)))
+        }
+        return try await send(.get, "api/plan", query: items)
+    }
+
     // MARK: Manutenção
 
     func reset(scope: ResetScope) async throws -> ResetResponse {

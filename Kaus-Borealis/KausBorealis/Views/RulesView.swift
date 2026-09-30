@@ -122,6 +122,7 @@ private struct RuleRow: View {
                 Text("\(rule.matchKind.rawValue) · prioridade \(rule.priority)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                TagChips(tags: rule.tags)
             }
             Spacer()
             if rule.isTransfer {
@@ -144,6 +145,7 @@ private struct RuleForm: View {
     @State private var priority = 100
     @State private var isEnabled = true
     @State private var isTransfer = false
+    @State private var tags: [String] = []
 
     @State private var sampleDescription = ""
     @State private var sampleAmount = "-100,00"
@@ -158,7 +160,8 @@ private struct RuleForm: View {
             amountScope: amountScope,
             priority: priority,
             isEnabled: isEnabled,
-            isTransfer: isTransfer
+            isTransfer: isTransfer,
+            tags: tags
         )
     }
 
@@ -180,6 +183,13 @@ private struct RuleForm: View {
                 Stepper("Prioridade: \(priority)", value: $priority, in: 1...999)
                 Toggle("Ativa", isOn: $isEnabled)
                 Toggle("É transferência", isOn: $isTransfer)
+            }
+
+            Section("Tags sugeridas") {
+                TagEditor(tags: $tags, suggestions: store.knownTags)
+                Text("Preenchem os lançamentos importados por esta regra; dá para editar depois em cada lançamento.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Testar") {
@@ -225,6 +235,7 @@ private struct RuleForm: View {
             priority = rule.priority
             isEnabled = rule.isEnabled
             isTransfer = rule.isTransfer
+            tags = rule.tags
         }
     }
 }

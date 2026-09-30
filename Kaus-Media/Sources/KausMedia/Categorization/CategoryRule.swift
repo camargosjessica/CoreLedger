@@ -44,6 +44,9 @@ public struct CategoryRule: Codable, Sendable, Hashable, Identifiable {
     /// Marca categorias que apenas movem dinheiro entre contas (PIX, TED, pagamento de fatura).
     /// Lançamentos assim são ignorados na projeção, porque inflariam entradas e saídas ao mesmo tempo.
     public var isTransfer: Bool
+    /// Tags atribuídas ao lançamento quando esta regra casa. Ficam vazias para
+    /// usar as sugestões da categoria; o usuário pode trocá-las por qualquer texto.
+    public var tags: [String]
 
     public init(
         id: UUID? = nil,
@@ -53,7 +56,8 @@ public struct CategoryRule: Codable, Sendable, Hashable, Identifiable {
         amountScope: AmountScope = .any,
         priority: Int = 100,
         isEnabled: Bool = true,
-        isTransfer: Bool = false
+        isTransfer: Bool = false,
+        tags: [String] = []
     ) {
         self.id = id
         self.term = term
@@ -63,6 +67,21 @@ public struct CategoryRule: Codable, Sendable, Hashable, Identifiable {
         self.priority = priority
         self.isEnabled = isEnabled
         self.isTransfer = isTransfer
+        self.tags = TagSet.normalize(tags)
+    }
+
+    // Campo novo é opcional na decodificação para não quebrar clientes antigos.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id)
+        term = try container.decode(String.self, forKey: .term)
+        category = try container.decode(String.self, forKey: .category)
+        matchKind = try container.decode(MatchKind.self, forKey: .matchKind)
+        amountScope = try container.decode(AmountScope.self, forKey: .amountScope)
+        priority = try container.decode(Int.self, forKey: .priority)
+        isEnabled = try container.decode(Bool.self, forKey: .isEnabled)
+        isTransfer = try container.decode(Bool.self, forKey: .isTransfer)
+        tags = TagSet.normalize(try container.decodeIfPresent([String].self, forKey: .tags) ?? [])
     }
 }
 
@@ -151,7 +170,8 @@ extension CategoryRule {
                     category: group.category,
                     matchKind: kind,
                     priority: group.priority,
-                    isTransfer: group.isTransfer
+                    isTransfer: group.isTransfer,
+                    tags: TagSet.suggested(for: group.category)
                 )
             }
         }

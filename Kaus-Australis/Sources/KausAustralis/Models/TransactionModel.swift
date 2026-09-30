@@ -45,6 +45,10 @@ final class TransactionModel: Model, @unchecked Sendable {
     @OptionalParent(key: "import_batch_id")
     var importBatch: ImportBatchModel?
 
+    /// Marcadores livres, preenchidos pela regra e editáveis pelo usuário.
+    @Field(key: "tags")
+    var tags: [String]
+
     init() { }
     
     init(
@@ -57,7 +61,8 @@ final class TransactionModel: Model, @unchecked Sendable {
         dedupKey: String? = nil,
         isProjected: Bool = false,
         installment: Installment? = nil,
-        externalID: String? = nil
+        externalID: String? = nil,
+        tags: [String] = []
     ) {
         self.id = id
         self.description = description
@@ -70,6 +75,7 @@ final class TransactionModel: Model, @unchecked Sendable {
         self.installmentNumber = installment?.number
         self.installmentTotal = installment?.total
         self.externalID = externalID
+        self.tags = TagSet.normalize(tags)
     }
 }
 

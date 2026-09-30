@@ -10,6 +10,8 @@ struct RootView: View {
                 .tabItem { Label("Resumo", systemImage: "chart.bar") }
             TransactionsView(store: store)
                 .tabItem { Label("Lançamentos", systemImage: "list.bullet") }
+            PlanView(store: store)
+                .tabItem { Label("Plano", systemImage: "calendar") }
             AccountsView(store: store)
                 .tabItem { Label("Contas", systemImage: "creditcard") }
             RulesView(store: store)

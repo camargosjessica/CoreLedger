@@ -115,6 +115,8 @@ struct TransactionController: RouteCollection {
             model.category = try await req.categoryRules.categorizer()
                 .category(for: dto.description, amount: dto.amount)
         }
+        // As tags do corpo são o estado final: mandar lista vazia apaga todas.
+        model.tags = TagSet.normalize(dto.tags)
         if keyWasCanonical {
             model.dedupKey = DedupKey.make(
                 accountID: dto.accountID,

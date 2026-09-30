@@ -83,8 +83,13 @@ struct CategoryRuleController: RouteCollection {
         var changed = 0
         for model in try await builder.all() {
             let category = categorizer.category(for: model.description, amount: model.amount)
-            guard category != model.category else { continue }
+            // Tags já atribuídas são preservadas: podem ter sido escolhidas à mão.
+            let tags = model.tags.isEmpty
+                ? categorizer.tags(for: model.description, amount: model.amount)
+                : model.tags
+            guard category != model.category || tags != model.tags else { continue }
             model.category = category
+            model.tags = tags
             try await model.update(on: req.db)
             changed += 1
         }
