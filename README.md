@@ -1,6 +1,6 @@
 # CoreLedger 📊
 
-O **CoreLedger** é uma aplicação *Full-Stack* desenvolvida inteiramente em **Swift**, concebida para a gestão e registo de transações financeiras. O projeto adota uma arquitetura de **monorepo modular**, garantindo a partilha rigorosa de contratos de dados entre o servidor e a aplicação cliente, sem duplicação de código.
+O **CoreLedger** é uma aplicação *Full-Stack* desenvolvida inteiramente em **Swift**, criada para o gerenciamento e o registro de transações financeiras. O projeto adota uma arquitetura de **monorepo modular**, garantindo o compartilhamento rigoroso de contratos de dados entre o servidor e o app cliente, sem duplicação de código.
 
 ---
 
@@ -12,7 +12,7 @@ A divisão interna foi inspirada no arco da constelação de Sagitário. **Kaus*
 
 *   **`Kaus-Australis` (ε Sgr, a ponta sul):** o **backend** em Vapor com PostgreSQL — a base estrutural que trabalha nos bastidores.
 *   **`Kaus-Borealis` (λ Sgr, a ponta norte):** o **frontend** em SwiftUI — a camada visível com que a pessoa interage.
-*   **`Kaus-Media` (δ Sgr, o centro):** os **contratos partilhados (DTOs)** — a peça no meio, que liga as duas pontas sem duplicação de código.
+*   **`Kaus-Media` (δ Sgr, o centro):** os **contratos compartilhados (DTOs)** — a peça no meio, que liga as duas pontas sem duplicação de código.
 
 ---
 
@@ -20,7 +20,7 @@ A divisão interna foi inspirada no arco da constelação de Sagitário. **Kaus*
 
 O repositório está estruturado em três módulos principais:
 
-*   **`Kaus-Media`**: Pacote Swift independente (`Swift Package`) que centraliza os contratos de dados e DTOs partilhados (`TransactionDTO`, `AccountDTO`, `CategoryRule`), além da lógica pura de categorização, leitura de extratos CSV/OFX, parcelas, deduplicação e projeção.
+*   **`Kaus-Media`**: Pacote Swift independente (`Swift Package`) que centraliza os contratos de dados e DTOs compartilhados (`TransactionDTO`, `AccountDTO`, `CategoryRule`), além da lógica pura de categorização, leitura de extratos CSV/OFX, parcelas, deduplicação e projeção.
 *   **`Kaus-Australis`**: O backend do sistema, construído com o framework **Vapor**, utilizando o ORM *Fluent* e **PostgreSQL** para persistência robusta de dados.
 *   **`Kaus-Borealis`**: O frontend nativo desenvolvido em **SwiftUI** para ecossistemas Apple (iOS / macOS), consumindo diretamente a API REST do backend.
 
@@ -38,41 +38,41 @@ O repositório está estruturado em três módulos principais:
 ## ⚙️ Como Executar o Projeto Localmente
 
 ### 1. Pré-requisitos
-*   Certifique-se de que tem o **Docker Desktop** a correr.
-*   Tenha o **Xcode** e a ferramenta de linha de comandos do Swift instaladas.
+*   Verifique se o **Docker Desktop** está rodando.
+*   Tenha o **Xcode** e as ferramentas de linha de comando do Swift instalados.
 
-### 2. Subir a Base de Dados
+### 2. Subir o Banco de Dados
 ```zsh
 cd Kaus-Australis
 docker compose up -d
 ```
 
 ### 3. Configurar as Variáveis de Ambiente
-As credenciais da base de dados são lidas do ambiente (o Vapor carrega o ficheiro `.env` automaticamente):
+As credenciais do banco de dados são lidas do ambiente (o Vapor carrega o arquivo `.env` automaticamente):
 ```zsh
 cp .env.example .env
 ```
 
-| Variável | Predefinição |
+| Variável | Padrão |
 | --- | --- |
 | `DATABASE_HOST` | `localhost` |
 | `DATABASE_PORT` | `5432` |
 | `DATABASE_USERNAME` | `kaus_user` |
 | `DATABASE_PASSWORD` | `kaus_password` |
 | `DATABASE_NAME` | `kaus_db` |
-| `DATABASE_TLS` | `disable` (use `require` para bases remotas) |
+| `DATABASE_TLS` | `disable` (use `require` para bancos remotos) |
 | `API_TOKEN` | vazio (em desenvolvimento as rotas ficam abertas; nos demais ambientes é obrigatório e vai no cabeçalho `Authorization: Bearer <token>`) |
 
-> O PostgreSQL só cria o utilizador e a base na primeira inicialização do volume `pgdata`. Defina o `.env` **antes** do primeiro `docker compose up`; para alterar credenciais depois, remova o volume (`docker compose down -v`) ou altere-as diretamente na base.
+> O PostgreSQL só cria o usuário e o banco na primeira inicialização do volume `pgdata`. Defina o `.env` **antes** do primeiro `docker compose up`; para alterar credenciais depois, remova o volume (`docker compose down -v`) ou altere-as diretamente no banco.
 
 ### 4. Executar o Backend (`Kaus-Australis`)
 ```zsh
 swift run
 ```
-As migrations são aplicadas automaticamente no arranque. O servidor fica disponível em `http://127.0.0.1:8080`.
+As migrations são aplicadas automaticamente na inicialização. O servidor fica disponível em `http://127.0.0.1:8080`.
 
 ### 5. Executar o Frontend (`Kaus-Borealis`)
-Abra `Kaus-Borealis/KausBorealis.xcodeproj` no Xcode e execute no simulador de iOS ou no macOS. O app tem cinco abas — Resumo, Lançamentos, Contas, Regras e Ajustes — e consome a API em `http://127.0.0.1:8080` por omissão.
+Abra `Kaus-Borealis/KausBorealis.xcodeproj` no Xcode e execute no simulador de iOS ou no macOS. O app tem seis abas — Resumo, Lançamentos, Plano, Contas, Regras e Ajustes — e consome a API em `http://127.0.0.1:8080` por padrão.
 
 Em **Resumo** o painel de posição mostra quanto há guardado (contas do tipo caixinha/poupança e investimento), quanto está disponível (corrente e dinheiro), quanto se deve no cartão e se o líquido está positivo, empatado ou negativo; as parcelas contratadas aparecem à parte, por serem compromisso futuro e não dívida já realizada. Ainda em Resumo há gráficos de receitas/despesas por mês (incluindo os meses previstos) e a rosca de despesas por categoria do mês corrente. Em **Lançamentos** dá para editar (toque na linha), selecionar vários para apagar de uma vez e desfazer uma importação inteira pela tela de importação. Em **Regras**, o botão de lixeira no cabeçalho de cada categoria apaga a categoria inteira e recategoriza os lançamentos pelas regras restantes. Em **Ajustes** é possível trocar o endereço do servidor e informar o `API_TOKEN` (deixe vazio quando o backend roda em `development`, onde o token não é exigido), além do "Apagar tudo" com escolha de escopo — só lançamentos e importações, também as contas, ou tudo inclusive as regras.
 
