@@ -12,6 +12,7 @@ struct EditTransactionSheet: View {
     @State private var date: Date
     @State private var accountID: UUID?
     @State private var category: String
+    @State private var tags: [String]
 
     init(store: LedgerStore, transaction: TransactionDTO) {
         self.store = store
@@ -21,6 +22,7 @@ struct EditTransactionSheet: View {
         _date = State(initialValue: transaction.date)
         _accountID = State(initialValue: transaction.accountID)
         _category = State(initialValue: transaction.category ?? "")
+        _tags = State(initialValue: transaction.tags)
     }
 
     var body: some View {
@@ -49,6 +51,13 @@ struct EditTransactionSheet: View {
                         }
                     }
                     Text("Deixe em branco para o servidor aplicar as regras.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Tags") {
+                    TagEditor(tags: $tags, suggestions: store.knownTags)
+                    Text("A tag \(TagSet.essential) marca o que é básico para sobreviver.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -82,6 +91,7 @@ struct EditTransactionSheet: View {
         updated.date = date
         updated.accountID = accountID
         updated.category = category.isEmpty ? nil : category
+        updated.tags = tags
         Task {
             await store.updateTransaction(updated)
             dismiss()

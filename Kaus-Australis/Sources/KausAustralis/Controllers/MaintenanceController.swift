@@ -44,6 +44,12 @@ struct MaintenanceController: RouteCollection {
                     try await model.delete(on: db)
                 }
                 response.rules = rules.count
+
+                let commitments = try await RecurringCommitmentModel.query(on: db).all()
+                for model in commitments {
+                    try await model.delete(on: db)
+                }
+                response.commitments = commitments.count
             }
 
             return response

@@ -267,6 +267,7 @@ struct TransactionRow: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                TagChips(tags: transaction.tags)
             }
             Spacer()
             Text(transaction.amount.brl)

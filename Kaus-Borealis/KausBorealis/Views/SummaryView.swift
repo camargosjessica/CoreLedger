@@ -15,6 +15,12 @@ struct SummaryView: View {
                     }
                 }
 
+                if let totals = store.plan?.totals.first(where: { $0.month == YearMonth(date: Date()) }) {
+                    Section("Plano do mês") {
+                        PlanSummaryCard(totals: totals)
+                    }
+                }
+
                 Section {
                     AccountFilter(store: store)
                 }
@@ -59,6 +65,35 @@ struct SummaryView: View {
             .refreshable { await store.reload() }
             .overlay { if store.isLoading && store.projection == nil { ProgressView() } }
         }
+    }
+}
+
+/// O rodapé da grade anual trazido para o Resumo: o quanto o mês já comprometeu
+/// e o quanto dele é básico para sobreviver.
+private struct PlanSummaryCard: View {
+    let totals: PlanMonthTotals
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            row("Receitas", totals.income)
+            row("Despesas", totals.expenses)
+            row("Essenciais", totals.essentialExpenses)
+            row("Guardado", totals.saved)
+            Divider()
+            row("Saldo do mês", totals.net)
+            row("Acumulado", totals.cumulative)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func row(_ title: String, _ value: Double) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(value.brl)
+                .foregroundStyle(value < 0 ? Color.primary : Color.green)
+        }
+        .font(.subheadline)
     }
 }
 

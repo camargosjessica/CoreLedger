@@ -13,6 +13,14 @@ final class LedgerStore {
     private(set) var projection: LedgerProjection?
     private(set) var batches: [ImportBatchDTO] = []
     private(set) var position: FinancialPosition?
+    private(set) var plan: AnnualPlan?
+    private(set) var commitments: [RecurringCommitment] = []
+    private(set) var knownTags: [String] = []
+
+    /// Ano exibido na grade anual, no formato da planilha (janeiro a dezembro).
+    var planYear: Int = YearMonth(date: Date()).year {
+        didSet { Task { await reloadPlan() } }
+    }
 
     private(set) var isLoading = false
     var errorMessage: String?
@@ -102,6 +110,7 @@ final class LedgerStore {
             async let projection = client.summary(accountID: self.selectedAccountID)
             async let batches = client.importBatches(accountID: self.selectedAccountID)
             async let position = client.position()
+            async let plan = client.plan(from: self.planStart, to: self.planEnd)
 
             self.accounts = try await accounts
             self.transactions = self.applyingCategoryFilter(to: try await transactions)
@@ -109,7 +118,43 @@ final class LedgerStore {
             self.projection = try await projection
             self.batches = try await batches
             self.position = try await position
+
+            let planResponse = try await plan
+            self.plan = planResponse.plan
+            self.commitments = planResponse.commitments
+            self.knownTags = planResponse.knownTags
         }
+    }
+
+    // MARK: Planejamento
+
+    private var planStart: YearMonth { YearMonth(year: planYear, month: 1) }
+    private var planEnd: YearMonth { YearMonth(year: planYear, month: 12) }
+
+    func reloadPlan() async {
+        await run {
+            let response = try await self.client.plan(from: self.planStart, to: self.planEnd)
+            self.plan = response.plan
+            self.commitments = response.commitments
+            self.knownTags = response.knownTags
+        }
+    }
+
+    func saveCommitment(_ commitment: RecurringCommitment) async {
+        await run {
+            if let id = commitment.id {
+                _ = try await self.client.updateCommitment(id: id, commitment)
+            } else {
+                _ = try await self.client.createCommitment(commitment)
+            }
+        }
+        await reloadPlan()
+    }
+
+    func deleteCommitment(_ commitment: RecurringCommitment) async {
+        guard let id = commitment.id else { return }
+        await run { try await self.client.deleteCommitment(id: id) }
+        await reloadPlan()
     }
 
     // MARK: Contas

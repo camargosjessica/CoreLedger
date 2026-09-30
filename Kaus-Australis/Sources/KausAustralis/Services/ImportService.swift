@@ -43,7 +43,11 @@ struct ImportService {
                         for: insert.transaction.description,
                         amount: insert.transaction.amount
                     ),
-                    dedupKey: insert.key
+                    dedupKey: insert.key,
+                    tags: categorizer.tags(
+                        for: insert.transaction.description,
+                        amount: insert.transaction.amount
+                    )
                 )
                 model.$importBatch.id = batch.id
                 try await model.create(on: db)
