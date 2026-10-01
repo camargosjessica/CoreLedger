@@ -31,8 +31,18 @@ final class ImportBatchModel: Model, @unchecked Sendable {
     @OptionalField(key: "filename")
     var filename: String?
 
+    /// Envelope em objeto: um array Swift seria gravado como `jsonb[]`, e a coluna é `jsonb`.
+    struct ConfirmationLog: Codable, Sendable {
+        var snapshots: [ConfirmationSnapshot]
+    }
+
     @Field(key: "confirmations")
-    var confirmations: [ConfirmationSnapshot]
+    var confirmationLog: ConfirmationLog
+
+    var confirmations: [ConfirmationSnapshot] {
+        get { confirmationLog.snapshots }
+        set { confirmationLog = ConfirmationLog(snapshots: newValue) }
+    }
 
     @Timestamp(key: "created_at", on: .create)
     var createdAt: Date?
@@ -43,7 +53,7 @@ final class ImportBatchModel: Model, @unchecked Sendable {
         self.id = id
         self.$account.id = accountID
         self.filename = filename
-        self.confirmations = confirmations
+        self.confirmationLog = ConfirmationLog(snapshots: confirmations)
     }
 }
 
