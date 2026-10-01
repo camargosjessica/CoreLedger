@@ -11,7 +11,11 @@ extension Double {
 extension Date {
     /// "setembro de 2025" — o servidor envia o mês como meia-noite UTC, então a
     /// formatação também é feita em UTC para não cair no mês anterior.
-    var monthYear: String { Formatters.monthYear.string(from: self).capitalized }
+    /// "Abril de 2027": só a primeira letra em maiúscula.
+    var monthYear: String {
+        let text = Formatters.monthYear.string(from: self)
+        return text.prefix(1).uppercased() + text.dropFirst()
+    }
 
     /// "25 de set."
     var shortDay: String { Formatters.shortDay.string(from: self) }

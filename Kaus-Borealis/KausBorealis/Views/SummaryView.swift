@@ -28,44 +28,40 @@ struct SummaryView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    if let position = store.position {
-                        PositionHero(position: position)
-                    }
+            CardScreen {
+                if let position = store.position {
+                    PositionHero(position: position)
+                }
 
+                if let current = history.last {
+                    CategoryStrip(summary: current)
+                }
+
+                LazyVGrid(columns: columns, spacing: 16) {
+                    if let currentPlan {
+                        PlanMonthCard(totals: currentPlan)
+                    }
+                    if !history.isEmpty {
+                        TrendCard(title: "Receitas", months: history, value: \.income, color: .green)
+                        TrendCard(title: "Despesas", months: history, value: { abs($0.expenses) }, color: .red)
+                    }
                     if let current = history.last {
-                        CategoryStrip(summary: current)
+                        CategoryBreakdownCard(summary: current)
                     }
-
-                    LazyVGrid(columns: columns, spacing: 16) {
-                        if let currentPlan {
-                            PlanMonthCard(totals: currentPlan)
-                        }
-                        if !history.isEmpty {
-                            TrendCard(title: "Receitas", months: history, value: \.income, color: .green)
-                            TrendCard(title: "Despesas", months: history, value: { abs($0.expenses) }, color: .red)
-                        }
-                        if let current = history.last {
-                            CategoryBreakdownCard(summary: current)
-                        }
-                        if let plan = store.plan, !plan.totals.isEmpty {
-                            CashFlowCard(year: store.planYear, totals: plan.totals)
-                        }
-                        if !upcoming.isEmpty {
-                            TransactionListCard(title: "Próximas parcelas", transactions: upcoming, showsDate: true)
-                        }
-                        if !recent.isEmpty {
-                            TransactionListCard(title: "Lançamentos recentes", transactions: recent, showsDate: false)
-                        }
-                        if !history.isEmpty || !forecast.isEmpty {
-                            MonthsCard(history: history, forecast: forecast)
-                        }
+                    if let plan = store.plan, !plan.totals.isEmpty {
+                        CashFlowCard(year: store.planYear, totals: plan.totals)
+                    }
+                    if !upcoming.isEmpty {
+                        TransactionListCard(title: "Próximas parcelas", transactions: upcoming, showsDate: true)
+                    }
+                    if !recent.isEmpty {
+                        TransactionListCard(title: "Lançamentos recentes", transactions: recent, showsDate: false)
+                    }
+                    if !history.isEmpty || !forecast.isEmpty {
+                        MonthsCard(history: history, forecast: forecast)
                     }
                 }
-                .padding()
             }
-            .background(.background.secondary)
             .navigationTitle("Resumo")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -94,6 +90,7 @@ struct SummaryView: View {
 /// positiva/empatada/negativa, com guardado, disponível e cartão logo abaixo.
 private struct PositionHero: View {
     let position: FinancialPosition
+    @AppStorage(AppAccent.storageKey) private var accent: AppAccent = .indigo
 
     private var statusColor: Color {
         switch position.status {
@@ -158,7 +155,7 @@ private struct PositionHero: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
-                colors: [Color(red: 0.10, green: 0.11, blue: 0.20), Color(red: 0.22, green: 0.18, blue: 0.40)],
+                colors: [Color(red: 0.08, green: 0.09, blue: 0.14), accent.color.mix(with: .black, by: 0.55)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),

@@ -142,3 +142,190 @@ extension Double {
     /// Valor com sinal explícito, para variações.
     var signedBRL: String { self > 0 ? "+\(brl)" : brl }
 }
+
+// MARK: - Aparência
+
+/// Tema escolhido em Ajustes; `system` segue o modo claro/escuro do aparelho.
+enum AppAppearance: String, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    static let storageKey = "appearance"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: return "Sistema"
+        case .light: return "Claro"
+        case .dark: return "Escuro"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
+/// Cor de destaque escolhida em Ajustes: botões, seleção e o cartão de patrimônio.
+enum AppAccent: String, CaseIterable, Identifiable {
+    case indigo
+    case blue
+    case teal
+    case green
+    case orange
+    case red
+    case pink
+    case purple
+
+    static let storageKey = "accent"
+
+    var id: String { rawValue }
+
+    var color: Color {
+        switch self {
+        case .indigo: return .indigo
+        case .blue: return .blue
+        case .teal: return .teal
+        case .green: return .green
+        case .orange: return .orange
+        case .red: return .red
+        case .pink: return .pink
+        case .purple: return .purple
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .indigo: return "Índigo"
+        case .blue: return "Azul"
+        case .teal: return "Turquesa"
+        case .green: return "Verde"
+        case .orange: return "Laranja"
+        case .red: return "Vermelho"
+        case .pink: return "Rosa"
+        case .purple: return "Roxo"
+        }
+    }
+}
+
+// MARK: - Estrutura das telas
+
+/// Fundo cinza com os cartões empilhados, usado por todas as abas.
+struct CardScreen<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                content
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(.background.secondary)
+    }
+}
+
+/// Indicador pequeno em cartão: ícone, título e valor.
+struct MetricTile: View {
+    let title: String
+    let value: Double
+    let symbol: String
+    let color: Color
+    var valueColor: Color = .primary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            IconBadge(symbol: symbol, color: color, size: 30)
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value.brl)
+                .font(.title3.weight(.semibold).monospacedDigit())
+                .foregroundStyle(valueColor)
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
+        }
+        .card()
+    }
+}
+
+/// Grade de `MetricTile` que vira coluna única em telas estreitas.
+struct MetricGrid<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 12)], spacing: 12) {
+            content
+        }
+    }
+}
+
+/// Título de seção fora dos cartões.
+struct SectionTitle<Trailing: View>: View {
+    let title: String
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack {
+            Text(title).font(.title3.weight(.semibold))
+            Spacer()
+            trailing
+        }
+        .padding(.top, 4)
+    }
+}
+
+extension SectionTitle where Trailing == EmptyView {
+    init(_ title: String) {
+        self.init(title: title) { EmptyView() }
+    }
+}
+
+/// Cápsula que abre um menu de filtro; destacada quando o filtro está ativo.
+struct FilterChip<Content: View>: View {
+    let title: String
+    let symbol: String
+    var isActive = false
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        Menu {
+            content
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: symbol)
+                Text(title).lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.bold))
+            }
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(isActive ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(HierarchicalShapeStyle.primary))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                isActive ? AnyShapeStyle(TintShapeStyle().opacity(0.15)) : AnyShapeStyle(Color.secondary.opacity(0.12)),
+                in: Capsule()
+            )
+        }
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .fixedSize()
+    }
+}
+
+/// Divisória entre linhas dentro de um cartão, alinhada ao texto e não ao ícone.
+struct RowDivider: View {
+    var inset: CGFloat = 48
+
+    var body: some View {
+        Divider().padding(.leading, inset)
+    }
+}

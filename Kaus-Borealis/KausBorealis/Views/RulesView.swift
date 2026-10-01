@@ -15,12 +15,28 @@ struct RulesView: View {
             .sorted { $0.category < $1.category }
     }
 
+    private let columns = [GridItem(.adaptive(minimum: 320), spacing: 16, alignment: .top)]
+
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Button("Reaplicar regras ao histórico") {
-                        Task { recategorizeResult = await store.recategorize(onlyUncategorized: false) }
+            CardScreen {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 12) {
+                        IconBadge(symbol: "wand.and.stars", color: .indigo, size: 40)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Categorização automática")
+                                .font(.headline)
+                            Text("\(store.rules.count) regras em \(grouped.count) categorias")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            Task { recategorizeResult = await store.recategorize(onlyUncategorized: false) }
+                        } label: {
+                            Label("Reaplicar ao histórico", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
                     if let recategorizeResult {
                         Text("\(recategorizeResult) lançamentos recategorizados")
@@ -33,32 +49,15 @@ struct RulesView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .card()
 
-                ForEach(grouped) { group in
-                    Section {
-                        ForEach(group.rules) { rule in
-                            NavigationLink {
-                                RuleForm(store: store, rule: rule)
-                            } label: {
-                                RuleRow(rule: rule)
-                            }
-                        }
-                        .onDelete { offsets in
-                            let selected = offsets.map { group.rules[$0] }
-                            Task { for rule in selected { await store.deleteRule(rule) } }
-                        }
-                    } header: {
-                        HStack {
-                            Text(group.category)
-                            Spacer()
-                            Button(role: .destructive) {
-                                pendingCategoryDeletion = group.category
-                            } label: {
-                                Label("Apagar categoria", systemImage: "trash")
-                                    .labelStyle(.iconOnly)
-                            }
-                            .buttonStyle(.borderless)
-                        }
+                LazyVGrid(columns: columns, spacing: 16) {
+                    ForEach(grouped) { group in
+                        RuleGroupCard(
+                            group: group,
+                            store: store,
+                            onDeleteCategory: { pendingCategoryDeletion = group.category }
+                        )
                     }
                 }
             }
@@ -110,26 +109,83 @@ private struct RuleGroup: Identifiable {
     var id: String { category }
 }
 
+/// Uma categoria com as suas regras; tocar numa regra abre a edição.
+private struct RuleGroupCard: View {
+    let group: RuleGroup
+    @Bindable var store: LedgerStore
+    let onDeleteCategory: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                CategoryIcon(category: group.category)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(group.category)
+                        .font(.headline)
+                    Text(group.rules.count == 1 ? "1 regra" : "\(group.rules.count) regras")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button(role: .destructive, action: onDeleteCategory) {
+                    Label("Apagar categoria", systemImage: "trash")
+                        .labelStyle(.iconOnly)
+                        .foregroundStyle(Color.red)
+                }
+                .buttonStyle(.borderless)
+            }
+            Divider()
+            ForEach(group.rules) { rule in
+                NavigationLink {
+                    RuleForm(store: store, rule: rule)
+                } label: {
+                    RuleRow(rule: rule)
+                }
+                .buttonStyle(.plain)
+                .contextMenu {
+                    Button("Apagar regra", systemImage: "trash", role: .destructive) {
+                        Task { await store.deleteRule(rule) }
+                    }
+                }
+            }
+        }
+        .card()
+    }
+}
+
 private struct RuleRow: View {
     let rule: CategoryRule
 
+    private var matchTitle: String {
+        switch rule.matchKind {
+        case .word: return "Palavra inteira"
+        case .contains: return "Contém"
+        case .regex: return "Expressão regular"
+        }
+    }
+
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(rule.term)
-                    .font(.body)
+                    .font(.body.weight(.medium))
                     .strikethrough(!rule.isEnabled)
-                Text("\(rule.matchKind.rawValue) · prioridade \(rule.priority)")
+                    .foregroundStyle(rule.isEnabled ? Color.primary : Color.secondary)
+                Text("\(matchTitle) · prioridade \(rule.priority)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 TagChips(tags: rule.tags)
             }
             Spacer()
             if rule.isTransfer {
-                Image(systemName: "arrow.left.arrow.right")
-                    .foregroundStyle(.secondary)
+                DeltaPill(text: "transferência", color: .gray)
             }
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
         }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 }
 
@@ -214,6 +270,7 @@ private struct RuleForm: View {
                 }
             }
         }
+        .formStyle(.grouped)
         .navigationTitle(rule == nil ? "Nova regra" : "Editar regra")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

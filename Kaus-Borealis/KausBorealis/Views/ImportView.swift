@@ -100,6 +100,7 @@ struct ImportView: View {
                     }
                 }
             }
+            .formStyle(.grouped)
             .navigationTitle("Importar")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

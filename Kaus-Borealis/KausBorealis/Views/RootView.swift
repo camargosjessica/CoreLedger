@@ -3,6 +3,8 @@ import KausMedia
 
 struct RootView: View {
     @State private var store = LedgerStore()
+    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .system
+    @AppStorage(AppAccent.storageKey) private var accent: AppAccent = .indigo
 
     var body: some View {
         // Barra lateral no Mac e no iPad, barra de abas no iPhone.
@@ -27,7 +29,8 @@ struct RootView: View {
             }
         }
         .tabViewStyle(.sidebarAdaptable)
-        .tint(.indigo)
+        .tint(accent.color)
+        .preferredColorScheme(appearance.colorScheme)
         .task { await store.reload() }
         .alert(
             "Erro",

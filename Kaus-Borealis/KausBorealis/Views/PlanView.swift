@@ -11,48 +11,84 @@ struct PlanView: View {
 
     private var plan: AnnualPlan? { store.plan }
 
+    private let columns = [GridItem(.adaptive(minimum: 280), spacing: 12, alignment: .top)]
+
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Picker("Ano", selection: $store.planYear) {
-                        ForEach(years, id: \.self) { year in
-                            Text(String(year)).tag(year)
-                        }
+            CardScreen {
+                Picker("Ano", selection: $store.planYear) {
+                    ForEach(years, id: \.self) { year in
+                        Text(String(year)).tag(year)
                     }
-                    .pickerStyle(.segmented)
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
 
                 if let plan, !plan.rows.isEmpty {
-                    Section("Grade anual") {
-                        PlanGrid(plan: plan)
-                            .listRowInsets(EdgeInsets())
-                    }
-                } else {
-                    Section {
-                        ContentUnavailableView(
-                            "Nada previsto para \(String(store.planYear))",
-                            systemImage: "calendar",
-                            description: Text("Importe extratos ou cadastre um compromisso para montar a grade.")
+                    MetricGrid {
+                        MetricTile(
+                            title: "Receitas no ano",
+                            value: plan.totals.reduce(0) { $0 + $1.income },
+                            symbol: "arrow.down.left",
+                            color: .green
+                        )
+                        MetricTile(
+                            title: "Despesas no ano",
+                            value: plan.totals.reduce(0) { $0 + $1.expenses },
+                            symbol: "arrow.up.right",
+                            color: .red
+                        )
+                        MetricTile(
+                            title: "Guardado no ano",
+                            value: plan.totals.reduce(0) { $0 + $1.saved },
+                            symbol: "lock.shield.fill",
+                            color: .teal
+                        )
+                        MetricTile(
+                            title: "Acumulado em dezembro",
+                            value: plan.totals.last?.cumulative ?? 0,
+                            symbol: "chart.line.uptrend.xyaxis",
+                            color: .indigo,
+                            valueColor: (plan.totals.last?.cumulative ?? 0) < 0 ? .red : .green
                         )
                     }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        CardHeader(title: "Grade anual") {
+                            Text("valores em cinza são previstos")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        PlanGrid(plan: plan)
+                    }
+                    .card()
+                } else {
+                    ContentUnavailableView(
+                        "Nada previsto para \(String(store.planYear))",
+                        systemImage: "calendar",
+                        description: Text("Importe extratos ou cadastre um compromisso para montar a grade.")
+                    )
+                    .card()
                 }
 
-                Section("Compromissos") {
-                    if store.commitments.isEmpty {
-                        Text("Cadastre aluguel, luz, salário, aporte na caixinha…")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                SectionTitle("Compromissos")
+                if store.commitments.isEmpty {
+                    Text("Cadastre aluguel, luz, salário, aporte na caixinha…")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .card()
+                }
+                LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(store.commitments) { commitment in
                         Button {
                             editing = commitment
                         } label: {
-                            CommitmentRow(commitment: commitment)
+                            CommitmentCard(commitment: commitment)
                         }
                         .buttonStyle(.plain)
-                        .swipeActions {
-                            Button("Apagar", role: .destructive) {
+                        .contextMenu {
+                            Button("Editar…", systemImage: "pencil") { editing = commitment }
+                            Button("Apagar", systemImage: "trash", role: .destructive) {
                                 Task { await store.deleteCommitment(commitment) }
                             }
                         }
@@ -62,7 +98,7 @@ struct PlanView: View {
             .navigationTitle("Plano")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button { isCreating = true } label: { Image(systemName: "plus") }
+                    Button { isCreating = true } label: { Label("Novo compromisso", systemImage: "plus") }
                 }
             }
             .refreshable { await store.reloadPlan() }
@@ -102,8 +138,7 @@ private struct PlanGrid: View {
                 totalsRow("Acumulado", values: plan.totals.map(\.cumulative))
                 totalsRow("Essenciais", values: plan.totals.map(\.essentialExpenses))
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+            .padding(.bottom, 8)
         }
     }
 
@@ -170,27 +205,46 @@ private struct PlanGrid: View {
     }
 }
 
-private struct CommitmentRow: View {
+private struct CommitmentCard: View {
     let commitment: RecurringCommitment
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(commitment.name)
-                Spacer()
-                Text(commitment.plannedAmount(in: commitment.start).brl)
-                    .foregroundStyle(commitment.kind == .income ? Color.green : Color.primary)
-            }
-            HStack(spacing: 6) {
-                Text(commitment.category)
-                Text("dia \(commitment.dayOfMonth)")
-                Text(period)
-                if !commitment.isEnabled { Text("pausado") }
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            TagChips(tags: commitment.tags)
+    private var amountColor: Color {
+        switch commitment.kind {
+        case .income: return .green
+        case .saving: return .teal
+        case .expense: return .primary
         }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            CategoryIcon(category: commitment.category, size: 40)
+                .opacity(commitment.isEnabled ? 1 : 0.4)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(commitment.name)
+                    .font(.headline)
+                    .lineLimit(1)
+                Text("\(commitment.category) · dia \(commitment.dayOfMonth)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Label(period, systemImage: "calendar")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TagChips(tags: commitment.tags)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 6) {
+                Text(commitment.plannedAmount(in: commitment.start).brl)
+                    .font(.headline.monospacedDigit())
+                    .foregroundStyle(amountColor)
+                DeltaPill(
+                    text: commitment.isEnabled ? commitment.kind.displayName : "Pausado",
+                    color: commitment.isEnabled ? amountColor : .gray
+                )
+            }
+        }
+        .card()
+        .contentShape(Rectangle())
     }
 
     private var period: String {
@@ -320,6 +374,7 @@ private struct CommitmentSheet: View {
                     TextField("Opcional", text: $notes, axis: .vertical)
                 }
             }
+            .formStyle(.grouped)
             .navigationTitle(commitment == nil ? "Novo compromisso" : "Editar compromisso")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
