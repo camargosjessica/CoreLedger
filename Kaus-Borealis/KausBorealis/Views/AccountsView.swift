@@ -43,22 +43,26 @@ private struct AccountRow: View {
     let account: AccountDTO
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(account.name)
-                .font(.headline)
-            HStack {
-                Text(account.kind.displayName)
-                if let count = account.transactionCount {
-                    Text("· \(count) lançamentos")
+        HStack(spacing: 12) {
+            IconBadge(symbol: account.kind.symbol, color: account.kind.tint)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(account.name)
+                    .font(.headline)
+                HStack(spacing: 4) {
+                    Text(account.kind.displayName)
+                    if let count = account.transactionCount {
+                        Text("· \(count) lançamentos")
+                    }
                 }
-                Spacer()
-                if let balance = account.balance {
-                    Text(balance.brl)
-                        .foregroundStyle(balance < 0 ? Color.red : Color.green)
-                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            Spacer()
+            if let balance = account.balance {
+                Text(balance.brl)
+                    .font(.headline.monospacedDigit())
+                    .foregroundStyle(balance < 0 ? Color.red : Color.green)
+            }
         }
         .padding(.vertical, 2)
     }

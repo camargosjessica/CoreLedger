@@ -5,20 +5,29 @@ struct RootView: View {
     @State private var store = LedgerStore()
 
     var body: some View {
+        // Barra lateral no Mac e no iPad, barra de abas no iPhone.
         TabView {
-            SummaryView(store: store)
-                .tabItem { Label("Resumo", systemImage: "chart.bar") }
-            TransactionsView(store: store)
-                .tabItem { Label("Lançamentos", systemImage: "list.bullet") }
-            PlanView(store: store)
-                .tabItem { Label("Plano", systemImage: "calendar") }
-            AccountsView(store: store)
-                .tabItem { Label("Contas", systemImage: "creditcard") }
-            RulesView(store: store)
-                .tabItem { Label("Regras", systemImage: "slider.horizontal.3") }
-            SettingsView(store: store)
-                .tabItem { Label("Ajustes", systemImage: "gear") }
+            Tab("Resumo", systemImage: "square.grid.2x2.fill") {
+                SummaryView(store: store)
+            }
+            Tab("Lançamentos", systemImage: "list.bullet.rectangle.portrait.fill") {
+                TransactionsView(store: store)
+            }
+            Tab("Plano", systemImage: "calendar") {
+                PlanView(store: store)
+            }
+            Tab("Contas", systemImage: "creditcard.fill") {
+                AccountsView(store: store)
+            }
+            Tab("Regras", systemImage: "slider.horizontal.3") {
+                RulesView(store: store)
+            }
+            Tab("Ajustes", systemImage: "gearshape.fill") {
+                SettingsView(store: store)
+            }
         }
+        .tabViewStyle(.sidebarAdaptable)
+        .tint(.indigo)
         .task { await store.reload() }
         .alert(
             "Erro",

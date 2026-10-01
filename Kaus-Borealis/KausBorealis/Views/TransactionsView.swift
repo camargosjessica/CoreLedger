@@ -249,10 +249,13 @@ struct TransactionRow: View {
     let transaction: TransactionDTO
 
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
+            CategoryIcon(category: transaction.category)
+                .opacity(transaction.isProjected ? 0.5 : 1)
             VStack(alignment: .leading, spacing: 4) {
                 Text(transaction.description)
                     .font(.headline)
+                    .lineLimit(1)
                 HStack(spacing: 6) {
                     Text(transaction.category ?? CategoryRule.uncategorizedDebit)
                     if let installment = transaction.installment {
@@ -271,7 +274,7 @@ struct TransactionRow: View {
             }
             Spacer()
             Text(transaction.amount.brl)
-                .font(.headline)
+                .font(.headline.monospacedDigit())
                 .foregroundStyle(transaction.amount < 0 ? Color.primary : Color.green)
         }
         .padding(.vertical, 2)
