@@ -70,6 +70,7 @@ struct EditTransactionSheet: View {
                     }
                 }
             }
+            .formStyle(.grouped)
             .navigationTitle("Editar")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

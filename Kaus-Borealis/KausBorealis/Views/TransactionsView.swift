@@ -19,23 +19,27 @@ struct TransactionsView: View {
     }
 
     /// Projeções ficam de fora do saldo: ainda não saíram da conta.
-    private var total: Double {
-        store.transactions.filter { !$0.isProjected }.reduce(0) { $0 + $1.amount }
-    }
+    private var realized: [TransactionDTO] { store.transactions.filter { !$0.isProjected } }
+    private var total: Double { realized.reduce(0) { $0 + $1.amount } }
+    private var income: Double { realized.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount } }
+    private var spending: Double { realized.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount } }
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    AccountFilter(store: store)
-                    PeriodFilter(store: store)
-                    CategoryFilter(store: store)
-                    LabeledContent("Saldo do período") {
-                        Text(total.brl)
-                            .font(.headline)
-                            .foregroundStyle(total < 0 ? Color.red : Color.green)
-                    }
+            CardScreen {
+                MetricGrid {
+                    MetricTile(
+                        title: "Saldo do período",
+                        value: total,
+                        symbol: "equal.circle.fill",
+                        color: .indigo,
+                        valueColor: total < 0 ? .red : .green
+                    )
+                    MetricTile(title: "Entradas", value: income, symbol: "arrow.down.left", color: .green)
+                    MetricTile(title: "Saídas", value: spending, symbol: "arrow.up.right", color: .red)
                 }
+
+                filters
 
                 if store.transactions.isEmpty && !store.isLoading {
                     ContentUnavailableView(
@@ -43,18 +47,29 @@ struct TransactionsView: View {
                         systemImage: "tray",
                         description: Text(emptyDescription)
                     )
+                    .card()
                 }
 
-                ForEach(grouped) { group in
-                    Section {
-                        ForEach(group.items) { transaction in
-                            row(for: transaction)
-                        }
-                    } header: {
-                        HStack {
-                            Text(group.day.shortDay)
-                            Spacer()
-                            Text(group.items.reduce(0) { $0 + $1.amount }.brl)
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    ForEach(grouped) { group in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(group.day.shortDay)
+                                Spacer()
+                                Text(group.items.reduce(0) { $0 + $1.amount }.brl)
+                                    .monospacedDigit()
+                            }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 4)
+
+                            VStack(spacing: 0) {
+                                ForEach(Array(group.items.enumerated()), id: \.element.rowID) { index, transaction in
+                                    if index > 0 { RowDivider(inset: isSelecting ? 80 : 48) }
+                                    row(for: transaction)
+                                }
+                            }
+                            .card()
                         }
                     }
                 }
@@ -89,6 +104,41 @@ struct TransactionsView: View {
                 Text(pendingDelete?.description ?? "")
             }
         }
+    }
+
+    private var filters: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            PeriodFilter(store: store)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    FilterChip(
+                        title: accountTitle,
+                        symbol: "building.columns",
+                        isActive: store.selectedAccountID != nil
+                    ) {
+                        Picker("Conta", selection: $store.selectedAccountID) {
+                            Text("Todas as contas").tag(UUID?.none)
+                            ForEach(store.accounts) { account in
+                                Text(account.name).tag(account.id)
+                            }
+                        }
+                        .pickerStyle(.inline)
+                    }
+                    FilterChip(
+                        title: store.selectedCategory ?? "Todas as categorias",
+                        symbol: "tag",
+                        isActive: store.selectedCategory != nil
+                    ) {
+                        CategoryFilter(store: store)
+                            .pickerStyle(.inline)
+                    }
+                }
+            }
+        }
+    }
+
+    private var accountTitle: String {
+        store.accounts.first { $0.id == store.selectedAccountID }?.name ?? "Todas as contas"
     }
 
     @ToolbarContentBuilder
@@ -129,27 +179,26 @@ struct TransactionsView: View {
 
     @ViewBuilder
     private func row(for transaction: TransactionDTO) -> some View {
-        HStack {
+        HStack(spacing: 12) {
             if isSelecting {
                 Image(systemName: isSelected(transaction) ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(Color.accentColor)
+                    .font(.title3)
+                    .foregroundStyle(.tint)
             }
             TransactionRow(transaction: transaction)
         }
+        .padding(.vertical, 6)
         .contentShape(Rectangle())
         .onTapGesture { tapped(transaction) }
-        .swipeActions {
-            Button("Apagar", role: .destructive) { pendingDelete = transaction }
-            Button("Editar") { editing = transaction }
-                .tint(Color.blue)
-        }
         .contextMenu {
-            Button("Editar…") { editing = transaction }
+            Button("Editar…", systemImage: "pencil") { editing = transaction }
             Menu("Categoria") {
                 ForEach(store.categories, id: \.self) { name in
                     Button(name) { Task { await store.setCategory(name, on: transaction) } }
                 }
             }
+            Divider()
+            Button("Apagar", systemImage: "trash", role: .destructive) { pendingDelete = transaction }
         }
     }
 
@@ -222,6 +271,7 @@ private struct PeriodFilter: View {
             }
         }
         .pickerStyle(.segmented)
+        .labelsHidden()
     }
 }
 
@@ -249,10 +299,13 @@ struct TransactionRow: View {
     let transaction: TransactionDTO
 
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
+            CategoryIcon(category: transaction.category)
+                .opacity(transaction.isProjected ? 0.5 : 1)
             VStack(alignment: .leading, spacing: 4) {
                 Text(transaction.description)
                     .font(.headline)
+                    .lineLimit(1)
                 HStack(spacing: 6) {
                     Text(transaction.category ?? CategoryRule.uncategorizedDebit)
                     if let installment = transaction.installment {
@@ -271,10 +324,9 @@ struct TransactionRow: View {
             }
             Spacer()
             Text(transaction.amount.brl)
-                .font(.headline)
+                .font(.headline.monospacedDigit())
                 .foregroundStyle(transaction.amount < 0 ? Color.primary : Color.green)
         }
-        .padding(.vertical, 2)
     }
 }
 
@@ -303,6 +355,7 @@ private struct NewTransactionSheet: View {
                 }
                 TextField("Categoria (opcional)", text: $category)
             }
+            .formStyle(.grouped)
             .navigationTitle("Novo lançamento")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -329,5 +382,12 @@ private struct NewTransactionSheet: View {
             await store.addTransaction(transaction)
             dismiss()
         }
+    }
+}
+
+private extension TransactionDTO {
+    /// Lançamentos gravados sempre têm `id`; o resto cai na combinação dos campos.
+    var rowID: String {
+        id?.uuidString ?? "\(date.timeIntervalSince1970)|\(description)|\(amount)"
     }
 }
