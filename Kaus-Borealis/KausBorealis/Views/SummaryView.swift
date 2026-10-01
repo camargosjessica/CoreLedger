@@ -16,21 +16,14 @@ struct SummaryView: View {
     private var history: [MonthlySummary] { store.projection?.history ?? [] }
     private var forecast: [MonthlySummary] { store.projection?.forecast ?? [] }
 
-    private var upcoming: [TransactionDTO] {
-        let today = LedgerCalendar.startOfDay(Date())
-        return store.transactions
-            .filter { $0.isProjected && $0.date >= today }
-            .sorted { $0.date < $1.date }
-            .prefix(5)
-            .map { $0 }
-    }
+    private var upcoming: [TransactionDTO] { Array(store.upcoming.prefix(5)) }
 
     private var recent: [TransactionDTO] {
         Array(store.transactions.filter { !$0.isProjected }.prefix(6))
     }
 
     private var isEmpty: Bool {
-        store.position == nil && history.isEmpty && forecast.isEmpty && store.transactions.isEmpty
+        store.position == nil && history.isEmpty && forecast.isEmpty && store.transactions.isEmpty && upcoming.isEmpty
     }
 
     var body: some View {
@@ -302,10 +295,16 @@ private struct CategoryBreakdownCard: View {
 private struct PlanMonthCard: View {
     let totals: PlanMonthTotals
 
-    /// Parte da receita já consumida pelas despesas.
+    /// Despesas sobre receita; passa de 1 quando se gasta mais do que entra.
     private var usage: Double {
-        guard totals.income > 0 else { return totals.expenses < 0 ? 1 : 0 }
-        return min(abs(totals.expenses) / totals.income, 1)
+        guard totals.income > 0 else { return totals.expenses < 0 ? .infinity : 0 }
+        return abs(totals.expenses) / totals.income
+    }
+
+    private var usageLabel: String {
+        usage.isFinite
+            ? "\(Int((usage * 100).rounded()))% da receita comprometida"
+            : "Despesas sem receita no mês"
     }
 
     var body: some View {
@@ -313,9 +312,9 @@ private struct PlanMonthCard: View {
             CardHeader(title: "Plano do mês") {
                 DeltaPill(text: totals.net.signedBRL, color: totals.net < 0 ? .red : .green)
             }
-            ProgressView(value: usage)
+            ProgressView(value: min(usage, 1))
                 .tint(usage >= 1 ? Color.red : usage > 0.8 ? Color.orange : Color.green)
-            Text("\(Int((usage * 100).rounded()))% da receita comprometida")
+            Text(usageLabel)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             VStack(spacing: 6) {
@@ -344,10 +343,11 @@ private struct PlanMonthCard: View {
 }
 
 private struct ChartPoint: Identifiable {
-    var label: String
+    var month: Date
     var value: Double
 
-    var id: String { label }
+    var id: Date { month }
+    var label: String { month.shortMonthYear }
 }
 
 /// Valor do último mês, variação em relação ao anterior e a curva dos últimos seis.
@@ -358,7 +358,7 @@ private struct TrendCard: View {
     let color: Color
 
     private var points: [ChartPoint] {
-        months.suffix(6).map { ChartPoint(label: $0.month.shortMonth, value: value($0)) }
+        months.suffix(6).map { ChartPoint(month: $0.month, value: value($0)) }
     }
 
     var body: some View {
@@ -391,14 +391,14 @@ private struct TrendCard: View {
     }
 }
 
-/// Saldo de cada mês do ano (barras) e o acumulado (linha), vindos da grade anual.
+/// Fluxo de caixa de cada mês do ano (barras) e o acumulado (linha), vindos da grade anual.
 private struct CashFlowCard: View {
     let year: Int
     let totals: [PlanMonthTotals]
 
     private struct Point: Identifiable {
         var label: String
-        var net: Double
+        var cashFlow: Double
         var cumulative: Double
         var isForecast: Bool
 
@@ -407,7 +407,7 @@ private struct CashFlowCard: View {
 
     private var points: [Point] {
         totals.map {
-            Point(label: $0.month.startDate.shortMonth, net: $0.net, cumulative: $0.cumulative, isForecast: $0.isForecast)
+            Point(label: $0.month.startDate.shortMonth, cashFlow: $0.cashFlow, cumulative: $0.cumulative, isForecast: $0.isForecast)
         }
     }
 
@@ -419,8 +419,8 @@ private struct CashFlowCard: View {
                 }
             }
             Chart(points) { point in
-                BarMark(x: .value("Mês", point.label), y: .value("Saldo", point.net))
-                    .foregroundStyle(point.net < 0 ? Color.red.gradient : Color.green.gradient)
+                BarMark(x: .value("Mês", point.label), y: .value("Fluxo", point.cashFlow))
+                    .foregroundStyle(point.cashFlow < 0 ? Color.red.gradient : Color.green.gradient)
                     .opacity(point.isForecast ? 0.45 : 1)
                     .cornerRadius(4)
                 LineMark(x: .value("Mês", point.label), y: .value("Acumulado", point.cumulative))
@@ -431,7 +431,7 @@ private struct CashFlowCard: View {
             .chartYAxis { AxisMarks(position: .leading) }
             .frame(height: 180)
             HStack(spacing: 12) {
-                Label("Saldo do mês", systemImage: "square.fill").foregroundStyle(.green)
+                Label("Fluxo do mês", systemImage: "square.fill").foregroundStyle(.green)
                 Label("Acumulado", systemImage: "line.diagonal").foregroundStyle(.indigo)
                 Label("Previsto esmaecido", systemImage: "circle.lefthalf.filled").foregroundStyle(.secondary)
             }

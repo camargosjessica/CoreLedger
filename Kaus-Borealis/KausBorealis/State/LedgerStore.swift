@@ -16,6 +16,9 @@ final class LedgerStore {
     private(set) var plan: AnnualPlan?
     private(set) var commitments: [RecurringCommitment] = []
     private(set) var knownTags: [String] = []
+    /// Próximas parcelas projetadas, independentes do filtro de período da
+    /// lista e do limite de linhas da página de lançamentos.
+    private(set) var upcoming: [TransactionDTO] = []
 
     /// Ano exibido na grade anual, no formato da planilha (janeiro a dezembro).
     var planYear: Int = YearMonth(date: Date()).year {
@@ -111,6 +114,13 @@ final class LedgerStore {
             async let batches = client.importBatches(accountID: self.selectedAccountID)
             async let position = client.position()
             async let plan = client.plan(from: self.planStart, to: self.planEnd)
+            let today = LedgerCalendar.startOfDay(Date())
+            async let upcoming = client.transactions(
+                accountID: self.selectedAccountID,
+                from: today,
+                to: LedgerCalendar.addingDays(Self.upcomingWindowDays, to: today),
+                limit: 1000
+            )
 
             self.accounts = try await accounts
             self.transactions = self.applyingCategoryFilter(to: try await transactions)
@@ -118,6 +128,9 @@ final class LedgerStore {
             self.projection = try await projection
             self.batches = try await batches
             self.position = try await position
+            self.upcoming = try await upcoming
+                .filter(\.isProjected)
+                .sorted { $0.date < $1.date }
 
             let planResponse = try await plan
             self.plan = planResponse.plan
@@ -127,6 +140,9 @@ final class LedgerStore {
     }
 
     // MARK: Planejamento
+
+    /// Parcelas são mensais, então três meses à frente sempre trazem a próxima.
+    private static let upcomingWindowDays = 92
 
     private var planStart: YearMonth { YearMonth(year: planYear, month: 1) }
     private var planEnd: YearMonth { YearMonth(year: planYear, month: 12) }

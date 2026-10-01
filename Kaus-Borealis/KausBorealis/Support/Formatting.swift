@@ -18,6 +18,9 @@ extension Date {
 
     /// "set." — rótulo curto dos eixos dos gráficos.
     var shortMonth: String { Formatters.shortMonth.string(from: self) }
+
+    /// "set. 25" — para eixos que podem atravessar anos.
+    var shortMonthYear: String { Formatters.shortMonthYear.string(from: self) }
 }
 
 private enum Formatters {
@@ -31,6 +34,7 @@ private enum Formatters {
     static let monthYear = dateFormatter("MMMM 'de' yyyy")
     static let shortDay = dateFormatter("d 'de' MMM")
     static let shortMonth = dateFormatter("MMM")
+    static let shortMonthYear = dateFormatter("MMM yy")
 
     private static func dateFormatter(_ format: String) -> DateFormatter {
         let formatter = DateFormatter()
