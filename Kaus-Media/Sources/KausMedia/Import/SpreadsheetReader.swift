@@ -7,6 +7,7 @@ import ZIPFoundation
 public enum SpreadsheetError: Error, Equatable, LocalizedError {
     case notXLSX
     case missingSheet
+    case tooLarge
 
     public var errorDescription: String? {
         switch self {
@@ -14,6 +15,8 @@ public enum SpreadsheetError: Error, Equatable, LocalizedError {
             return "O arquivo não é uma planilha .xlsx. Se for um .xls antigo, abra no Excel, Numbers ou Google Planilhas e salve como .xlsx ou .csv."
         case .missingSheet:
             return "A planilha não tem nenhuma aba com dados."
+        case .tooLarge:
+            return "A planilha é grande demais para ser uma fatura ou extrato."
         }
     }
 }
@@ -41,25 +44,47 @@ public enum SpreadsheetReader {
             throw SpreadsheetError.notXLSX
         }
 
+        var tooLarge = false
         func read(_ path: String) -> Data? {
             guard let entry = archive[path] else { return nil }
+            guard entry.uncompressedSize <= maxEntrySize else {
+                tooLarge = true
+                return nil
+            }
             var content = Data()
-            guard (try? archive.extract(entry, consumer: { content.append($0) })) != nil else { return nil }
+            let extracted = try? archive.extract(entry) { chunk in
+                content.append(chunk)
+                if content.count > maxEntrySize { throw SpreadsheetError.tooLarge }
+            }
+            guard extracted != nil else {
+                tooLarge = tooLarge || content.count > maxEntrySize
+                return nil
+            }
             return content
         }
 
-        guard let sheetData = read(firstSheetPath(read: read)) else { throw SpreadsheetError.missingSheet }
+        let workbook = read("xl/workbook.xml")
+        let sheetData = read(firstSheetPath(workbook: workbook, read: read))
         let sharedStrings = read("xl/sharedStrings.xml").map(SharedStringsParser.parse) ?? []
         let dateStyles = read("xl/styles.xml").map(StylesParser.dateStyles) ?? []
+        if tooLarge { throw SpreadsheetError.tooLarge }
+        guard let sheetData else { throw SpreadsheetError.missingSheet }
 
-        return SheetParser.parse(sheetData, sharedStrings: sharedStrings, dateStyles: dateStyles)
+        let date1904 = workbook
+            .flatMap { XMLAttributes.first(element: "workbookPr", attribute: "date1904", in: $0) }
+            .map { $0 == "1" || $0.lowercased() == "true" } ?? false
+
+        return SheetParser.parse(sheetData, sharedStrings: sharedStrings, dateStyles: dateStyles, date1904: date1904)
     }
+
+    /// Limite por arquivo interno descompactado: uma fatura real tem poucos KB.
+    private static let maxEntrySize: UInt64 = 20_000_000
 
     /// Caminho da primeira aba declarada em `workbook.xml`, resolvido pelos
     /// relacionamentos — o Google Planilhas nem sempre usa `sheet1.xml`.
-    private static func firstSheetPath(read: (String) -> Data?) -> String {
+    private static func firstSheetPath(workbook: Data?, read: (String) -> Data?) -> String {
         let fallback = "xl/worksheets/sheet1.xml"
-        guard let workbook = read("xl/workbook.xml"),
+        guard let workbook,
               let relationID = XMLAttributes.first(element: "sheet", attribute: "r:id", in: workbook),
               let relations = read("xl/_rels/workbook.xml.rels"),
               let target = XMLAttributes.target(ofRelationship: relationID, in: relations)
@@ -73,9 +98,13 @@ public enum SpreadsheetReader {
         return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
     }
 
-    /// Datas no Excel são dias desde 30/12/1899 (sistema 1900, o padrão).
-    static func dateString(fromSerial serial: Double) -> String {
-        let epoch = DateComponents(calendar: LedgerCalendar.calendar, year: 1899, month: 12, day: 30).date ?? Date()
+    /// Datas no Excel são dias desde 30/12/1899 (sistema 1900, o padrão) ou
+    /// desde 01/01/1904 quando a pasta usa o sistema 1904 (`date1904`).
+    static func dateString(fromSerial serial: Double, date1904: Bool = false) -> String {
+        let epochParts = date1904
+            ? DateComponents(calendar: LedgerCalendar.calendar, year: 1904, month: 1, day: 1)
+            : DateComponents(calendar: LedgerCalendar.calendar, year: 1899, month: 12, day: 30)
+        let epoch = epochParts.date ?? Date()
         let date = LedgerCalendar.addingDays(Int(serial.rounded(.down)), to: epoch)
         let parts = LedgerCalendar.calendar.dateComponents([.year, .month, .day], from: date)
         return String(format: "%02d/%02d/%04d", parts.day ?? 1, parts.month ?? 1, parts.year ?? 1900)
@@ -228,6 +257,7 @@ private final class StylesParser: NSObject, XMLParserDelegate {
 private final class SheetParser: NSObject, XMLParserDelegate {
     private let sharedStrings: [String]
     private let dateStyles: Set<Int>
+    private let date1904: Bool
 
     private var rows: [[String]] = []
     private var row: [String] = []
@@ -237,13 +267,14 @@ private final class SheetParser: NSObject, XMLParserDelegate {
     private var value = ""
     private var capturing = false
 
-    private init(sharedStrings: [String], dateStyles: Set<Int>) {
+    private init(sharedStrings: [String], dateStyles: Set<Int>, date1904: Bool) {
         self.sharedStrings = sharedStrings
         self.dateStyles = dateStyles
+        self.date1904 = date1904
     }
 
-    static func parse(_ data: Data, sharedStrings: [String], dateStyles: Set<Int>) -> [[String]] {
-        let delegate = SheetParser(sharedStrings: sharedStrings, dateStyles: dateStyles)
+    static func parse(_ data: Data, sharedStrings: [String], dateStyles: Set<Int>, date1904: Bool) -> [[String]] {
+        let delegate = SheetParser(sharedStrings: sharedStrings, dateStyles: dateStyles, date1904: date1904)
         let parser = XMLParser(data: data)
         parser.delegate = delegate
         _ = parser.parse()
@@ -309,7 +340,7 @@ private final class SheetParser: NSObject, XMLParserDelegate {
         default:
             guard !value.isEmpty else { return "" }
             if dateStyles.contains(cellStyle), let serial = Double(value) {
-                return SpreadsheetReader.dateString(fromSerial: serial)
+                return SpreadsheetReader.dateString(fromSerial: serial, date1904: date1904)
             }
             return SpreadsheetReader.numberString(value)
         }

@@ -7,14 +7,15 @@ final class SpreadsheetReaderTests: XCTestCase {
     /// Monta um `.xlsx` mínimo em memória no formato exportado pelos bancos:
     /// cabeçalho do banco antes da tabela, data com formato personalizado e
     /// parcela numa coluna própria.
-    private func makeXLSX(sheetRows: String, sharedStrings: [String], sheetPath: String = "worksheets/sheet1.xml") throws -> Data {
+    private func makeXLSX(sheetRows: String, sharedStrings: [String], sheetPath: String = "worksheets/sheet1.xml",
+                          workbookProperties: String = "") throws -> Data {
         let strings = sharedStrings.map { "<si><t>\($0)</t></si>" }.joined()
         let files: [String: String] = [
             "[Content_Types].xml": "<?xml version=\"1.0\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"/>",
             "xl/workbook.xml": """
             <?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" \
             xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">\
-            <sheets><sheet name="Fatura" sheetId="1" r:id="rId1"/></sheets></workbook>
+            \(workbookProperties)<sheets><sheet name="Fatura" sheetId="1" r:id="rId1"/></sheets></workbook>
             """,
             "xl/_rels/workbook.xml.rels": """
             <?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\
@@ -78,6 +79,13 @@ final class SpreadsheetReaderTests: XCTestCase {
         XCTAssertEqual(try SpreadsheetReader.rows(fromXLSX: data), [["ok"]])
     }
 
+    func testReadsDatesFromWorkbooksUsingThe1904System() throws {
+        let data = try makeXLSX(sheetRows: "<row r=\"1\">\(n("A1", "44742", style: 1))</row>", sharedStrings: [],
+                                workbookProperties: "<workbookPr date1904=\"1\"/>")
+
+        XCTAssertEqual(try SpreadsheetReader.rows(fromXLSX: data), [["01/07/2026"]])
+    }
+
     func testRejectsFilesThatAreNotXLSX() {
         XCTAssertThrowsError(try SpreadsheetReader.csv(fromXLSX: Data("Data;Valor".utf8))) { error in
             XCTAssertEqual(error as? SpreadsheetError, .notXLSX)
@@ -117,6 +125,14 @@ final class CardStatementTests: XCTestCase {
         XCTAssertEqual(result.map(\.amount), [6873.37, -44.32, -6.13])
     }
 
+    func testNegativeInvoicePaymentDecidesEvenWhenCountsTie() {
+        let payment = ImportedTransaction(date: DateParser.parse("01/07/2026")!, description: "Pagamento Efetuado", amount: -80)
+
+        let result = CardStatement.normalizeSigns([payment, line(80)])
+
+        XCTAssertEqual(result.map(\.amount), [80, -80])
+    }
+
     func testKeepsInvoicesAlreadyInTheAppConvention() {
         let result = CardStatement.normalizeSigns([line(500), line(-44.32), line(-6.13)])
 
@@ -129,6 +145,30 @@ final class PurchaseDatedInstallmentTests: XCTestCase {
     private func day(_ text: String) -> Date { DateParser.parse(text)! }
 
     private func month(_ date: Date) -> String { String(LedgerCalendar.isoDay(date).prefix(7)) }
+
+    func testInstallmentsDatedByPostingAreNotShifted() {
+        let csv = """
+        Data;Descrição;Parcela;Valor
+        02/02/2026;MERCADO;;-50,00
+        15/02/2026;LOJA;Parcela 2 de 6;-100,00
+        """
+
+        XCTAssertFalse(StatementParser.parse(content: csv, format: .csv).installmentsDatedByPurchase)
+    }
+
+    func testRowWithAmountButNoDateIsReportedAndTotalsAreSkipped() {
+        let csv = """
+        Data;Descrição;Valor
+        02/02/2026;MERCADO;-50,00
+        ;PADARIA;-35,00
+        ;Total;-85,00
+        """
+
+        let parsed = StatementParser.parse(content: csv, format: .csv)
+
+        XCTAssertEqual(parsed.transactions.count, 1)
+        XCTAssertEqual(parsed.failures.map(\.line), [3])
+    }
 
     func testInstallmentMovesToItsBillingMonth() {
         let row = ImportedTransaction(date: day("26/07/2025"), description: "Shopee Formi Parcela 12 de 12", amount: -126.95)

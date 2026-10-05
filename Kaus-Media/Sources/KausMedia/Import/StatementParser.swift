@@ -145,7 +145,7 @@ public enum StatementParser {
             let amount = rawAmount.flatMap(ValueParser.parse)
 
             // Subtotal sem data e avisos de rodapé não são lançamentos.
-            if rawDate == nil || (date == nil && amount == nil) { continue }
+            if date == nil && (amount == nil || isTotalRow(fields)) { continue }
 
             guard let date else {
                 failures.append(ImportFailure(line: row.line, content: row.raw, reason: "Data ausente ou em formato desconhecido"))
@@ -172,11 +172,39 @@ public enum StatementParser {
         return ParsedStatement(
             transactions: transactions,
             failures: failures,
-            installmentsDatedByPurchase: layout.hasInstallmentColumn
+            installmentsDatedByPurchase: layout.hasInstallmentColumn && installmentsCarryPurchaseDate(transactions)
         )
     }
 
     private static let headerSearchLimit = 50
+
+    private static func isTotalRow(_ fields: [String]) -> Bool {
+        fields.contains {
+            let normalized = TextNormalizer.normalize($0)
+            return normalized.hasPrefix("total") || normalized.hasPrefix("subtotal")
+        }
+    }
+
+    /// Faturas como a do Itaú repetem a data da compra em todas as parcelas: a
+    /// 2/12 ou 5/12 aparece datada antes do início do ciclo, marcado pelo
+    /// lançamento comum (sem parcela) mais antigo. Faturas datadas pelo
+    /// lançamento mantêm todas as parcelas dentro do ciclo.
+    static func installmentsCarryPurchaseDate(_ transactions: [ImportedTransaction]) -> Bool {
+        var cycleStart: Date?
+        var laterInstallments: [Date] = []
+        for transaction in transactions {
+            if let detection = InstallmentParser.detect(in: transaction.description) {
+                if detection.installment.number >= 2 { laterInstallments.append(transaction.date) }
+            } else if cycleStart.map({ transaction.date < $0 }) ?? true {
+                cycleStart = transaction.date
+            }
+        }
+        guard let cycleStart else { return false }
+        let threshold = LedgerCalendar.addingDays(-purchaseDateToleranceDays, to: cycleStart)
+        return laterInstallments.contains { $0 < threshold }
+    }
+
+    private static let purchaseDateToleranceDays = 10
 }
 
 /// Descobre quais colunas do CSV contêm data, descrição e valor.

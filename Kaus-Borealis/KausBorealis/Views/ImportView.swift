@@ -185,7 +185,7 @@ struct ImportView: View {
         }
         filename = url.lastPathComponent
         content = text
-        if isSpreadsheet { format = .csv }
+        format = isSpreadsheet ? .csv : nil
     }
 
     private func send() {
