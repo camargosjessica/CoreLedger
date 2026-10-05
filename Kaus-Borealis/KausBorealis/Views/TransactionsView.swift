@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import KausMedia
 
 struct TransactionsView: View {
@@ -11,6 +12,8 @@ struct TransactionsView: View {
     @State private var editing: TransactionDTO?
     @State private var pendingDelete: TransactionDTO?
     @State private var isConfirmingBulkDelete = false
+    @State private var isExporting = false
+    @State private var exportDocument: CSVFile?
 
     private var grouped: [DayGroup] {
         Dictionary(grouping: store.transactions) { LedgerCalendar.startOfDay($0.date) }
@@ -23,6 +26,9 @@ struct TransactionsView: View {
     private var total: Double { realized.reduce(0) { $0 + $1.amount } }
     private var income: Double { realized.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount } }
     private var spending: Double { realized.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount } }
+    /// Com um cartão filtrado num mês futuro, é o valor previsto da fatura.
+    private var totalWithProjected: Double { store.transactions.reduce(0) { $0 + $1.amount } }
+    private var hasProjected: Bool { store.transactions.contains(where: \.isProjected) }
 
     var body: some View {
         NavigationStack {
@@ -37,6 +43,15 @@ struct TransactionsView: View {
                     )
                     MetricTile(title: "Entradas", value: income, symbol: "arrow.down.left", color: .green)
                     MetricTile(title: "Saídas", value: spending, symbol: "arrow.up.right", color: .red)
+                    if hasProjected {
+                        MetricTile(
+                            title: "Com previstos",
+                            value: totalWithProjected,
+                            symbol: "calendar.badge.clock",
+                            color: .orange,
+                            valueColor: totalWithProjected < 0 ? .red : .green
+                        )
+                    }
                 }
 
                 filters
@@ -82,6 +97,14 @@ struct TransactionsView: View {
             .safeAreaInset(edge: .bottom) { selectionBar }
             .sheet(isPresented: $isAdding) { NewTransactionSheet(store: store) }
             .sheet(isPresented: $isImporting) { ImportView(store: store) }
+            .fileExporter(
+                isPresented: $isExporting,
+                document: exportDocument,
+                contentType: .commaSeparatedText,
+                defaultFilename: exportFilename
+            ) { result in
+                if case let .failure(error) = result { store.errorMessage = error.localizedDescription }
+            }
             .sheet(item: $editing) { transaction in
                 EditTransactionSheet(store: store, transaction: transaction)
             }
@@ -137,6 +160,20 @@ struct TransactionsView: View {
         }
     }
 
+    private func export() {
+        Task {
+            guard let transactions = await store.transactionsForExport() else { return }
+            exportDocument = CSVFile(text: TransactionCSV.export(transactions))
+            isExporting = true
+        }
+    }
+
+    private var exportFilename: String {
+        let account = store.accounts.first { $0.id == store.selectedAccountID }?.name
+        let month = store.period == .month ? store.selectedMonth.description : nil
+        return (["lancamentos", account, month].compactMap { $0 }).joined(separator: "-")
+    }
+
     private var accountTitle: String {
         store.accounts.first { $0.id == store.selectedAccountID }?.name ?? "Todas as contas"
     }
@@ -159,6 +196,10 @@ struct TransactionsView: View {
                 Button { isImporting = true } label: {
                     Label("Importar", systemImage: "square.and.arrow.down")
                 }
+                Button { export() } label: {
+                    Label("Exportar CSV", systemImage: "square.and.arrow.up")
+                }
+                .disabled(store.transactions.isEmpty)
                 Button { isAdding = true } label: {
                     Label("Novo", systemImage: "plus")
                 }
@@ -265,13 +306,55 @@ private struct PeriodFilter: View {
     @Bindable var store: LedgerStore
 
     var body: some View {
-        Picker("Período", selection: $store.period) {
-            ForEach(LedgerStore.Period.allCases) { period in
-                Text(period.title).tag(period)
+        VStack(spacing: 8) {
+            Picker("Período", selection: $store.period) {
+                ForEach(LedgerStore.Period.allCases) { period in
+                    Text(period.title).tag(period)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            if store.period == .month {
+                HStack {
+                    Button {
+                        store.selectedMonth = store.selectedMonth.adding(months: -1)
+                    } label: {
+                        Label("Mês anterior", systemImage: "chevron.left")
+                    }
+                    Spacer()
+                    Text(store.selectedMonth.startDate.monthYear)
+                        .font(.headline)
+                    Spacer()
+                    Button {
+                        store.selectedMonth = store.selectedMonth.adding(months: 1)
+                    } label: {
+                        Label("Próximo mês", systemImage: "chevron.right")
+                    }
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
             }
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
+    }
+}
+
+/// Documento para o `fileExporter`. O BOM faz o Excel abrir os acentos certos.
+private struct CSVFile: FileDocument {
+    static var readableContentTypes: [UTType] { [.commaSeparatedText] }
+
+    var text: String
+
+    init(text: String) {
+        self.text = text
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        text = configuration.file.regularFileContents.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: Data(("\u{FEFF}" + text).utf8))
     }
 }
 

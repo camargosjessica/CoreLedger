@@ -76,6 +76,12 @@ public enum ValueParser {
 
 /// Conversão das datas encontradas em extratos.
 public enum DateParser {
+    /// `dd/MM/aaaa`, o primeiro formato aceito por `parse`.
+    public static func format(_ date: Date) -> String {
+        let parts = LedgerCalendar.calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%02d/%02d/%04d", parts.day ?? 1, parts.month ?? 1, parts.year ?? 1970)
+    }
+
     private static let formats = [
         "dd/MM/yyyy", "dd/MM/yy", "yyyy-MM-dd", "dd-MM-yyyy", "dd.MM.yyyy", "yyyy/MM/dd", "yyyyMMdd"
     ]

@@ -184,6 +184,50 @@ final class ImportPlannerTests: XCTestCase {
         XCTAssertEqual(plan.confirmations.first?.key, key)
     }
 
+    /// Cada fatura do Itaú corta a descrição num ponto diferente; a parcela e as
+    /// projeções seguintes têm de casar com as que a fatura anterior gravou.
+    func testInstallmentWithDifferentlyTruncatedDescriptionConfirmsStoredProjection() {
+        let date = DateParser.parse("15/12/2026")!
+        let stored = ImportPlanner.StoredInstallment(
+            key: "chave-gravada",
+            description: "shopee*shps tecnol",
+            amount: -67.83,
+            date: date,
+            installment: Installment(number: 7, total: 12)
+        )
+        let real = ImportedTransaction(
+            date: LedgerCalendar.addingDays(2, to: date),
+            description: "shopee*shps tecnologia sao paulo bra",
+            amount: -67.83,
+            installment: Installment(number: 7, total: 12)
+        )
+        let otherStore = ImportedTransaction(
+            date: date,
+            description: "shopee*bibo sun araquari bra",
+            amount: -67.83,
+            installment: Installment(number: 7, total: 12)
+        )
+        let transactions = [real, otherStore]
+        let exact = ImportPlanner.keys(for: transactions, accountID: accountID)
+
+        let keys = ImportPlanner.reconcilingInstallments(
+            keys: exact,
+            transactions: transactions,
+            existing: [:],
+            stored: [stored]
+        )
+        let plan = ImportPlanner.plan(
+            transactions: transactions,
+            accountID: accountID,
+            existing: ["chave-gravada": true],
+            keys: keys
+        )
+
+        XCTAssertEqual(keys, ["chave-gravada", exact[1]])
+        XCTAssertEqual(plan.confirmations.map(\.key), ["chave-gravada"])
+        XCTAssertEqual(plan.inserts.map(\.transaction.description), ["shopee*bibo sun araquari bra"])
+    }
+
     func testRealTransactionWinsOverProjectedOneInTheSameBatch() {
         let projected = ImportedTransaction(
             date: DateParser.parse("10/02/2025")!,

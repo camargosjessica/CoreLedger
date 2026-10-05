@@ -43,11 +43,28 @@ final class LedgerStore {
         didSet { Task { await reloadTransactions() } }
     }
 
+    /// Mês do período `.month`. Aceita meses futuros, para ver as parcelas previstas.
+    var selectedMonth = YearMonth(date: Date()) {
+        didSet { if period == .month { Task { await reloadTransactions() } } }
+    }
+
+    /// Só a resposta da consulta mais recente atualiza a lista.
+    private var transactionsGeneration = 0
+
+    private var periodStart: Date? {
+        period == .month ? selectedMonth.startDate : period.start
+    }
+
+    private var periodEnd: Date? {
+        period == .month ? LedgerCalendar.addingDays(-1, to: selectedMonth.adding(months: 1).startDate) : period.end
+    }
+
     enum Period: String, CaseIterable, Identifiable {
         case all
         case thisMonth
         case last3Months
         case last12Months
+        case month
 
         var id: String { rawValue }
 
@@ -57,6 +74,7 @@ final class LedgerStore {
             case .thisMonth: return "Mês"
             case .last3Months: return "3 meses"
             case .last12Months: return "12 meses"
+            case .month: return "Escolher"
             }
         }
 
@@ -64,7 +82,7 @@ final class LedgerStore {
         var start: Date? {
             let now = Date()
             switch self {
-            case .all: return nil
+            case .all, .month: return nil
             case .thisMonth: return LedgerCalendar.startOfMonth(now)
             case .last3Months: return LedgerCalendar.startOfMonth(LedgerCalendar.addingMonths(-2, to: now))
             case .last12Months: return LedgerCalendar.startOfMonth(LedgerCalendar.addingMonths(-11, to: now))
@@ -74,7 +92,7 @@ final class LedgerStore {
         /// Último dia do intervalo. Sem ele, um lançamento datado no futuro
         /// (ou uma parcela projetada) entraria no total do período escolhido.
         var end: Date? {
-            guard self != .all else { return nil }
+            guard self != .all, self != .month else { return nil }
             let nextMonth = LedgerCalendar.addingMonths(1, to: LedgerCalendar.startOfMonth(Date()))
             return LedgerCalendar.addingDays(-1, to: nextMonth)
         }
@@ -98,6 +116,8 @@ final class LedgerStore {
     }
 
     func reload() async {
+        transactionsGeneration += 1
+        let generation = transactionsGeneration
         isLoading = true
         defer { isLoading = false }
         await run {
@@ -106,8 +126,8 @@ final class LedgerStore {
             async let transactions = client.transactions(
                 accountID: self.selectedAccountID,
                 search: self.searchTerm.isEmpty ? nil : self.searchTerm,
-                from: self.period.start,
-                to: self.period.end
+                from: self.periodStart,
+                to: self.periodEnd
             )
             async let rules = client.categoryRules()
             async let projection = client.summary(accountID: self.selectedAccountID)
@@ -123,7 +143,8 @@ final class LedgerStore {
             )
 
             self.accounts = try await accounts
-            self.transactions = self.applyingCategoryFilter(to: try await transactions)
+            let loaded = self.applyingCategoryFilter(to: try await transactions)
+            if generation == self.transactionsGeneration { self.transactions = loaded }
             self.rules = try await rules
             self.projection = try await projection
             self.batches = try await batches
@@ -232,15 +253,41 @@ final class LedgerStore {
     }
 
     private func reloadTransactions() async {
+        transactionsGeneration += 1
+        let generation = transactionsGeneration
         await run {
             let all = try await self.client.transactions(
                 accountID: self.selectedAccountID,
                 search: self.searchTerm.isEmpty ? nil : self.searchTerm,
-                from: self.period.start,
-                to: self.period.end
+                from: self.periodStart,
+                to: self.periodEnd
             )
+            guard generation == self.transactionsGeneration else { return }
             self.transactions = self.applyingCategoryFilter(to: all)
         }
+    }
+
+    /// Todos os lançamentos dos filtros atuais, sem o limite de uma página da lista.
+    func transactionsForExport() async -> [TransactionDTO]? {
+        let pageSize = 1000
+        var all: [TransactionDTO] = []
+        var finished = false
+        await run {
+            while true {
+                let page = try await self.client.transactions(
+                    accountID: self.selectedAccountID,
+                    search: self.searchTerm.isEmpty ? nil : self.searchTerm,
+                    from: self.periodStart,
+                    to: self.periodEnd,
+                    limit: pageSize,
+                    offset: all.count
+                )
+                all += page
+                if page.count < pageSize { break }
+            }
+            finished = true
+        }
+        return finished ? applyingCategoryFilter(to: all) : nil
     }
 
     private func applyingCategoryFilter(to items: [TransactionDTO]) -> [TransactionDTO] {
@@ -252,9 +299,9 @@ final class LedgerStore {
 
     /// Devolve o relatório para a tela mostrar quantos entraram, quantos eram
     /// duplicados e quais linhas falharam.
-    func importStatement(_ request: ImportRequestDTO) async -> ImportReportDTO? {
-        var report: ImportReportDTO?
-        await run { report = try await self.client.importStatement(request) }
+    /// Lança o erro em vez de usar `errorMessage`, para a tela mostrá-lo junto do arquivo.
+    func importStatement(_ request: ImportRequestDTO) async throws -> ImportReportDTO {
+        let report = try await client.importStatement(request)
         await reload()
         return report
     }
@@ -337,7 +384,11 @@ final class LedgerStore {
             try await operation()
             errorMessage = nil
         } catch {
-            errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            errorMessage = Self.message(for: error)
         }
+    }
+
+    static func message(for error: any Error) -> String {
+        (error as? APIError)?.errorDescription ?? error.localizedDescription
     }
 }

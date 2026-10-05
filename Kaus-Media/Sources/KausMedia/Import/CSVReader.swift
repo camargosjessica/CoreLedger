@@ -4,6 +4,16 @@ import Foundation
 /// (`""`) e quebras de linha dentro de um campo. O separador é detectado entre
 /// `;` (padrão dos bancos brasileiros), `,` e tabulação.
 enum CSVReader {
+    /// Linha no formato que o próprio leitor entende: `;` e aspas só quando preciso.
+    static func line(_ fields: [String]) -> String {
+        fields.map(quote).joined(separator: ";")
+    }
+
+    private static func quote(_ field: String) -> String {
+        guard field.contains(where: { $0 == ";" || $0 == "\"" || $0 == "\n" || $0 == "\r" }) else { return field }
+        return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+    }
+
     struct Row {
         /// Número da primeira linha física do registro, para reportar erros ao usuário.
         let line: Int

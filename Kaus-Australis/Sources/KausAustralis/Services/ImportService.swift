@@ -28,10 +28,20 @@ struct ImportService {
             : lines
 
         let categorizer = try await CategoryRuleService(database: database).categorizer()
-        let existing = try await existingKeys(
-            for: ImportPlanner.keys(for: transactions, accountID: accountID)
+        let exactKeys = ImportPlanner.keys(for: transactions, accountID: accountID)
+        let keys = ImportPlanner.reconcilingInstallments(
+            keys: exactKeys,
+            transactions: transactions,
+            existing: try await existingKeys(for: exactKeys),
+            stored: try await storedInstallments(accountID: accountID, covering: transactions)
         )
-        let plan = ImportPlanner.plan(transactions: transactions, accountID: accountID, existing: existing)
+        let existing = try await existingKeys(for: keys)
+        let plan = ImportPlanner.plan(
+            transactions: transactions,
+            accountID: accountID,
+            existing: existing,
+            keys: keys
+        )
 
         let batch = ImportBatchModel(accountID: accountID, filename: request.filename)
 
@@ -108,6 +118,32 @@ struct ImportService {
             failures: parsed.failures,
             batchID: batch.id
         )
+    }
+
+    /// Parcelas da conta nos meses das parcelas do arquivo.
+    private func storedInstallments(
+        accountID: UUID,
+        covering transactions: [ImportedTransaction]
+    ) async throws -> [ImportPlanner.StoredInstallment] {
+        let dates = transactions.filter { $0.installment != nil }.map(\.date)
+        guard let first = dates.min(), let last = dates.max() else { return [] }
+
+        return try await TransactionModel.query(on: database)
+            .filter(\.$account.$id == accountID)
+            .filter(\.$installmentNumber != nil)
+            .filter(\.$date >= LedgerCalendar.startOfMonth(first))
+            .filter(\.$date < LedgerCalendar.addingMonths(1, to: LedgerCalendar.startOfMonth(last)))
+            .all()
+            .compactMap { model in
+                guard let key = model.dedupKey, let installment = model.installment else { return nil }
+                return ImportPlanner.StoredInstallment(
+                    key: key,
+                    description: model.description,
+                    amount: model.amount,
+                    date: model.date,
+                    installment: installment
+                )
+            }
     }
 
     private func existingKeys(for keys: [String]) async throws -> [String: Bool] {

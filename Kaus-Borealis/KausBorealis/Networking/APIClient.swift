@@ -83,9 +83,13 @@ struct APIClient: Sendable {
         includeProjected: Bool = true,
         from: Date? = nil,
         to: Date? = nil,
-        limit: Int = 500
+        limit: Int = 500,
+        offset: Int = 0
     ) async throws -> [TransactionDTO] {
         var items = [URLQueryItem(name: "limit", value: String(limit))]
+        if offset > 0 {
+            items.append(URLQueryItem(name: "offset", value: String(offset)))
+        }
         if let accountID {
             items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))
         }

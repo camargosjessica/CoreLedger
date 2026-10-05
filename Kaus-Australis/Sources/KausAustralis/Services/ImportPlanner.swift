@@ -34,18 +34,22 @@ enum ImportPlanner {
 
     /// - Parameter existing: chaves já presentes no banco, e se o registro correspondente
     ///   é uma projeção (parcela futura ainda não confirmada).
+    /// - Parameter keys: chaves já resolvidas por `reconcilingInstallments`; sem elas,
+    ///   usa `keys(for:accountID:)`.
     static func plan(
         transactions: [ImportedTransaction],
         accountID: UUID,
-        existing: [String: Bool]
+        existing: [String: Bool],
+        keys: [String]? = nil
     ) -> Plan {
+        let resolvedKeys = keys ?? Self.keys(for: transactions, accountID: accountID)
         // Entre duas parcelas com a mesma chave no lote, a real prevalece sobre
         // a projetada (a fatura seguinte confirma o que havia sido projetado).
         var batch: [String: ImportedTransaction] = [:]
         var order: [String] = []
         var duplicates = 0
 
-        for (key, transaction) in zip(keys(for: transactions, accountID: accountID), transactions) {
+        for (key, transaction) in zip(resolvedKeys, transactions) {
             if let current = batch[key] {
                 if current.isProjected && !transaction.isProjected {
                     batch[key] = transaction
@@ -75,5 +79,48 @@ enum ImportPlanner {
         }
 
         return plan
+    }
+
+    /// Parcela já gravada na conta, candidata a ser a mesma de uma linha da fatura.
+    struct StoredInstallment {
+        var key: String
+        var description: String
+        var amount: Double
+        var date: Date
+        var installment: Installment
+    }
+
+    /// Troca a chave das parcelas sem correspondência exata pela chave de uma parcela
+    /// gravada da mesma compra: mesmo mês, mesma posição, valor a até 5 centavos e
+    /// descrição compatível (`InstallmentDescription`). Sem isso, cada fatura que
+    /// corta a descrição de outro jeito duplicaria a parcela e as projeções seguintes.
+    static func reconcilingInstallments(
+        keys: [String],
+        transactions: [ImportedTransaction],
+        existing: [String: Bool],
+        stored: [StoredInstallment]
+    ) -> [String] {
+        let batchKeys = Set(keys)
+        var aliases: [String: String] = [:]
+        var claimed: Set<String> = []
+
+        return zip(keys, transactions).map { key, transaction in
+            guard let installment = transaction.installment, existing[key] == nil else { return key }
+            if let alias = aliases[key] { return alias }
+
+            let month = LedgerCalendar.startOfMonth(transaction.date)
+            guard let match = stored.first(where: { candidate in
+                !batchKeys.contains(candidate.key)
+                    && !claimed.contains(candidate.key)
+                    && candidate.installment == installment
+                    && LedgerCalendar.startOfMonth(candidate.date) == month
+                    && abs(candidate.amount.centsValue - transaction.amount.centsValue) <= 5
+                    && InstallmentDescription.matches(candidate.description, transaction.description)
+            }) else { return key }
+
+            claimed.insert(match.key)
+            aliases[key] = match.key
+            return match.key
+        }
     }
 }
