@@ -62,9 +62,18 @@ public struct ImportFailure: Codable, Sendable, Hashable {
 public struct ParsedStatement: Sendable {
     public var transactions: [ImportedTransaction]
     public var failures: [ImportFailure]
+    /// A fatura repete a data da compra em todas as parcelas (o Itaú faz isso
+    /// nas planilhas, com a parcela numa coluna própria). Nesse caso a parcela N
+    /// cai N-1 meses depois da data informada.
+    public var installmentsDatedByPurchase: Bool
 
-    public init(transactions: [ImportedTransaction] = [], failures: [ImportFailure] = []) {
+    public init(
+        transactions: [ImportedTransaction] = [],
+        failures: [ImportFailure] = [],
+        installmentsDatedByPurchase: Bool = false
+    ) {
         self.transactions = transactions
         self.failures = failures
+        self.installmentsDatedByPurchase = installmentsDatedByPurchase
     }
 }

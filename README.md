@@ -20,7 +20,7 @@ A divisão interna foi inspirada no arco da constelação de Sagitário. **Kaus*
 
 O repositório está estruturado em três módulos principais:
 
-*   **`Kaus-Media`**: Pacote Swift independente (`Swift Package`) que centraliza os contratos de dados e DTOs compartilhados (`TransactionDTO`, `AccountDTO`, `CategoryRule`), além da lógica pura de categorização, leitura de extratos CSV/OFX, parcelas, deduplicação e projeção.
+*   **`Kaus-Media`**: Pacote Swift independente (`Swift Package`) que centraliza os contratos de dados e DTOs compartilhados (`TransactionDTO`, `AccountDTO`, `CategoryRule`), além da lógica pura de categorização, leitura de extratos CSV/OFX e planilhas `.xlsx`, parcelas, deduplicação e projeção.
 *   **`Kaus-Australis`**: O backend do sistema, construído com o framework **Vapor**, utilizando o ORM *Fluent* e **PostgreSQL** para persistência robusta de dados.
 *   **`Kaus-Borealis`**: O frontend nativo desenvolvido em **SwiftUI** para ecossistemas Apple (iOS / macOS), consumindo diretamente a API REST do backend.
 
@@ -128,6 +128,8 @@ As datas trafegam em ISO-8601. `category` é opcional; quando omitida o servidor
 ### Importação
 
 `POST /api/imports` recebe o extrato em texto (`ImportRequestDTO`: `accountID`, `content`, `filename`, `format`, `expandInstallments`). O formato (CSV ou OFX) é detectado pelo conteúdo, contas do tipo `creditCard` expandem as parcelas futuras como lançamentos projetados, e lançamentos já existentes são ignorados pela chave de deduplicação — o relatório devolve `imported`, `duplicates`, `projectedInstallments`, `confirmedInstallments`, `failures` e o `batchID` usado para desfazer.
+
+Planilhas `.xlsx` (Excel ou Google Planilhas, em Arquivo → Fazer download → .xlsx ou .csv) são convertidas para CSV no próprio app, com `SpreadsheetReader`, antes do envio. O parser procura o cabeçalho nas primeiras linhas, ignora subtotais e avisos de rodapé e junta a coluna de parcelamento ("Parcela 2 de 12") à descrição. Nas contas de cartão, quando a maioria das linhas é positiva (compras positivas, pagamento negativo, como no Itaú), os sinais são invertidos. Faturas com coluna de parcelamento repetem a data da compra em todas as parcelas; nelas, a parcela N passa para N-1 meses depois, para confirmar a projeção feita pela fatura anterior. Arquivos `.xls` antigos não são lidos: salve como `.xlsx` ou `.csv`.
 
 ---
 
