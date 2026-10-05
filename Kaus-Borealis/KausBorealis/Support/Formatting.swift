@@ -17,6 +17,9 @@ extension Date {
         return text.prefix(1).uppercased() + text.dropFirst()
     }
 
+    /// "25/09/2026"
+    var numericDay: String { DateParser.format(self) }
+
     /// "25 de set."
     var shortDay: String { Formatters.shortDay.string(from: self) }
 

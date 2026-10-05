@@ -33,7 +33,7 @@ public enum SpreadsheetReader {
 
     public static func csv(fromXLSX data: Data) throws -> String {
         try rows(fromXLSX: data)
-            .map { $0.map(quote).joined(separator: ";") }
+            .map(CSVReader.line)
             .joined(separator: "\n")
     }
 
@@ -93,11 +93,6 @@ public enum SpreadsheetReader {
         return "xl/" + target
     }
 
-    private static func quote(_ field: String) -> String {
-        guard field.contains(where: { $0 == ";" || $0 == "\"" || $0 == "\n" || $0 == "\r" }) else { return field }
-        return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
-    }
-
     /// Datas no Excel são dias desde 30/12/1899 (sistema 1900, o padrão) ou
     /// desde 01/01/1904 quando a pasta usa o sistema 1904 (`date1904`).
     static func dateString(fromSerial serial: Double, date1904: Bool = false) -> String {
@@ -105,9 +100,7 @@ public enum SpreadsheetReader {
             ? DateComponents(calendar: LedgerCalendar.calendar, year: 1904, month: 1, day: 1)
             : DateComponents(calendar: LedgerCalendar.calendar, year: 1899, month: 12, day: 30)
         let epoch = epochParts.date ?? Date()
-        let date = LedgerCalendar.addingDays(Int(serial.rounded(.down)), to: epoch)
-        let parts = LedgerCalendar.calendar.dateComponents([.year, .month, .day], from: date)
-        return String(format: "%02d/%02d/%04d", parts.day ?? 1, parts.month ?? 1, parts.year ?? 1900)
+        return DateParser.format(LedgerCalendar.addingDays(Int(serial.rounded(.down)), to: epoch))
     }
 
     /// Números fracionários saem com duas casas: em extrato são sempre valores

@@ -43,11 +43,25 @@ final class LedgerStore {
         didSet { Task { await reloadTransactions() } }
     }
 
+    /// Mês do período `.month`. Aceita meses futuros, para ver as parcelas previstas.
+    var selectedMonth = YearMonth(date: Date()) {
+        didSet { if period == .month { Task { await reloadTransactions() } } }
+    }
+
+    private var periodStart: Date? {
+        period == .month ? selectedMonth.startDate : period.start
+    }
+
+    private var periodEnd: Date? {
+        period == .month ? LedgerCalendar.addingDays(-1, to: selectedMonth.adding(months: 1).startDate) : period.end
+    }
+
     enum Period: String, CaseIterable, Identifiable {
         case all
         case thisMonth
         case last3Months
         case last12Months
+        case month
 
         var id: String { rawValue }
 
@@ -57,6 +71,7 @@ final class LedgerStore {
             case .thisMonth: return "Mês"
             case .last3Months: return "3 meses"
             case .last12Months: return "12 meses"
+            case .month: return "Escolher"
             }
         }
 
@@ -64,7 +79,7 @@ final class LedgerStore {
         var start: Date? {
             let now = Date()
             switch self {
-            case .all: return nil
+            case .all, .month: return nil
             case .thisMonth: return LedgerCalendar.startOfMonth(now)
             case .last3Months: return LedgerCalendar.startOfMonth(LedgerCalendar.addingMonths(-2, to: now))
             case .last12Months: return LedgerCalendar.startOfMonth(LedgerCalendar.addingMonths(-11, to: now))
@@ -74,7 +89,7 @@ final class LedgerStore {
         /// Último dia do intervalo. Sem ele, um lançamento datado no futuro
         /// (ou uma parcela projetada) entraria no total do período escolhido.
         var end: Date? {
-            guard self != .all else { return nil }
+            guard self != .all, self != .month else { return nil }
             let nextMonth = LedgerCalendar.addingMonths(1, to: LedgerCalendar.startOfMonth(Date()))
             return LedgerCalendar.addingDays(-1, to: nextMonth)
         }
@@ -106,8 +121,8 @@ final class LedgerStore {
             async let transactions = client.transactions(
                 accountID: self.selectedAccountID,
                 search: self.searchTerm.isEmpty ? nil : self.searchTerm,
-                from: self.period.start,
-                to: self.period.end
+                from: self.periodStart,
+                to: self.periodEnd
             )
             async let rules = client.categoryRules()
             async let projection = client.summary(accountID: self.selectedAccountID)
@@ -236,8 +251,8 @@ final class LedgerStore {
             let all = try await self.client.transactions(
                 accountID: self.selectedAccountID,
                 search: self.searchTerm.isEmpty ? nil : self.searchTerm,
-                from: self.period.start,
-                to: self.period.end
+                from: self.periodStart,
+                to: self.periodEnd
             )
             self.transactions = self.applyingCategoryFilter(to: all)
         }
