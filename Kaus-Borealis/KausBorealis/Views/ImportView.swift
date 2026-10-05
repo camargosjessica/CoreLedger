@@ -4,7 +4,7 @@ import KausMedia
 
 /// Importação de extrato ou fatura. O arquivo é lido localmente e enviado como
 /// texto para `POST /api/imports`; quem interpreta é o mesmo parser do Kaus-Media
-/// que o servidor usa.
+/// que o servidor usa. Planilhas `.xlsx` são convertidas para CSV antes do envio.
 struct ImportView: View {
     @Bindable var store: LedgerStore
     @Environment(\.dismiss) private var dismiss
@@ -41,7 +41,7 @@ struct ImportView: View {
                 }
 
                 Section("Arquivo") {
-                    Button("Escolher arquivo CSV/OFX…") { isChoosingFile = true }
+                    Button("Escolher arquivo CSV, OFX ou Excel…") { isChoosingFile = true }
                     if let filename {
                         Text(filename).font(.caption).foregroundStyle(.secondary)
                     }
@@ -161,12 +161,31 @@ struct ImportView: View {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 
-        guard let data = try? Data(contentsOf: url), let text = StatementParser.decode(data) else {
+        guard let data = try? Data(contentsOf: url) else {
+            store.errorMessage = "Não foi possível ler o arquivo."
+            return
+        }
+
+        let isSpreadsheet = SpreadsheetReader.isXLSX(data) || url.pathExtension.lowercased() == "xls"
+        let text: String?
+        if isSpreadsheet {
+            do {
+                text = try SpreadsheetReader.csv(fromXLSX: data)
+            } catch {
+                store.errorMessage = error.localizedDescription
+                return
+            }
+        } else {
+            text = StatementParser.decode(data)
+        }
+
+        guard let text else {
             store.errorMessage = "Não foi possível ler o arquivo."
             return
         }
         filename = url.lastPathComponent
         content = text
+        if isSpreadsheet { format = .csv }
     }
 
     private func send() {

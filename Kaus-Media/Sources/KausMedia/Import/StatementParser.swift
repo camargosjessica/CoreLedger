@@ -130,22 +130,35 @@ public enum StatementParser {
         var transactions: [ImportedTransaction] = []
         var failures: [ImportFailure] = []
 
-        let layout = ColumnLayout(header: rows[0].fields)
-        let body = layout.hasHeader ? Array(rows.dropFirst()) : rows
+        // Planilhas de banco trazem nome, agência e totais antes da tabela.
+        let headerIndex = rows.prefix(headerSearchLimit).firstIndex { ColumnLayout(header: $0.fields).hasHeader }
+        let layout = ColumnLayout(header: rows[headerIndex ?? 0].fields)
+        let body = headerIndex.map { Array(rows[($0 + 1)...]) } ?? rows
 
         for row in body {
             let fields = row.fields
             guard fields.contains(where: { !$0.isEmpty }) else { continue }
 
-            guard let rawDate = layout.value(.date, in: fields), let date = DateParser.parse(rawDate) else {
+            let rawDate = layout.value(.date, in: fields)
+            let rawAmount = layout.amount(in: fields)
+            let date = rawDate.flatMap(DateParser.parse)
+            let amount = rawAmount.flatMap(ValueParser.parse)
+
+            // Subtotal sem data e avisos de rodapé não são lançamentos.
+            if rawDate == nil || (date == nil && amount == nil) { continue }
+
+            guard let date else {
                 failures.append(ImportFailure(line: row.line, content: row.raw, reason: "Data ausente ou em formato desconhecido"))
                 continue
             }
-            guard let rawAmount = layout.amount(in: fields), let amount = ValueParser.parse(rawAmount) else {
+            guard let amount else {
                 failures.append(ImportFailure(line: row.line, content: row.raw, reason: "Valor ausente ou em formato desconhecido"))
                 continue
             }
-            let description = layout.value(.description, in: fields)?.trimmed() ?? "Sem descrição"
+            var description = layout.value(.description, in: fields)?.trimmed() ?? "Sem descrição"
+            if let installment = layout.value(.installment, in: fields) {
+                description += " " + installment
+            }
 
             transactions.append(
                 ImportedTransaction(
@@ -156,14 +169,20 @@ public enum StatementParser {
             )
         }
 
-        return ParsedStatement(transactions: transactions, failures: failures)
+        return ParsedStatement(
+            transactions: transactions,
+            failures: failures,
+            installmentsDatedByPurchase: layout.hasInstallmentColumn
+        )
     }
+
+    private static let headerSearchLimit = 50
 }
 
 /// Descobre quais colunas do CSV contêm data, descrição e valor.
 /// Sem cabeçalho reconhecível, assume a ordem `data, descrição, valor`.
 struct ColumnLayout {
-    enum Column { case date, description, amount }
+    enum Column { case date, description, amount, installment }
 
     let hasHeader: Bool
     private let dateIndex: Int
@@ -172,6 +191,10 @@ struct ColumnLayout {
     /// Extratos com colunas separadas de débito e crédito.
     private let debitIndex: Int?
     private let creditIndex: Int?
+    /// Faturas com a parcela numa coluna própria ("Parcela 2 de 12").
+    private let installmentIndex: Int?
+
+    var hasInstallmentColumn: Bool { installmentIndex != nil }
 
     init(header: [String]) {
         let normalized = header.map { TextNormalizer.normalize($0) }
@@ -184,6 +207,7 @@ struct ColumnLayout {
         let amount = index(matching: ["valor", "amount", "montante", "quantia"])
         let debit = index(matching: ["debito", "saida", "despesa"])
         let credit = index(matching: ["credito", "entrada", "receita"])
+        let installment = index(matching: ["parcela"])
 
         self.hasHeader = date != nil && (amount != nil || (debit != nil && credit != nil))
         self.dateIndex = date ?? 0
@@ -191,6 +215,7 @@ struct ColumnLayout {
         self.amountIndex = amount ?? -1
         self.debitIndex = hasHeader ? debit : nil
         self.creditIndex = hasHeader ? credit : nil
+        self.installmentIndex = hasHeader && installment != description ? installment : nil
     }
 
     func value(_ column: Column, in fields: [String]) -> String? {
@@ -199,6 +224,9 @@ struct ColumnLayout {
         case .date: index = dateIndex
         case .description: index = descriptionIndex
         case .amount: index = amountIndex
+        case .installment:
+            guard let installmentIndex else { return nil }
+            index = installmentIndex
         }
         guard index >= 0, index < fields.count else { return nil }
         let value = fields[index].trimmed()

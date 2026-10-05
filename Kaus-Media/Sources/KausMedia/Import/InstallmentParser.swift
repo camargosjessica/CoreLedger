@@ -59,11 +59,15 @@ public enum InstallmentExpander {
     /// As parcelas futuras usam a descrição base, de modo que, quando a fatura do
     /// mês seguinte for importada, a parcela real gere a mesma chave de
     /// deduplicação da projeção e apenas a confirme, em vez de duplicá-la.
-    public static func expand(_ transactions: [ImportedTransaction]) -> [ImportedTransaction] {
-        transactions.flatMap(expand)
+    ///
+    /// - Parameter datedByPurchase: as linhas trazem a data da compra, e não a da
+    ///   parcela. A parcela N passa para N-1 meses depois, para cair no mesmo mês
+    ///   em que foi projetada pela fatura anterior.
+    public static func expand(_ transactions: [ImportedTransaction], datedByPurchase: Bool = false) -> [ImportedTransaction] {
+        transactions.flatMap { expand($0, datedByPurchase: datedByPurchase) }
     }
 
-    public static func expand(_ transaction: ImportedTransaction) -> [ImportedTransaction] {
+    public static func expand(_ transaction: ImportedTransaction, datedByPurchase: Bool = false) -> [ImportedTransaction] {
         guard let detection = InstallmentParser.detect(in: transaction.description) else {
             return [transaction]
         }
@@ -71,12 +75,15 @@ public enum InstallmentExpander {
         var current = transaction
         current.description = detection.baseDescription
         current.installment = detection.installment
+        if datedByPurchase {
+            current.date = LedgerCalendar.addingMonths(detection.installment.number - 1, to: transaction.date)
+        }
 
         guard detection.installment.remaining > 0 else { return [current] }
 
         let future = (1...detection.installment.remaining).map { offset -> ImportedTransaction in
             ImportedTransaction(
-                date: LedgerCalendar.addingMonths(offset, to: transaction.date),
+                date: LedgerCalendar.addingMonths(offset, to: current.date),
                 description: detection.baseDescription,
                 amount: transaction.amount,
                 externalID: nil,

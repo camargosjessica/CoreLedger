@@ -19,8 +19,13 @@ struct ImportService {
             filename: request.filename,
             format: request.format
         )
+        let lines = account.accountKind == .creditCard
+            ? CardStatement.normalizeSigns(parsed.transactions)
+            : parsed.transactions
         let expand = request.expandInstallments ?? account.accountKind.expandsInstallments
-        let transactions = expand ? InstallmentExpander.expand(parsed.transactions) : parsed.transactions
+        let transactions = expand
+            ? InstallmentExpander.expand(lines, datedByPurchase: parsed.installmentsDatedByPurchase)
+            : lines
 
         let categorizer = try await CategoryRuleService(database: database).categorizer()
         let existing = try await existingKeys(
