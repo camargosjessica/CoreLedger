@@ -100,8 +100,9 @@ Em **Resumo** o painel de posição mostra quanto há guardado (contas do tipo c
 | `POST` | `/api/imports` | `ImportRequestDTO` | `ImportReportDTO` (com o `batchID` do lote) |
 | `GET` | `/api/imports` | — | `[ImportBatchDTO]` |
 | `DELETE` | `/api/imports/:batchID` | — | `BulkDeleteResponse` (desfaz a importação) |
+| `GET` | `/api/categories` | — | `[String]` com todas as categorias em uso (lançamentos, regras e contas fixas) |
 | `DELETE` | `/api/categories/:category` | — | `DeleteCategoryResponse` (apaga as regras e recategoriza os lançamentos) |
-| `PUT` | `/api/categories/:category` | `RenameLabelRequest` (`name`) | `LabelChangeResponse` (renomeia em lançamentos, regras e contas fixas) |
+| `PUT` | `/api/categories/:category` | `RenameLabelRequest` (`name`) | `LabelChangeResponse` (renomeia em lançamentos, regras e contas fixas; `409` ao juntar uma transferência com uma categoria comum) |
 | `PUT` | `/api/tags/:tag` | `RenameLabelRequest` (`name`) | `LabelChangeResponse` |
 | `DELETE` | `/api/tags/:tag` | — | `LabelChangeResponse` (tira a tag de tudo) |
 | `GET` | `/api/analytics/spending?year=&groupBy=category\|tag&accountID=&accountKind=` | — | `SpendingReport`: gasto de cada mês por categoria ou tag e o ranking do ano |
@@ -111,7 +112,7 @@ Em **Resumo** o painel de posição mostra quanto há guardado (contas do tipo c
 
 Contas têm tipo `checking`, `savings`, `creditCard`, `cash` ou `investment` e nome livre — cada caixinha do banco é uma conta `savings` com o nome que você quiser. Aplicações, resgates e pagamentos de fatura são reconhecidos como transferências pelas regras de seed, então guardar dinheiro não conta como despesa. As regras novas valem para importações seguintes; para reclassificar o que já está no banco, use `POST /api/transactions/recategorize` (ou o botão de recategorizar em Regras).
 
-`GET /api/transactions` aceita os filtros `accountID`, `from`, `to` (por dia inteiro), `search`, `includeProjected`, `limit` (máx. 1000) e `offset`.
+`GET /api/transactions` aceita os filtros `accountID`, `from`, `to` (por dia inteiro), `search`, `category`, `tag`, `includeProjected`, `limit` (máx. 1000) e `offset`.
 
 `TransactionDTO`:
 ```json

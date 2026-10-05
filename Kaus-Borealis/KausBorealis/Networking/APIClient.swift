@@ -83,6 +83,8 @@ struct APIClient: Sendable {
         includeProjected: Bool = true,
         from: Date? = nil,
         to: Date? = nil,
+        category: String? = nil,
+        tag: String? = nil,
         limit: Int = 500,
         offset: Int = 0
     ) async throws -> [TransactionDTO] {
@@ -104,6 +106,12 @@ struct APIClient: Sendable {
         }
         if !includeProjected {
             items.append(URLQueryItem(name: "includeProjected", value: "false"))
+        }
+        if let category {
+            items.append(URLQueryItem(name: "category", value: category))
+        }
+        if let tag {
+            items.append(URLQueryItem(name: "tag", value: tag))
         }
         return try await send(.get, "api/transactions", query: items)
     }
@@ -182,6 +190,11 @@ struct APIClient: Sendable {
     func deleteCategory(_ name: String) async throws -> DeleteCategoryResponse {
         let escaped = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? name
         return try await send(.delete, "api/categories/\(escaped)")
+    }
+
+    /// Todas as categorias em uso no servidor, sem filtro nem paginação.
+    func categories() async throws -> [String] {
+        try await send(.get, "api/categories")
     }
 
     /// Troca o nome da categoria em lançamentos, regras e compromissos.

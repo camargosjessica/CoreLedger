@@ -115,9 +115,17 @@ final class LedgerStore {
         self.configuration = configuration
     }
 
+    /// Catálogo do servidor somado ao que já está na tela, para incluir o que
+    /// acabou de ser criado antes do próximo `reload`.
     var categories: [String] {
-        Array(Set(rules.map(\.category) + transactions.compactMap(\.category))).sorted()
+        Array(Set(categoryCatalog + rules.map(\.category) + commitments.map(\.category)
+            + transactions.compactMap(\.category))).sorted()
     }
+
+    private(set) var categoryCatalog: [String] = []
+
+    /// Muda a cada `reload`, para telas com dados próprios (Análise) recarregarem.
+    private(set) var dataGeneration = 0
 
     func reload() async {
         transactionsGeneration += 1
@@ -131,9 +139,12 @@ final class LedgerStore {
                 accountID: self.selectedAccountID,
                 search: self.searchTerm.isEmpty ? nil : self.searchTerm,
                 from: self.periodStart,
-                to: self.periodEnd
+                to: self.periodEnd,
+                category: self.selectedCategory,
+                tag: self.selectedTag
             )
             async let rules = client.categoryRules()
+            async let catalog = client.categories()
             async let projection = client.summary(accountID: self.selectedAccountID)
             async let batches = client.importBatches(accountID: self.selectedAccountID)
             async let position = client.position()
@@ -147,7 +158,7 @@ final class LedgerStore {
             )
 
             self.accounts = try await accounts
-            let loaded = self.applyingCategoryFilter(to: try await transactions)
+            let loaded = try await transactions
             if generation == self.transactionsGeneration { self.transactions = loaded }
             self.rules = try await rules
             self.projection = try await projection
@@ -161,7 +172,9 @@ final class LedgerStore {
             self.plan = planResponse.plan
             self.commitments = planResponse.commitments
             self.knownTags = planResponse.knownTags
+            self.categoryCatalog = try await catalog
         }
+        dataGeneration += 1
     }
 
     // MARK: Planejamento
@@ -264,10 +277,12 @@ final class LedgerStore {
                 accountID: self.selectedAccountID,
                 search: self.searchTerm.isEmpty ? nil : self.searchTerm,
                 from: self.periodStart,
-                to: self.periodEnd
+                to: self.periodEnd,
+                category: self.selectedCategory,
+                tag: self.selectedTag
             )
             guard generation == self.transactionsGeneration else { return }
-            self.transactions = self.applyingCategoryFilter(to: all)
+            self.transactions = all
         }
     }
 
@@ -283,6 +298,8 @@ final class LedgerStore {
                     search: self.searchTerm.isEmpty ? nil : self.searchTerm,
                     from: self.periodStart,
                     to: self.periodEnd,
+                    category: self.selectedCategory,
+                    tag: self.selectedTag,
                     limit: pageSize,
                     offset: all.count
                 )
@@ -291,14 +308,7 @@ final class LedgerStore {
             }
             finished = true
         }
-        return finished ? applyingCategoryFilter(to: all) : nil
-    }
-
-    private func applyingCategoryFilter(to items: [TransactionDTO]) -> [TransactionDTO] {
-        items.filter { transaction in
-            (selectedCategory == nil || transaction.category == selectedCategory)
-                && (selectedTag == nil || transaction.tags.contains(selectedTag ?? ""))
-        }
+        return finished ? all : nil
     }
 
     // MARK: Importação

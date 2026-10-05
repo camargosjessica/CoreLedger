@@ -27,6 +27,7 @@ struct AnalysisView: View {
         var grouping: SpendingGrouping
         var scope: Scope
         var accounts: [UUID]
+        var dataGeneration: Int
     }
 
     var body: some View {
@@ -44,10 +45,20 @@ struct AnalysisView: View {
             }
             .navigationTitle("Análise")
             .refreshable { await load() }
-            .task(id: Request(year: year, grouping: grouping, scope: scope, accounts: store.accounts.compactMap(\.id))) {
+            .task(id: request) {
                 await load()
             }
         }
+    }
+
+    private var request: Request {
+        Request(
+            year: year,
+            grouping: grouping,
+            scope: scope,
+            accounts: store.accounts.compactMap(\.id),
+            dataGeneration: store.dataGeneration
+        )
     }
 
     private func load() async {

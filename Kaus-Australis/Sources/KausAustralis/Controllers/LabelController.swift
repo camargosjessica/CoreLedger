@@ -6,17 +6,40 @@ import KausMedia
 /// lançamentos, regras e compromissos.
 struct LabelController: RouteCollection {
     func boot(routes: any RoutesBuilder) throws {
+        routes.get("api", "categories", use: categories)
         routes.put("api", "categories", ":category", use: renameCategory)
         routes.put("api", "tags", ":tag", use: renameTag)
         routes.delete("api", "tags", ":tag", use: deleteTag)
     }
 
-    /// Renomear para uma categoria que já existe junta as duas.
+    /// Todas as categorias em uso, independente de filtro ou paginação.
+    func categories(req: Request) async throws -> [String] {
+        try await Self.categories(on: req.db).sorted()
+    }
+
+    private static func categories(on db: any Database) async throws -> Set<String> {
+        async let transactions = TransactionModel.query(on: db).unique().all(\.$category)
+        async let rules = CategoryRuleModel.query(on: db).unique().all(\.$category)
+        async let commitments = RecurringCommitmentModel.query(on: db).unique().all(\.$category)
+        return Set(try await transactions + rules + commitments)
+    }
+
+    /// Renomear para uma categoria que já existe junta as duas. Não junta uma
+    /// transferência com uma categoria comum: a análise ignora categorias de
+    /// transferência inteiras, e os gastos sumiriam dela.
     func renameCategory(req: Request) async throws -> LabelChangeResponse {
         guard let current = req.parameters.get("category"), !current.isEmpty else {
             throw Abort(.badRequest, reason: "Categoria inválida")
         }
         let name = try newName(req)
+        let transfers = try await req.categoryRules.categorizer().transferCategories
+        if transfers.contains(name) != transfers.contains(current),
+           try await Self.categories(on: req.db).contains(name) {
+            throw Abort(
+                .conflict,
+                reason: "\(name) e \(current) não podem ser juntadas: só uma delas é transferência."
+            )
+        }
 
         return try await req.db.transaction { db in
             var response = LabelChangeResponse()
