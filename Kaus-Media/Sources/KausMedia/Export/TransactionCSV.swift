@@ -1,7 +1,8 @@
 import Foundation
 
-/// Lançamentos em CSV no layout que o `StatementParser` lê (`;`, `dd/MM/aaaa`,
-/// vírgula decimal): abre direto no Excel/Numbers e pode ser reimportado.
+/// Relatório de lançamentos em CSV (`;`, `dd/MM/aaaa`, vírgula decimal) para abrir
+/// no Excel/Numbers. Não serve para reimportar: a importação ignora categoria,
+/// tags e situação, e um previsto voltaria como realizado.
 public enum TransactionCSV {
     public static func export(_ transactions: [TransactionDTO]) -> String {
         let header = ["Data", "Descrição", "Categoria", "Tags", "Valor", "Situação"]

@@ -13,6 +13,7 @@ struct TransactionsView: View {
     @State private var pendingDelete: TransactionDTO?
     @State private var isConfirmingBulkDelete = false
     @State private var isExporting = false
+    @State private var exportDocument: CSVFile?
 
     private var grouped: [DayGroup] {
         Dictionary(grouping: store.transactions) { LedgerCalendar.startOfDay($0.date) }
@@ -98,7 +99,7 @@ struct TransactionsView: View {
             .sheet(isPresented: $isImporting) { ImportView(store: store) }
             .fileExporter(
                 isPresented: $isExporting,
-                document: CSVFile(text: TransactionCSV.export(store.transactions)),
+                document: exportDocument,
                 contentType: .commaSeparatedText,
                 defaultFilename: exportFilename
             ) { result in
@@ -159,6 +160,14 @@ struct TransactionsView: View {
         }
     }
 
+    private func export() {
+        Task {
+            guard let transactions = await store.transactionsForExport() else { return }
+            exportDocument = CSVFile(text: TransactionCSV.export(transactions))
+            isExporting = true
+        }
+    }
+
     private var exportFilename: String {
         let account = store.accounts.first { $0.id == store.selectedAccountID }?.name
         let month = store.period == .month ? store.selectedMonth.description : nil
@@ -187,7 +196,7 @@ struct TransactionsView: View {
                 Button { isImporting = true } label: {
                     Label("Importar", systemImage: "square.and.arrow.down")
                 }
-                Button { isExporting = true } label: {
+                Button { export() } label: {
                     Label("Exportar CSV", systemImage: "square.and.arrow.up")
                 }
                 .disabled(store.transactions.isEmpty)

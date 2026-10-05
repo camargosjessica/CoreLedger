@@ -16,6 +16,7 @@ struct ImportView: View {
     @State private var format: StatementFormat?
     @State private var isChoosingFile = false
     @State private var results: [FileResult] = []
+    @State private var loadProblems: [String] = []
     @State private var isSending = false
     @State private var progress: String?
     @State private var pendingUndo: ImportBatchDTO?
@@ -84,12 +85,20 @@ struct ImportView: View {
                     }
                 }
 
+                if !loadProblems.isEmpty {
+                    Section("Arquivos não lidos") {
+                        ForEach(loadProblems, id: \.self) { problem in
+                            Text(problem).font(.caption).foregroundStyle(.red)
+                        }
+                    }
+                }
+
                 ForEach(results) { result in
                     Section(result.name) {
                         if let report = result.report {
                             reportRows(report)
                         } else {
-                            Text("Não importado. Confira a mensagem de erro e tente de novo.")
+                            Text("Não importado: \(result.error ?? "erro desconhecido")")
                                 .font(.caption)
                                 .foregroundStyle(.red)
                         }
@@ -204,20 +213,17 @@ struct ImportView: View {
 
     private func load(_ result: Result<[URL], any Error>) {
         guard case let .success(urls) = result else { return }
-        var problems: [String] = []
+        loadProblems = []
         for url in urls {
             do {
                 let file = try readStatement(at: url)
-                files.removeAll { $0.name == file.name }
+                files.removeAll { $0.source == file.source }
                 files.append(file)
             } catch {
-                problems.append("\(url.lastPathComponent): \(error.localizedDescription)")
+                loadProblems.append("\(url.lastPathComponent): \(error.localizedDescription)")
             }
         }
         files.sort { ($0.latestDate ?? .distantPast, $0.name) < ($1.latestDate ?? .distantPast, $1.name) }
-        if !problems.isEmpty {
-            store.errorMessage = problems.joined(separator: "\n")
-        }
     }
 
     private func readStatement(at url: URL) throws -> StatementFile {
@@ -229,10 +235,12 @@ struct ImportView: View {
         let isSpreadsheet = SpreadsheetReader.isXLSX(data) || url.pathExtension.lowercased() == "xls"
         let text = try isSpreadsheet ? SpreadsheetReader.csv(fromXLSX: data) : StatementParser.decode(data)
         guard let text else { throw StatementFileError.unreadable }
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw StatementFileError.empty }
 
         let format: StatementFormat? = isSpreadsheet ? .csv : nil
         let parsed = StatementParser.parse(content: text, filename: url.lastPathComponent, format: format)
         return StatementFile(
+            source: url.standardizedFileURL,
             name: url.lastPathComponent,
             content: text,
             format: format,
@@ -243,7 +251,7 @@ struct ImportView: View {
     private func send() {
         guard let accountID else { return }
         let queue = files.isEmpty
-            ? [StatementFile(name: "Conteúdo colado", content: content, format: format, latestDate: nil, isPasted: true)]
+            ? [StatementFile(source: nil, name: "Conteúdo colado", content: content, format: format, latestDate: nil, isPasted: true)]
             : files
         isSending = true
         results = []
@@ -251,16 +259,20 @@ struct ImportView: View {
         Task {
             for (index, file) in queue.enumerated() {
                 if queue.count > 1 { progress = "Importando \(index + 1) de \(queue.count)…" }
-                let report = await store.importStatement(
-                    ImportRequestDTO(
-                        accountID: accountID,
-                        filename: file.isPasted ? nil : file.name,
-                        content: file.content,
-                        format: file.format
+                do {
+                    let report = try await store.importStatement(
+                        ImportRequestDTO(
+                            accountID: accountID,
+                            filename: file.isPasted ? nil : file.name,
+                            content: file.content,
+                            format: file.format
+                        )
                     )
-                )
-                results.append(FileResult(name: file.name, report: report))
-                if report != nil { files.removeAll { $0.id == file.id } }
+                    results.append(FileResult(name: file.name, report: report))
+                    files.removeAll { $0.id == file.id }
+                } catch {
+                    results.append(FileResult(name: file.name, error: LedgerStore.message(for: error)))
+                }
             }
             progress = nil
             isSending = false
@@ -270,6 +282,8 @@ struct ImportView: View {
 
 private struct StatementFile: Identifiable {
     let id = UUID()
+    /// Identifica o arquivo escolhido; dois extratos podem ter o mesmo nome.
+    var source: URL?
     var name: String
     var content: String
     var format: StatementFormat?
@@ -283,10 +297,17 @@ private struct FileResult: Identifiable {
     let id = UUID()
     var name: String
     var report: ImportReportDTO?
+    var error: String?
 }
 
 private enum StatementFileError: LocalizedError {
     case unreadable
+    case empty
 
-    var errorDescription: String? { "Não foi possível ler o arquivo." }
+    var errorDescription: String? {
+        switch self {
+        case .unreadable: return "Não foi possível ler o arquivo."
+        case .empty: return "O arquivo está vazio."
+        }
+    }
 }

@@ -2,7 +2,7 @@ import XCTest
 @testable import KausMedia
 
 final class TransactionCSVTests: XCTestCase {
-    func testExportIsSortedAndReimportable() throws {
+    func testExportIsSortedAndQuoted() throws {
         let december = try XCTUnwrap(DateParser.parse("10/12/2026"))
         let november = try XCTUnwrap(DateParser.parse("05/11/2026"))
         let transactions = [
@@ -19,9 +19,5 @@ final class TransactionCSVTests: XCTestCase {
         10/12/2026;"Shopee; colchões";Casa;moveis, essencial;-115,14;Previsto
 
         """)
-        let parsed = StatementParser.parse(content: csv, format: .csv)
-        XCTAssertTrue(parsed.failures.isEmpty)
-        XCTAssertEqual(parsed.transactions.map(\.amount), [-1234.5, -115.14])
-        XCTAssertEqual(parsed.transactions.map(\.description), ["Mercado", "Shopee; colchões"])
     }
 }
