@@ -15,6 +15,9 @@ struct RootView: View {
             Tab("Lançamentos", systemImage: "list.bullet.rectangle.portrait.fill") {
                 TransactionsView(store: store)
             }
+            Tab("Análise", systemImage: "chart.bar.xaxis") {
+                AnalysisView(store: store)
+            }
             Tab("Plano", systemImage: "calendar") {
                 PlanView(store: store)
             }

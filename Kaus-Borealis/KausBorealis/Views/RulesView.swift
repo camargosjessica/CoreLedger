@@ -8,6 +8,9 @@ struct RulesView: View {
     @State private var recategorizeResult: Int?
     @State private var pendingCategoryDeletion: String?
     @State private var categoryDeletionResult: String?
+    @State private var renaming: LabelTarget?
+    @State private var newName = ""
+    @State private var pendingTagDeletion: String?
 
     private var grouped: [RuleGroup] {
         Dictionary(grouping: store.rules, by: \.category)
@@ -51,6 +54,16 @@ struct RulesView: View {
                 }
                 .card()
 
+                LabelsCard(
+                    store: store,
+                    onRename: { target in
+                        newName = target.name
+                        renaming = target
+                    },
+                    onDeleteCategory: { pendingCategoryDeletion = $0 },
+                    onDeleteTag: { pendingTagDeletion = $0 }
+                )
+
                 LazyVGrid(columns: columns, spacing: 16) {
                     ForEach(grouped) { group in
                         RuleGroupCard(
@@ -79,6 +92,26 @@ struct RulesView: View {
             } message: {
                 Text("As regras somem e os lançamentos dessa categoria passam pelas regras restantes.")
             }
+            .confirmationDialog(
+                pendingTagDeletion.map { "Apagar a tag \($0)?" } ?? "",
+                isPresented: isConfirmingTagDeletion,
+                titleVisibility: .visible
+            ) {
+                Button("Apagar tag", role: .destructive) { deleteTag() }
+                Button("Cancelar", role: .cancel) { pendingTagDeletion = nil }
+            } message: {
+                Text("A tag sai de todos os lançamentos, regras e contas fixas.")
+            }
+            .alert(
+                renaming.map { "Renomear \($0.kindTitle) \($0.name)" } ?? "",
+                isPresented: isRenaming
+            ) {
+                TextField("Novo nome", text: $newName)
+                Button("Salvar") { rename() }
+                Button("Cancelar", role: .cancel) { renaming = nil }
+            } message: {
+                Text("Muda em todos os lançamentos, regras e contas fixas. Se o nome já existir, as duas se juntam.")
+            }
         }
     }
 }
@@ -91,6 +124,49 @@ extension RulesView {
         )
     }
 
+    private var isConfirmingTagDeletion: Binding<Bool> {
+        Binding(
+            get: { pendingTagDeletion != nil },
+            set: { if !$0 { pendingTagDeletion = nil } }
+        )
+    }
+
+    private var isRenaming: Binding<Bool> {
+        Binding(
+            get: { renaming != nil },
+            set: { if !$0 { renaming = nil } }
+        )
+    }
+
+    private func rename() {
+        guard let target = renaming else { return }
+        renaming = nil
+        let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name != target.name else { return }
+        Task {
+            let response: LabelChangeResponse?
+            switch target {
+            case .category(let current): response = await store.renameCategory(current, to: name)
+            case .tag(let current): response = await store.renameTag(current, to: name)
+            }
+            guard let response else { return }
+            categoryDeletionResult = Self.summary(response, verb: "atualizado(s)")
+        }
+    }
+
+    private func deleteTag() {
+        guard let tag = pendingTagDeletion else { return }
+        pendingTagDeletion = nil
+        Task {
+            guard let response = await store.deleteTag(tag) else { return }
+            categoryDeletionResult = Self.summary(response, verb: "sem a tag")
+        }
+    }
+
+    private static func summary(_ response: LabelChangeResponse, verb: String) -> String {
+        "\(response.transactions) lançamento(s), \(response.rules) regra(s) e \(response.commitments) conta(s) fixa(s) \(verb)."
+    }
+
     private func deleteCategory() {
         guard let category = pendingCategoryDeletion else { return }
         pendingCategoryDeletion = nil
@@ -99,6 +175,87 @@ extension RulesView {
             categoryDeletionResult =
                 "\(response.removedRules) regra(s) apagada(s), \(response.recategorized) lançamento(s) recategorizado(s)."
         }
+    }
+}
+
+enum LabelTarget: Hashable {
+    case category(String)
+    case tag(String)
+
+    var name: String {
+        switch self {
+        case .category(let name), .tag(let name): return name
+        }
+    }
+
+    var kindTitle: String {
+        switch self {
+        case .category: return "a categoria"
+        case .tag: return "a tag"
+        }
+    }
+}
+
+/// Todas as categorias e tags em uso, inclusive as digitadas direto num
+/// lançamento, com as ações de renomear e apagar.
+private struct LabelsCard: View {
+    @Bindable var store: LedgerStore
+    let onRename: (LabelTarget) -> Void
+    let onDeleteCategory: (String) -> Void
+    let onDeleteTag: (String) -> Void
+
+    private let columns = [GridItem(.adaptive(minimum: 220), spacing: 8, alignment: .leading)]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            CardHeader(title: "Categorias")
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                ForEach(store.categories, id: \.self) { category in
+                    row(icon: CategoryIcon(category: category, size: 28), name: category) {
+                        Button("Renomear", systemImage: "pencil") { onRename(.category(category)) }
+                        Button("Apagar", systemImage: "trash", role: .destructive) { onDeleteCategory(category) }
+                    }
+                }
+            }
+            Divider()
+            CardHeader(title: "Tags")
+            if store.knownTags.isEmpty {
+                Text("Nenhuma tag ainda. Crie ao editar um lançamento ou uma regra.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                ForEach(store.knownTags, id: \.self) { tag in
+                    row(icon: IconBadge(symbol: "number", color: CategoryStyle.of(tag).color, size: 28), name: tag) {
+                        Button("Renomear", systemImage: "pencil") { onRename(.tag(tag)) }
+                        Button("Apagar", systemImage: "trash", role: .destructive) { onDeleteTag(tag) }
+                    }
+                }
+            }
+        }
+        .card()
+    }
+
+    private func row<Icon: View, Actions: View>(
+        icon: Icon,
+        name: String,
+        @ViewBuilder actions: () -> Actions
+    ) -> some View {
+        HStack(spacing: 8) {
+            icon
+            Text(name)
+                .lineLimit(1)
+            Spacer()
+            Menu {
+                actions()
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.button)
+            .buttonStyle(.borderless)
+            .fixedSize()
+        }
+        .contextMenu { actions() }
     }
 }
 

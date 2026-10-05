@@ -155,6 +155,19 @@ struct TransactionsView: View {
                         CategoryFilter(store: store)
                             .pickerStyle(.inline)
                     }
+                    FilterChip(
+                        title: store.selectedTag ?? "Todas as tags",
+                        symbol: "number",
+                        isActive: store.selectedTag != nil
+                    ) {
+                        Picker("Tag", selection: $store.selectedTag) {
+                            Text("Todas").tag(String?.none)
+                            ForEach(store.knownTags, id: \.self) { tag in
+                                Text(tag).tag(String?.some(tag))
+                            }
+                        }
+                        .pickerStyle(.inline)
+                    }
                 }
             }
         }
@@ -288,7 +301,8 @@ struct TransactionsView: View {
     }
 
     private var isFiltered: Bool {
-        store.selectedCategory != nil || store.period != .all || store.selectedAccountID != nil
+        store.selectedCategory != nil || store.selectedTag != nil || store.period != .all
+            || store.selectedAccountID != nil
     }
 
     private var emptyTitle: String {
@@ -297,7 +311,7 @@ struct TransactionsView: View {
 
     private var emptyDescription: String {
         isFiltered
-            ? "Ajuste o período, a categoria ou a conta para ver outros lançamentos."
+            ? "Ajuste o período, a categoria, a tag ou a conta para ver outros lançamentos."
             : "Importe um extrato ou adicione um lançamento manualmente."
     }
 }

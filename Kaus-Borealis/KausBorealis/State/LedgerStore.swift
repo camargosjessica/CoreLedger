@@ -39,6 +39,10 @@ final class LedgerStore {
         didSet { Task { await reloadTransactions() } }
     }
 
+    var selectedTag: String? {
+        didSet { Task { await reloadTransactions() } }
+    }
+
     var period: Period = .all {
         didSet { Task { await reloadTransactions() } }
     }
@@ -291,8 +295,10 @@ final class LedgerStore {
     }
 
     private func applyingCategoryFilter(to items: [TransactionDTO]) -> [TransactionDTO] {
-        guard let category = selectedCategory else { return items }
-        return items.filter { $0.category == category }
+        items.filter { transaction in
+            (selectedCategory == nil || transaction.category == selectedCategory)
+                && (selectedTag == nil || transaction.tags.contains(selectedTag ?? ""))
+        }
     }
 
     // MARK: Importação
@@ -344,6 +350,50 @@ final class LedgerStore {
         return response
     }
 
+    func renameCategory(_ name: String, to newName: String) async -> LabelChangeResponse? {
+        var response: LabelChangeResponse?
+        await run { response = try await self.client.renameCategory(name, to: newName) }
+        if response != nil, selectedCategory == name { selectedCategory = newName }
+        await reload()
+        return response
+    }
+
+    func renameTag(_ tag: String, to newName: String) async -> LabelChangeResponse? {
+        var response: LabelChangeResponse?
+        await run { response = try await self.client.renameTag(tag, to: newName) }
+        if response != nil, selectedTag == tag { selectedTag = TagSet.normalize([newName]).first }
+        await reload()
+        return response
+    }
+
+    func deleteTag(_ tag: String) async -> LabelChangeResponse? {
+        var response: LabelChangeResponse?
+        await run { response = try await self.client.deleteTag(tag) }
+        if selectedTag == tag { selectedTag = nil }
+        await reload()
+        return response
+    }
+
+    // MARK: Análise
+
+    func spending(
+        year: Int,
+        grouping: SpendingGrouping,
+        accountID: UUID?,
+        accountKind: AccountKind?
+    ) async -> SpendingReport? {
+        var report: SpendingReport?
+        await run {
+            report = try await self.client.spending(
+                year: year,
+                grouping: grouping,
+                accountID: accountID,
+                accountKind: accountKind
+            )
+        }
+        return report
+    }
+
     // MARK: Manutenção
 
     func reset(scope: ResetScope) async -> ResetResponse? {
@@ -351,6 +401,7 @@ final class LedgerStore {
         await run { response = try await self.client.reset(scope: scope) }
         selectedAccountID = nil
         selectedCategory = nil
+        selectedTag = nil
         await reload()
         return response
     }
