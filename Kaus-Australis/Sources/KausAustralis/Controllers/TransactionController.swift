@@ -1,4 +1,5 @@
 import Fluent
+import FluentSQL
 import Vapor
 import KausMedia
 
@@ -33,6 +34,12 @@ struct TransactionController: RouteCollection {
         }
         if query.includeProjected == false {
             builder = builder.filter(\.$isProjected == false)
+        }
+        if let category = query.category {
+            builder = builder.filter(\.$category == category)
+        }
+        if let tag = query.tag.flatMap({ TagSet.normalize([$0]).first }) {
+            builder = builder.filter(.sql(embed: "\(ident: "tags") @> ARRAY[\(bind: tag)]::text[]"))
         }
         if let search = query.search?.trimmingCharacters(in: .whitespacesAndNewlines), !search.isEmpty {
             builder = builder.group(.or) { group in
@@ -280,6 +287,8 @@ struct TransactionQuery: Content {
     var to: Date?
     var search: String?
     var includeProjected: Bool?
+    var category: String?
+    var tag: String?
     var limit: Int?
     var offset: Int?
 }

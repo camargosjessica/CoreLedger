@@ -83,6 +83,8 @@ struct APIClient: Sendable {
         includeProjected: Bool = true,
         from: Date? = nil,
         to: Date? = nil,
+        category: String? = nil,
+        tag: String? = nil,
         limit: Int = 500,
         offset: Int = 0
     ) async throws -> [TransactionDTO] {
@@ -104,6 +106,12 @@ struct APIClient: Sendable {
         }
         if !includeProjected {
             items.append(URLQueryItem(name: "includeProjected", value: "false"))
+        }
+        if let category {
+            items.append(URLQueryItem(name: "category", value: category))
+        }
+        if let tag {
+            items.append(URLQueryItem(name: "tag", value: tag))
         }
         return try await send(.get, "api/transactions", query: items)
     }
@@ -182,6 +190,50 @@ struct APIClient: Sendable {
     func deleteCategory(_ name: String) async throws -> DeleteCategoryResponse {
         let escaped = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? name
         return try await send(.delete, "api/categories/\(escaped)")
+    }
+
+    /// Todas as categorias em uso no servidor, sem filtro nem paginação.
+    func categories() async throws -> [String] {
+        try await send(.get, "api/categories")
+    }
+
+    /// Troca o nome da categoria em lançamentos, regras e compromissos.
+    func renameCategory(_ name: String, to newName: String) async throws -> LabelChangeResponse {
+        try await send(.put, "api/categories/\(Self.pathComponent(name))", body: RenameLabelRequest(name: newName))
+    }
+
+    func renameTag(_ tag: String, to newName: String) async throws -> LabelChangeResponse {
+        try await send(.put, "api/tags/\(Self.pathComponent(tag))", body: RenameLabelRequest(name: newName))
+    }
+
+    func deleteTag(_ tag: String) async throws -> LabelChangeResponse {
+        try await send(.delete, "api/tags/\(Self.pathComponent(tag))")
+    }
+
+    private static func pathComponent(_ text: String) -> String {
+        text.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? text
+    }
+
+    // MARK: Análise
+
+    /// Gastos do ano por categoria ou tag. Sem `accountID`, `accountKind` limita
+    /// às contas daquele tipo (ex.: todos os cartões).
+    func spending(
+        year: Int,
+        grouping: SpendingGrouping,
+        accountID: UUID? = nil,
+        accountKind: AccountKind? = nil
+    ) async throws -> SpendingReport {
+        var items = [
+            URLQueryItem(name: "year", value: String(year)),
+            URLQueryItem(name: "groupBy", value: grouping.rawValue)
+        ]
+        if let accountID {
+            items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))
+        } else if let accountKind {
+            items.append(URLQueryItem(name: "accountKind", value: accountKind.rawValue))
+        }
+        return try await send(.get, "api/analytics/spending", query: items)
     }
 
     // MARK: Planejamento

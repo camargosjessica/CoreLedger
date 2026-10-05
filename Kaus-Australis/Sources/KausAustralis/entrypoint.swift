@@ -25,6 +25,9 @@ extension FinancialPosition: @retroactive Content {}
 extension RecurringCommitment: @retroactive Content {}
 extension AnnualPlan: @retroactive Content {}
 extension PlanResponse: @retroactive Content {}
+extension SpendingReport: @retroactive Content {}
+extension RenameLabelRequest: @retroactive Content {}
+extension LabelChangeResponse: @retroactive Content {}
 
 @main
 struct App {
@@ -115,4 +118,6 @@ func routes(_ app: Application) throws {
     try api.register(collection: TransactionController())
     try api.register(collection: PlanController())
     try api.register(collection: MaintenanceController())
+    try api.register(collection: AnalyticsController())
+    try api.register(collection: LabelController())
 }
