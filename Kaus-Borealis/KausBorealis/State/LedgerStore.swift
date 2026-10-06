@@ -245,6 +245,25 @@ final class LedgerStore {
         await reload()
     }
 
+    /// Salva o lançamento e, se a conta de destino mudou, liga, troca ou
+    /// desfaz a contrapartida da transferência.
+    func updateTransaction(_ transaction: TransactionDTO, transferTo accountID: UUID?) async {
+        guard let id = transaction.id else { return }
+        let transferChanged = accountID != transaction.transferAccountID
+        await run {
+            // Desliga antes de editar: a origem pode estar indo para a conta
+            // que hoje recebe a contrapartida.
+            if transferChanged, transaction.transferAccountID != nil {
+                _ = try await self.client.setTransfer(id: id, accountID: nil)
+            }
+            _ = try await self.client.updateTransaction(id: id, transaction)
+            if transferChanged, let accountID {
+                _ = try await self.client.setTransfer(id: id, accountID: accountID)
+            }
+        }
+        await reload()
+    }
+
     /// Atalho do menu de contexto da lista, sem abrir o editor.
     func setCategory(_ category: String, on transaction: TransactionDTO) async {
         var updated = transaction

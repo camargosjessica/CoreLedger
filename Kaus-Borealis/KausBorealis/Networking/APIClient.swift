@@ -124,6 +124,11 @@ struct APIClient: Sendable {
         try await send(.put, "api/transactions/\(id.uuidString)", body: transaction)
     }
 
+    /// `accountID` recebe a contrapartida com o valor invertido; `nil` desfaz.
+    func setTransfer(id: UUID, accountID: UUID?) async throws -> TransactionDTO {
+        try await send(.put, "api/transactions/\(id.uuidString)/transfer", body: TransferLinkRequest(accountID: accountID))
+    }
+
     func deleteTransaction(id: UUID) async throws {
         try await sendIgnoringResponse(.delete, "api/transactions/\(id.uuidString)")
     }

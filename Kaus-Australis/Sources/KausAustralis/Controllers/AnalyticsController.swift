@@ -19,6 +19,7 @@ struct AnalyticsController: RouteCollection {
         var builder = TransactionModel.query(on: req.db)
             .filter(\.$date >= YearMonth(year: year, month: 1).startDate)
             .filter(\.$date < YearMonth(year: year + 1, month: 1).startDate)
+            .filter(\.$transferSource.$id == nil)
         if let accountID = query.accountID {
             builder = builder.filter(\.$account.$id == accountID)
         } else if let kind = query.accountKind {

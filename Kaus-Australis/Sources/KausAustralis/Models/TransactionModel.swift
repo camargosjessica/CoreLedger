@@ -49,6 +49,11 @@ final class TransactionModel: Model, @unchecked Sendable {
     @Field(key: "tags")
     var tags: [String]
 
+    /// Preenchido só na contrapartida de uma transferência: aponta para o
+    /// lançamento que a originou e que manda no valor, na data e na categoria.
+    @OptionalParent(key: "transfer_source_id")
+    var transferSource: TransactionModel?
+
     init() { }
     
     init(
@@ -83,5 +88,33 @@ extension TransactionModel {
     var installment: Installment? {
         guard let installmentNumber, let installmentTotal else { return nil }
         return Installment(number: installmentNumber, total: installmentTotal)
+    }
+
+    /// Torna este lançamento o espelho de `origin` na própria conta: o mesmo
+    /// dinheiro, com o sinal invertido. Sem chave de dedup, para não colidir
+    /// com a importação de outro extrato.
+    func mirror(_ origin: TransactionModel) {
+        description = origin.description
+        amount = -origin.amount
+        category = origin.category
+        date = origin.date
+        isProjected = origin.isProjected
+        tags = origin.tags
+        dedupKey = nil
+        installmentNumber = nil
+        installmentTotal = nil
+        externalID = nil
+        $transferSource.id = origin.id
+    }
+
+    /// Re-espelha a contrapartida, se houver, depois de este lançamento mudar.
+    func syncCounterpart(on db: any Database) async throws {
+        guard let id else { return }
+        guard let counterpart = try await TransactionModel.query(on: db)
+            .filter(\.$transferSource.$id == id)
+            .first()
+        else { return }
+        counterpart.mirror(self)
+        try await counterpart.update(on: db)
     }
 }

@@ -9,6 +9,7 @@ struct TransactionController: RouteCollection {
         transactions.get(use: index)
         transactions.post(use: create)
         transactions.put(":transactionID", use: update)
+        transactions.put(":transactionID", "transfer", use: setTransfer)
         transactions.delete(":transactionID", use: delete)
         transactions.delete(use: deleteBatch)
 
@@ -48,10 +49,82 @@ struct TransactionController: RouteCollection {
         }
 
         let limit = min(max(query.limit ?? 500, 1), 1000)
-        return try await builder
+        let models = try await builder
             .range(lower: query.offset ?? 0, upper: (query.offset ?? 0) + limit - 1)
             .all()
-            .map { $0.toDTO() }
+        return try await Self.withTransferAccounts(models, on: req.db)
+    }
+
+    /// `toDTO()` com `transferAccountID`, que mora na contrapartida e não na origem.
+    static func withTransferAccounts(
+        _ models: [TransactionModel],
+        on db: any Database
+    ) async throws -> [TransactionDTO] {
+        let ids = models.compactMap(\.id)
+        guard !ids.isEmpty else { return [] }
+        let counterparts = try await TransactionModel.query(on: db)
+            .filter(\.$transferSource.$id ~~ ids.map { Optional($0) })
+            .all()
+        var accountBySource: [UUID: UUID] = [:]
+        for counterpart in counterparts {
+            if let source = counterpart.$transferSource.id, let account = counterpart.$account.id {
+                accountBySource[source] = account
+            }
+        }
+        return models.map { model in
+            var dto = model.toDTO()
+            dto.transferAccountID = model.id.flatMap { accountBySource[$0] }
+            return dto
+        }
+    }
+
+    /// Liga, troca ou desfaz a contrapartida de uma transferência: uma saída
+    /// da conta corrente vira entrada na caixinha escolhida, e vice-versa.
+    func setTransfer(req: Request) async throws -> TransactionDTO {
+        guard let id = req.parameters.get("transactionID", as: UUID.self) else {
+            throw Abort(.badRequest, reason: "Identificador inválido")
+        }
+        guard let model = try await TransactionModel.find(id, on: req.db) else {
+            throw Abort(.notFound, reason: "Lançamento não encontrado")
+        }
+        guard model.$transferSource.id == nil else {
+            throw Abort(.badRequest, reason: "Este lançamento é a contrapartida de outro: edite o original")
+        }
+        let request = try req.content.decode(TransferLinkRequest.self)
+        if let accountID = request.accountID {
+            guard accountID != model.$account.id else {
+                throw Abort(.badRequest, reason: "Escolha uma conta diferente da conta do lançamento")
+            }
+            guard try await AccountModel.find(accountID, on: req.db) != nil else {
+                throw Abort(.notFound, reason: "Conta não encontrada")
+            }
+        }
+
+        return try await req.db.transaction { db in
+            let existing = try await TransactionModel.query(on: db)
+                .filter(\.$transferSource.$id == id)
+                .first()
+            switch (existing, request.accountID) {
+            case (nil, nil):
+                break
+            case (let counterpart?, nil):
+                try await counterpart.delete(on: db)
+            case (let counterpart?, let accountID?):
+                counterpart.mirror(model)
+                counterpart.$account.id = accountID
+                try await counterpart.update(on: db)
+            case (nil, let accountID?):
+                let counterpart = TransactionModel()
+                counterpart.mirror(model)
+                counterpart.$account.id = accountID
+                do {
+                    try await counterpart.create(on: db)
+                } catch let error as any DatabaseError where error.isConstraintFailure {
+                    throw Abort(.conflict, reason: "Este lançamento já tem uma contrapartida")
+                }
+            }
+            return try await Self.withTransferAccounts([model], on: db)[0]
+        }
     }
 
     /// Criação manual. Idempotente: reenviar o mesmo lançamento devolve o existente
@@ -86,6 +159,9 @@ struct TransactionController: RouteCollection {
         }
         guard let model = try await TransactionModel.find(id, on: req.db) else {
             throw Abort(.notFound, reason: "Lançamento não encontrado")
+        }
+        guard model.$transferSource.id == nil else {
+            throw Abort(.badRequest, reason: "Este lançamento é a contrapartida de uma transferência: edite o original")
         }
         let dto = try req.content.decode(TransactionDTO.self)
         guard !dto.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -134,12 +210,21 @@ struct TransactionController: RouteCollection {
             )
         }
 
-        do {
-            try await model.update(on: req.db)
-        } catch let error as any DatabaseError where error.isConstraintFailure {
-            throw Abort(.conflict, reason: "Já existe um lançamento igual nessa data e conta")
+        return try await req.db.transaction { db in
+            let counterpart = try await TransactionModel.query(on: db)
+                .filter(\.$transferSource.$id == id)
+                .first()
+            if let counterpart, counterpart.$account.id == dto.accountID {
+                throw Abort(.badRequest, reason: "A transferência já vai para essa conta: escolha outra conta ou desfaça a transferência")
+            }
+            do {
+                try await model.update(on: db)
+            } catch let error as any DatabaseError where error.isConstraintFailure {
+                throw Abort(.conflict, reason: "Já existe um lançamento igual nessa data e conta")
+            }
+            try await model.syncCounterpart(on: db)
+            return try await Self.withTransferAccounts([model], on: db)[0]
         }
-        return model.toDTO()
     }
 
     func delete(req: Request) async throws -> HTTPStatus {
@@ -234,6 +319,7 @@ struct TransactionController: RouteCollection {
                     model.$importBatch.id = nil
                 }
                 try await model.update(on: db)
+                try await model.syncCounterpart(on: db)
                 restored += 1
             }
 
@@ -261,6 +347,9 @@ struct TransactionController: RouteCollection {
         var builder = TransactionModel.query(on: req.db)
         if let accountID = query.accountID {
             builder = builder.filter(\.$account.$id == accountID)
+        } else {
+            // Somando todas as contas, a contrapartida anularia a origem.
+            builder = builder.filter(\.$transferSource.$id == nil)
         }
         let transactions = try await builder.all()
 

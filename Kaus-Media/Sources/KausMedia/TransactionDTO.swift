@@ -17,6 +17,12 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
     /// Marcadores livres. São preenchidos pela regra da categoria na importação
     /// e podem ser trocados depois — inclusive por tags que o usuário inventar.
     public var tags: [String]
+    /// Conta da contrapartida desta transferência (ex.: a caixinha que recebeu
+    /// o dinheiro). Somente leitura: muda por `PUT /api/transactions/:id/transfer`.
+    public var transferAccountID: UUID?
+    /// Lançamento de origem, quando este é a contrapartida de uma transferência.
+    /// Somente leitura.
+    public var transferSourceID: UUID?
 
     public init(
         id: UUID? = nil,
@@ -28,7 +34,9 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
         isProjected: Bool = false,
         installment: Installment? = nil,
         dedupKey: String? = nil,
-        tags: [String] = []
+        tags: [String] = [],
+        transferAccountID: UUID? = nil,
+        transferSourceID: UUID? = nil
     ) {
         self.id = id
         self.description = description
@@ -40,6 +48,8 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
         self.installment = installment
         self.dedupKey = dedupKey
         self.tags = TagSet.normalize(tags)
+        self.transferAccountID = transferAccountID
+        self.transferSourceID = transferSourceID
     }
 
     // Campos novos são opcionais na decodificação para não quebrar clientes antigos.
@@ -55,5 +65,17 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
         installment = try container.decodeIfPresent(Installment.self, forKey: .installment)
         dedupKey = try container.decodeIfPresent(String.self, forKey: .dedupKey)
         tags = TagSet.normalize(try container.decodeIfPresent([String].self, forKey: .tags) ?? [])
+        transferAccountID = try container.decodeIfPresent(UUID.self, forKey: .transferAccountID)
+        transferSourceID = try container.decodeIfPresent(UUID.self, forKey: .transferSourceID)
+    }
+}
+
+/// Corpo de `PUT /api/transactions/:id/transfer`. `accountID` é a conta que
+/// recebe a contrapartida com o valor invertido; `nil` desfaz a ligação.
+public struct TransferLinkRequest: Codable, Sendable {
+    public var accountID: UUID?
+
+    public init(accountID: UUID?) {
+        self.accountID = accountID
     }
 }

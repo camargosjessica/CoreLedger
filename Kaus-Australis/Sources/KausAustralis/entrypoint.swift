@@ -28,6 +28,7 @@ extension PlanResponse: @retroactive Content {}
 extension SpendingReport: @retroactive Content {}
 extension RenameLabelRequest: @retroactive Content {}
 extension LabelChangeResponse: @retroactive Content {}
+extension TransferLinkRequest: @retroactive Content {}
 
 @main
 struct App {
@@ -98,6 +99,7 @@ func configure(_ app: Application) async throws {
     app.migrations.add(SeedCategoryRulesMigration())
     app.migrations.add(SeedSavingsRulesMigration())
     app.migrations.add(CreateRecurringCommitmentMigration())
+    app.migrations.add(AddTransferSourceMigration())
     try await app.autoMigrate()
 }
 

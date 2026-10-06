@@ -68,6 +68,7 @@ struct PlanController: RouteCollection {
         let transactions = try await TransactionModel.query(on: req.db)
             .filter(\.$date >= start.startDate)
             .filter(\.$date < end.adding(months: 1).startDate)
+            .filter(\.$transferSource.$id == nil)
             .all()
 
         let rules = try await req.categoryRules.rules()
