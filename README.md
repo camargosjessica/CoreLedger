@@ -95,6 +95,7 @@ Em **Resumo** o painel de posição mostra quanto há guardado (contas do tipo c
 | `GET` | `/api/transactions` | — | `[TransactionDTO]` ordenado por data (mais recente primeiro) |
 | `POST` | `/api/transactions` | `TransactionDTO` (o `id` é ignorado) | `TransactionDTO` criado |
 | `PUT` | `/api/transactions/:id` | `TransactionDTO` | `TransactionDTO` atualizado |
+| `PUT` | `/api/transactions/:id/transfer` | `TransferLinkRequest` (`accountID` ou `null`) | `TransactionDTO` com `transferAccountID` (cria, move ou desfaz a contrapartida) |
 | `DELETE` | `/api/transactions/:id` | — | `204` |
 | `DELETE` | `/api/transactions` | `BulkDeleteRequest` (`ids`) | `BulkDeleteResponse` |
 | `POST` | `/api/imports` | `ImportRequestDTO` | `ImportReportDTO` (com o `batchID` do lote) |
@@ -111,6 +112,8 @@ Em **Resumo** o painel de posição mostra quanto há guardado (contas do tipo c
 | `GET` | `/api/position` | — | `FinancialPosition`: disponível, guardado, dívida do cartão, parcelas futuras e saldo por conta |
 
 Contas têm tipo `checking`, `savings`, `creditCard`, `cash` ou `investment` e nome livre — cada caixinha do banco é uma conta `savings` com o nome que você quiser. Aplicações, resgates e pagamentos de fatura são reconhecidos como transferências pelas regras de seed, então guardar dinheiro não conta como despesa. As regras novas valem para importações seguintes; para reclassificar o que já está no banco, use `POST /api/transactions/recategorize` (ou o botão de recategorizar em Regras).
+
+Transferência entre contas próprias: ao ligar uma saída da conta corrente a uma caixinha (`PUT /api/transactions/:id/transfer`), o servidor cria na caixinha a contrapartida com o valor invertido (`transferSourceID` aponta para a origem). Editar a origem atualiza a contrapartida, e apagá-la (inclusive ao desfazer a importação) apaga a contrapartida junto. Use só em contas sem extrato importado, senão o valor entra duas vezes.
 
 `GET /api/transactions` aceita os filtros `accountID`, `from`, `to` (por dia inteiro), `search`, `category`, `tag`, `includeProjected`, `limit` (máx. 1000) e `offset`.
 

@@ -74,7 +74,8 @@ extension TransactionModel {
             isProjected: isProjected,
             installment: installment,
             dedupKey: dedupKey,
-            tags: tags
+            tags: tags,
+            transferSourceID: $transferSource.id
         )
     }
 }

@@ -382,3 +382,45 @@ final class TransactionEditKeyTests: XCTestCase {
         XCTAssertNotEqual(canonical, "\(canonical)#2")
     }
 }
+
+final class TransferCounterpartTests: XCTestCase {
+
+    func testMirror_InvertsAmountAndKeepsClassification() {
+        let origin = TransactionModel(
+            id: UUID(),
+            description: "Aplicação caixinha viagem",
+            amount: -250,
+            category: "Guardado",
+            date: Date(timeIntervalSince1970: 1_780_000_000),
+            accountID: UUID(),
+            dedupKey: "chave-da-origem",
+            installment: Installment(number: 1, total: 3),
+            externalID: "FITID1",
+            tags: ["viagem"]
+        )
+        let counterpart = TransactionModel()
+        counterpart.$account.id = UUID()
+
+        counterpart.mirror(origin)
+
+        XCTAssertEqual(counterpart.amount, 250)
+        XCTAssertEqual(counterpart.description, origin.description)
+        XCTAssertEqual(counterpart.category, "Guardado")
+        XCTAssertEqual(counterpart.date, origin.date)
+        XCTAssertEqual(counterpart.tags, ["viagem"])
+        XCTAssertEqual(counterpart.$transferSource.id, origin.id)
+        XCTAssertNil(counterpart.dedupKey, "A contrapartida não pode colidir com a importação de outro extrato")
+        XCTAssertNil(counterpart.installment)
+        XCTAssertNil(counterpart.externalID)
+        XCTAssertNotEqual(counterpart.$account.id, origin.$account.id, "A conta de destino é definida fora do espelho")
+    }
+
+    func testDTO_ExposesTransferSource() {
+        let origin = TransactionModel(id: UUID(), description: "Resgate", amount: 100, category: "Guardado", date: Date())
+        let counterpart = TransactionModel()
+        counterpart.mirror(origin)
+
+        XCTAssertEqual(counterpart.toDTO().transferSourceID, origin.id)
+        XCTAssertNil(origin.toDTO().transferSourceID)
+    }
+}
