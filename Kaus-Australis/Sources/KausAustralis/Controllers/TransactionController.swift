@@ -117,7 +117,11 @@ struct TransactionController: RouteCollection {
                 let counterpart = TransactionModel()
                 counterpart.mirror(model)
                 counterpart.$account.id = accountID
-                try await counterpart.create(on: db)
+                do {
+                    try await counterpart.create(on: db)
+                } catch let error as any DatabaseError where error.isConstraintFailure {
+                    throw Abort(.conflict, reason: "Este lançamento já tem uma contrapartida")
+                }
             }
             return try await Self.withTransferAccounts([model], on: db)[0]
         }
@@ -155,6 +159,9 @@ struct TransactionController: RouteCollection {
         }
         guard let model = try await TransactionModel.find(id, on: req.db) else {
             throw Abort(.notFound, reason: "Lançamento não encontrado")
+        }
+        guard model.$transferSource.id == nil else {
+            throw Abort(.badRequest, reason: "Este lançamento é a contrapartida de uma transferência: edite o original")
         }
         let dto = try req.content.decode(TransactionDTO.self)
         guard !dto.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -215,10 +222,7 @@ struct TransactionController: RouteCollection {
             } catch let error as any DatabaseError where error.isConstraintFailure {
                 throw Abort(.conflict, reason: "Já existe um lançamento igual nessa data e conta")
             }
-            if let counterpart {
-                counterpart.mirror(model)
-                try await counterpart.update(on: db)
-            }
+            try await model.syncCounterpart(on: db)
             return try await Self.withTransferAccounts([model], on: db)[0]
         }
     }
@@ -315,6 +319,7 @@ struct TransactionController: RouteCollection {
                     model.$importBatch.id = nil
                 }
                 try await model.update(on: db)
+                try await model.syncCounterpart(on: db)
                 restored += 1
             }
 
@@ -342,6 +347,9 @@ struct TransactionController: RouteCollection {
         var builder = TransactionModel.query(on: req.db)
         if let accountID = query.accountID {
             builder = builder.filter(\.$account.$id == accountID)
+        } else {
+            // Somando todas as contas, a contrapartida anularia a origem.
+            builder = builder.filter(\.$transferSource.$id == nil)
         }
         let transactions = try await builder.all()
 

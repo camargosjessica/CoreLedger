@@ -7,6 +7,7 @@ struct AddTransferSourceMigration: AsyncMigration {
     func prepare(on database: Database) async throws {
         try await database.schema("transactions")
             .field("transfer_source_id", .uuid, .references("transactions", "id", onDelete: .cascade))
+            .unique(on: "transfer_source_id")
             .update()
     }
 

@@ -86,6 +86,7 @@ struct ImportService {
                 // que a criou não pode apagar uma compra que já virou real.
                 model.$importBatch.id = batch.id
                 try await model.update(on: db)
+                try await model.syncCounterpart(on: db)
 
                 // Estado anterior e estado deixado aqui: desfazer só reverte o
                 // que continua como esta importação deixou.

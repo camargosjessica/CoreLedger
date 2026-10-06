@@ -41,6 +41,7 @@ struct EditTransactionSheet: View {
                         }
                     }
                 }
+                .disabled(isCounterpart)
 
                 Section("Categoria") {
                     TextField("Categoria", text: $category)
@@ -56,6 +57,7 @@ struct EditTransactionSheet: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                .disabled(isCounterpart)
 
                 transferSection
 
@@ -65,6 +67,7 @@ struct EditTransactionSheet: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                .disabled(isCounterpart)
 
                 if transaction.isProjected {
                     Section {
@@ -83,7 +86,8 @@ struct EditTransactionSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Salvar") { save() }
                         .disabled(
-                            description.isEmpty
+                            isCounterpart
+                                || description.isEmpty
                                 || ValueParser.parse(amount) == nil
                                 || (transferAccountID != nil && transferAccountID == accountID)
                         )
@@ -92,10 +96,12 @@ struct EditTransactionSheet: View {
         }
     }
 
+    private var isCounterpart: Bool { transaction.transferSourceID != nil }
+
     @ViewBuilder
     private var transferSection: some View {
         Section("Transferência") {
-            if transaction.transferSourceID != nil {
+            if isCounterpart {
                 Text("Este lançamento é a contrapartida de uma transferência. O valor e a data acompanham o lançamento original; para mudar ou desfazer, edite o original.")
                     .font(.caption)
                     .foregroundStyle(.secondary)

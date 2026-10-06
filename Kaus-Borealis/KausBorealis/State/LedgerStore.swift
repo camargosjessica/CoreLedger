@@ -249,9 +249,15 @@ final class LedgerStore {
     /// desfaz a contrapartida da transferência.
     func updateTransaction(_ transaction: TransactionDTO, transferTo accountID: UUID?) async {
         guard let id = transaction.id else { return }
+        let transferChanged = accountID != transaction.transferAccountID
         await run {
+            // Desliga antes de editar: a origem pode estar indo para a conta
+            // que hoje recebe a contrapartida.
+            if transferChanged, transaction.transferAccountID != nil {
+                _ = try await self.client.setTransfer(id: id, accountID: nil)
+            }
             _ = try await self.client.updateTransaction(id: id, transaction)
-            if accountID != transaction.transferAccountID {
+            if transferChanged, let accountID {
                 _ = try await self.client.setTransfer(id: id, accountID: accountID)
             }
         }

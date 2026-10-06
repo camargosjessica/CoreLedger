@@ -106,4 +106,15 @@ extension TransactionModel {
         externalID = nil
         $transferSource.id = origin.id
     }
+
+    /// Re-espelha a contrapartida, se houver, depois de este lançamento mudar.
+    func syncCounterpart(on db: any Database) async throws {
+        guard let id else { return }
+        guard let counterpart = try await TransactionModel.query(on: db)
+            .filter(\.$transferSource.$id == id)
+            .first()
+        else { return }
+        counterpart.mirror(self)
+        try await counterpart.update(on: db)
+    }
 }
