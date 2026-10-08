@@ -43,8 +43,11 @@ struct TransactionController: RouteCollection {
             builder = builder.filter(.sql(embed: "\(ident: "tags") @> ARRAY[\(bind: tag)]::text[]"))
         }
         if let search = query.search?.trimmingCharacters(in: .whitespacesAndNewlines), !search.isEmpty {
+            let pattern = TextSearch.pattern(for: search)
             builder = builder.group(.or) { group in
-                group.filter(\.$description ~~ search).filter(\.$category ~~ search).filter(\.$note ~~ search)
+                for column in ["description", "category", "note"] {
+                    group.filter(TextSearch.matches(column: column, pattern: pattern))
+                }
             }
         }
 
@@ -388,4 +391,25 @@ struct SummaryQuery: Content {
     var forecastMonths: Int?
     var baseMonths: Int?
     var includeTransfers: Bool?
+}
+
+/// Busca que ignora maiúsculas e acentos ("farmacia" acha "FARMÁCIA").
+enum TextSearch {
+    private static let accented = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ"
+    private static let plain = "aaaaaeeeeiiiiooooouuuucnaaaaaeeeeiiiiooooouuuucn"
+
+    /// Padrão `LIKE` já sem acentos, em minúsculas e com curingas escapados.
+    static func pattern(for search: String) -> String {
+        let folded = search
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            .lowercased()
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "%", with: "\\%")
+            .replacingOccurrences(of: "_", with: "\\_")
+        return "%\(folded)%"
+    }
+
+    static func matches(column: String, pattern: String) -> DatabaseQuery.Filter {
+        .sql(embed: "lower(translate(\(ident: column), \(bind: accented), \(bind: plain))) LIKE \(bind: pattern)")
+    }
 }

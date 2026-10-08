@@ -115,7 +115,7 @@ Contas têm tipo `checking`, `savings`, `creditCard`, `cash` ou `investment` e n
 
 Transferência entre contas próprias: ao ligar uma saída da conta corrente a uma caixinha (`PUT /api/transactions/:id/transfer`), o servidor cria na caixinha a contrapartida com o valor invertido (`transferSourceID` aponta para a origem). Editar a origem atualiza a contrapartida, e apagá-la (inclusive ao desfazer a importação) apaga a contrapartida junto. Use só em contas sem extrato importado, senão o valor entra duas vezes.
 
-`GET /api/transactions` aceita os filtros `accountID`, `from`, `to` (por dia inteiro), `search`, `category`, `tag`, `includeProjected`, `limit` (máx. 1000) e `offset`.
+`GET /api/transactions` aceita os filtros `accountID`, `from`, `to` (por dia inteiro), `search` (na descrição, categoria e comentário, ignorando maiúsculas e acentos), `category`, `tag`, `includeProjected`, `limit` (máx. 1000) e `offset`.
 
 `TransactionDTO`:
 ```json
