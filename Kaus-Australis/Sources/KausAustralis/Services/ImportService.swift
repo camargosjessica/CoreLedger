@@ -30,21 +30,8 @@ struct ImportService {
         // Só a fatura de cartão tem mês: reenviá-la troca a importação anterior
         // do mesmo mês, em vez de somar as linhas que mudaram.
         let statementMonth = account.accountKind == .creditCard ? request.statementMonth : nil
-        var replacedBatches: [ImportBatchModel] = []
-        if let statementMonth {
-            replacedBatches = try await ImportBatchModel.query(on: database)
-                .filter(\.$account.$id == accountID)
-                .filter(\.$statementMonth == statementMonth.description)
-                .all()
-        }
-        let replacedBatchIDs = replacedBatches.compactMap { $0.id }
-        var replaced: [TransactionModel] = []
-        if !replacedBatchIDs.isEmpty {
-            replaced = try await TransactionModel.query(on: database)
-                .filter(\.$importBatch.$id ~~ replacedBatchIDs)
-                .filter(\.$transferSource.$id == nil)
-                .all()
-        }
+        let replacedBatches = try await batches(accountID: accountID, statementMonth: statementMonth)
+        let replaced = try await importedTransactions(in: replacedBatches.compactMap { $0.id })
         let replacedIDs = Set(replaced.compactMap { $0.id })
         let replacedKeys = Set(replaced.compactMap { $0.dedupKey })
 
@@ -63,7 +50,8 @@ struct ImportService {
         )
 
         let batch = ImportBatchModel(accountID: accountID, filename: request.filename, statementMonth: statementMonth)
-        var suggested = 0
+        let suggestions = plan.inserts.map { LabelSuggester.suggestion(for: $0.transaction, in: history) }
+        let suggested = suggestions.compactMap { $0 }.count
 
         // Tudo ou nada: um extrato meio importado deixaria o usuário sem saber
         // o que reimportar, e a segunda tentativa processaria outro conjunto de linhas.
@@ -81,9 +69,8 @@ struct ImportService {
 
             try await batch.create(on: db)
 
-            for insert in plan.inserts {
+            for (insert, suggestion) in zip(plan.inserts, suggestions) {
                 let line = insert.transaction
-                let suggestion = LabelSuggester.suggestion(for: line, in: history)
                 let category = suggestion?.category
                     ?? categorizer.category(for: line.description, amount: line.amount)
                 let ruleTags = categorizer.tags(for: line.description, amount: line.amount)
@@ -95,7 +82,6 @@ struct ImportService {
                     tags: suggestion.map { TagSet.normalize($0.tags + ($0.category == nil ? ruleTags : [])) } ?? ruleTags
                 )
                 model.note = suggestion?.note
-                if suggestion != nil { suggested += 1 }
                 model.$importBatch.id = batch.id
                 try await model.create(on: db)
             }
@@ -124,6 +110,24 @@ struct ImportService {
             failures: parsed.failures,
             batchID: batch.id
         )
+    }
+
+    /// Lotes da fatura do mesmo cartão e mês, substituídos pela nova importação.
+    private func batches(accountID: UUID, statementMonth: YearMonth?) async throws -> [ImportBatchModel] {
+        guard let statementMonth else { return [] }
+        return try await ImportBatchModel.query(on: database)
+            .filter(\.$account.$id == accountID)
+            .filter(\.$statementMonth == statementMonth.description)
+            .all()
+    }
+
+    /// Lançamentos importados pelos lotes, sem contrapartidas de transferência.
+    private func importedTransactions(in batchIDs: [UUID]) async throws -> [TransactionModel] {
+        guard !batchIDs.isEmpty else { return [] }
+        return try await TransactionModel.query(on: database)
+            .filter(\.$importBatch.$id ~~ batchIDs)
+            .filter(\.$transferSource.$id == nil)
+            .all()
     }
 
     /// Lançamentos mais recentes da conta, sem contrapartidas de transferência.
