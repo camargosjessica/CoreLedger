@@ -60,4 +60,14 @@ final class ImportBatchContractTests: XCTestCase {
     func testBulkDeleteResponseDefaultsRestoredToZero() {
         XCTAssertEqual(BulkDeleteResponse(deleted: 5).restored, 0)
     }
+
+    func testBulkUpdateAddsAndRemovesTagsWithoutDuplicates() {
+        let request = BulkUpdateRequest(ids: [], addTags: ["Casa", "beleza"], removeTags: [" Obra "])
+        XCTAssertEqual(request.applyTags(to: ["obra", "casa", "Essencial"]), ["casa", "essencial", "beleza"])
+    }
+
+    func testBulkUpdateBlankCategoryKeepsEachCategory() {
+        XCTAssertNil(BulkUpdateRequest(ids: [], category: "  ").normalizedCategory)
+        XCTAssertEqual(BulkUpdateRequest(ids: [], category: " Casa ").normalizedCategory, "Casa")
+    }
 }

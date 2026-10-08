@@ -12,6 +12,7 @@ struct TransactionsView: View {
     @State private var editing: TransactionDTO?
     @State private var pendingDelete: TransactionDTO?
     @State private var isConfirmingBulkDelete = false
+    @State private var isBulkEditing = false
     @State private var isExporting = false
     @State private var exportDocument: CSVFile?
 
@@ -105,6 +106,9 @@ struct TransactionsView: View {
             ) { result in
                 if case let .failure(error) = result { store.errorMessage = error.localizedDescription }
             }
+            .sheet(isPresented: $isBulkEditing) {
+                BulkEditSheet(store: store, transactions: selectedTransactions) { endSelection() }
+            }
             .sheet(item: $editing) { transaction in
                 EditTransactionSheet(store: store, transaction: transaction)
             }
@@ -195,6 +199,12 @@ struct TransactionsView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
             if isSelecting {
+                Button(allSelected ? "Desmarcar todos" : "Selecionar todos") { toggleSelectAll() }
+                    .disabled(store.transactions.isEmpty)
+                Button { isBulkEditing = true } label: {
+                    Label("Editar selecionados", systemImage: "square.and.pencil")
+                }
+                .disabled(selectedTransactions.isEmpty)
                 Button(role: .destructive) {
                     isConfirmingBulkDelete = true
                 } label: {
@@ -281,6 +291,25 @@ struct TransactionsView: View {
         }
     }
 
+    /// Contrapartidas de transferência ficam de fora: acompanham o original.
+    private var selectableIDs: Set<UUID> {
+        Set(store.transactions.filter { $0.transferSourceID == nil }.compactMap(\.id))
+    }
+
+    private var allSelected: Bool {
+        !selectableIDs.isEmpty && selectableIDs.isSubset(of: selection)
+    }
+
+    private var selectedTransactions: [TransactionDTO] {
+        store.transactions.filter { transaction in
+            transaction.transferSourceID == nil && transaction.id.map { selection.contains($0) } == true
+        }
+    }
+
+    private func toggleSelectAll() {
+        selection = allSelected ? [] : selectableIDs
+    }
+
     private func endSelection() {
         isSelecting = false
         selection = []
@@ -313,6 +342,94 @@ struct TransactionsView: View {
         isFiltered
             ? "Ajuste o período, a categoria, a tag ou a conta para ver outros lançamentos."
             : "Importe um extrato ou adicione um lançamento manualmente."
+    }
+}
+
+/// Mesma categoria e tags em vários lançamentos de uma vez.
+private struct BulkEditSheet: View {
+    @Bindable var store: LedgerStore
+    let transactions: [TransactionDTO]
+    let onSaved: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var category = ""
+    @State private var addTags: [String] = []
+    @State private var removeTags: Set<String> = []
+
+    /// Tags que algum dos selecionados já tem: as únicas que dá para tirar.
+    private var currentTags: [String] {
+        TagSet.normalize(transactions.flatMap(\.tags)).sorted()
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Categoria") {
+                    TextField("Manter a de cada lançamento", text: $category)
+                    if !store.categories.isEmpty {
+                        Picker("Usar existente", selection: $category) {
+                            Text("—").tag("")
+                            ForEach(store.categories, id: \.self) { name in
+                                Text(name).tag(name)
+                            }
+                        }
+                    }
+                }
+
+                Section("Adicionar tags") {
+                    TagEditor(tags: $addTags, suggestions: store.knownTags)
+                }
+
+                if !currentTags.isEmpty {
+                    Section("Remover tags") {
+                        ForEach(currentTags, id: \.self) { tag in
+                            Toggle(tag, isOn: Binding(
+                                get: { removeTags.contains(tag) },
+                                set: { isOn in
+                                    if isOn { removeTags.insert(tag) } else { removeTags.remove(tag) }
+                                }
+                            ))
+                        }
+                    }
+                }
+
+                Section {
+                    Text("Vale para os \(transactions.count) lançamento(s) selecionados. O que ficar em branco não muda.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Editar \(transactions.count)")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Salvar") { save() }
+                        .disabled(!hasChanges)
+                }
+            }
+        }
+    }
+
+    private var hasChanges: Bool {
+        !category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !addTags.isEmpty || !removeTags.isEmpty
+    }
+
+    private func save() {
+        let request = BulkUpdateRequest(
+            ids: transactions.compactMap(\.id),
+            category: category,
+            addTags: addTags,
+            removeTags: Array(removeTags)
+        )
+        Task {
+            await store.updateTransactions(request)
+            onSaved()
+            dismiss()
+        }
     }
 }
 

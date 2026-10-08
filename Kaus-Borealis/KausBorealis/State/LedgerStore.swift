@@ -288,6 +288,12 @@ final class LedgerStore {
         await reload()
     }
 
+    func updateTransactions(_ request: BulkUpdateRequest) async {
+        guard !request.ids.isEmpty else { return }
+        await run { _ = try await self.client.updateTransactions(request) }
+        await reload()
+    }
+
     func search(_ term: String) async {
         searchTerm = term
         await reloadTransactions()

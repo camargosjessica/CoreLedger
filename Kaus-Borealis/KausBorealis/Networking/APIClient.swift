@@ -137,6 +137,10 @@ struct APIClient: Sendable {
         try await send(.delete, "api/transactions", body: BulkDeleteRequest(ids: ids))
     }
 
+    func updateTransactions(_ request: BulkUpdateRequest) async throws -> BulkUpdateResponse {
+        try await send(.patch, "api/transactions", body: request)
+    }
+
     // MARK: Importação
 
     func importStatement(_ request: ImportRequestDTO) async throws -> ImportReportDTO {
@@ -300,6 +304,7 @@ struct APIClient: Sendable {
         case post = "POST"
         case put = "PUT"
         case delete = "DELETE"
+        case patch = "PATCH"
     }
 
     private func send<Response: Decodable>(

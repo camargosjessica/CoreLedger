@@ -12,6 +12,7 @@ struct TransactionController: RouteCollection {
         transactions.put(":transactionID", "transfer", use: setTransfer)
         transactions.delete(":transactionID", use: delete)
         transactions.delete(use: deleteBatch)
+        transactions.patch(use: updateBatch)
 
         routes.post("api", "imports", use: importStatement)
         routes.get("api", "imports", use: batches)
@@ -260,6 +261,32 @@ struct TransactionController: RouteCollection {
             return models.count
         }
         return BulkDeleteResponse(deleted: deleted)
+    }
+
+    /// Edição em lote a partir da seleção na lista: categoria e tags.
+    /// Contrapartidas ficam de fora e acompanham o original.
+    func updateBatch(req: Request) async throws -> BulkUpdateResponse {
+        let request = try req.content.decode(BulkUpdateRequest.self)
+        guard !request.ids.isEmpty else { return BulkUpdateResponse(updated: 0) }
+        guard request.ids.count <= 1000 else {
+            throw Abort(.badRequest, reason: "No máximo 1000 lançamentos por vez")
+        }
+        let category = request.normalizedCategory
+
+        let updated = try await req.db.transaction { db -> Int in
+            let models = try await TransactionModel.query(on: db)
+                .filter(\.$id ~~ request.ids)
+                .filter(\.$transferSource.$id == nil)
+                .all()
+            for model in models {
+                if let category { model.category = category }
+                model.tags = request.applyTags(to: model.tags)
+                try await model.update(on: db)
+                try await model.syncCounterpart(on: db)
+            }
+            return models.count
+        }
+        return BulkUpdateResponse(updated: updated)
     }
 
     func batches(req: Request) async throws -> [ImportBatchDTO] {

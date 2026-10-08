@@ -18,6 +18,8 @@ extension RecategorizeResponse: @retroactive Content {}
 extension ImportBatchDTO: @retroactive Content {}
 extension BulkDeleteRequest: @retroactive Content {}
 extension BulkDeleteResponse: @retroactive Content {}
+extension BulkUpdateResponse: @retroactive Content {}
+extension BulkUpdateRequest: @retroactive Content {}
 extension ResetRequest: @retroactive Content {}
 extension ResetResponse: @retroactive Content {}
 extension DeleteCategoryResponse: @retroactive Content {}

@@ -42,6 +42,43 @@ public struct BulkDeleteRequest: Codable, Sendable {
     }
 }
 
+/// Corpo de `PATCH /api/transactions`: mesma categoria e tags em vários lançamentos.
+public struct BulkUpdateRequest: Codable, Sendable {
+    public var ids: [UUID]
+    /// `nil` mantém a categoria de cada lançamento.
+    public var category: String?
+    public var addTags: [String]
+    public var removeTags: [String]
+
+    public init(ids: [UUID], category: String? = nil, addTags: [String] = [], removeTags: [String] = []) {
+        self.ids = ids
+        self.category = category
+        self.addTags = addTags
+        self.removeTags = removeTags
+    }
+
+    /// Categoria a gravar, ou `nil` quando não muda.
+    public var normalizedCategory: String? {
+        guard let trimmed = category?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else { return nil }
+        return trimmed
+    }
+
+    /// Tags do lançamento depois de tirar `removeTags` e incluir `addTags`.
+    public func applyTags(to tags: [String]) -> [String] {
+        let removed = Set(TagSet.normalize(removeTags))
+        return TagSet.normalize(TagSet.normalize(tags).filter { !removed.contains($0) } + addTags)
+    }
+}
+
+public struct BulkUpdateResponse: Codable, Sendable {
+    public var updated: Int
+
+    public init(updated: Int) {
+        self.updated = updated
+    }
+}
+
 public struct BulkDeleteResponse: Codable, Sendable {
     public var deleted: Int
     /// Projeções restauradas quando uma importação é desfeita.

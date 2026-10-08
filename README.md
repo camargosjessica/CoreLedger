@@ -98,6 +98,7 @@ Em **Resumo** o painel de posição mostra quanto há guardado (contas do tipo c
 | `PUT` | `/api/transactions/:id/transfer` | `TransferLinkRequest` (`accountID` ou `null`) | `TransactionDTO` com `transferAccountID` (cria, move ou desfaz a contrapartida) |
 | `DELETE` | `/api/transactions/:id` | — | `204` |
 | `DELETE` | `/api/transactions` | `BulkDeleteRequest` (`ids`) | `BulkDeleteResponse` |
+| `PATCH` | `/api/transactions` | `BulkUpdateRequest` (`ids`, `category`, `addTags`, `removeTags`) | `BulkUpdateResponse` |
 | `POST` | `/api/imports` | `ImportRequestDTO` | `ImportReportDTO` (com o `batchID` do lote) |
 | `GET` | `/api/imports` | — | `[ImportBatchDTO]` |
 | `DELETE` | `/api/imports/:batchID` | — | `BulkDeleteResponse` (desfaz a importação) |
