@@ -6,6 +6,8 @@ public struct ImportBatchDTO: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID?
     public var accountID: UUID
     public var filename: String?
+    /// Mês da fatura, quando a importação foi de um cartão.
+    public var statementMonth: YearMonth?
     public var createdAt: Date?
     /// Lançamentos criados por esta importação e ainda existentes.
     public var transactionCount: Int
@@ -16,6 +18,7 @@ public struct ImportBatchDTO: Codable, Sendable, Hashable, Identifiable {
         id: UUID? = nil,
         accountID: UUID,
         filename: String? = nil,
+        statementMonth: YearMonth? = nil,
         createdAt: Date? = nil,
         transactionCount: Int = 0,
         confirmedCount: Int = 0
@@ -23,6 +26,7 @@ public struct ImportBatchDTO: Codable, Sendable, Hashable, Identifiable {
         self.id = id
         self.accountID = accountID
         self.filename = filename
+        self.statementMonth = statementMonth
         self.createdAt = createdAt
         self.transactionCount = transactionCount
         self.confirmedCount = confirmedCount

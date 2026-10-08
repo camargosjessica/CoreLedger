@@ -1,7 +1,7 @@
 import Foundation
 
 /// Tipo da conta. Define como o extrato é interpretado na importação:
-/// faturas de cartão passam pela expansão de parcelas.
+/// faturas de cartão têm os sinais normalizados e são substituídas por mês.
 public enum AccountKind: String, Codable, Sendable, CaseIterable {
     case checking
     /// Poupança ou caixinha: dinheiro guardado, com nome livre.
@@ -9,8 +9,6 @@ public enum AccountKind: String, Codable, Sendable, CaseIterable {
     case creditCard
     case cash
     case investment
-
-    public var expandsInstallments: Bool { self == .creditCard }
 
     /// Contas cujo saldo é dinheiro guardado, não disponível para o dia a dia.
     public var isSavings: Bool { self == .savings || self == .investment }

@@ -234,8 +234,13 @@ final class LedgerStore {
 
     // MARK: Lançamentos
 
-    func addTransaction(_ transaction: TransactionDTO) async {
-        await run { _ = try await self.client.createTransaction(transaction) }
+    /// Parcelas de um lançamento manual: todas sobem antes de recarregar a lista.
+    func addTransactions(_ transactions: [TransactionDTO]) async {
+        await run {
+            for transaction in transactions {
+                _ = try await self.client.createTransaction(transaction)
+            }
+        }
         await reload()
     }
 

@@ -44,7 +44,7 @@ struct TransactionController: RouteCollection {
         }
         if let search = query.search?.trimmingCharacters(in: .whitespacesAndNewlines), !search.isEmpty {
             builder = builder.group(.or) { group in
-                group.filter(\.$description ~~ search).filter(\.$category ~~ search)
+                group.filter(\.$description ~~ search).filter(\.$category ~~ search).filter(\.$note ~~ search)
             }
         }
 
@@ -200,6 +200,7 @@ struct TransactionController: RouteCollection {
         }
         // As tags do corpo são o estado final: mandar lista vazia apaga todas.
         model.tags = TagSet.normalize(dto.tags)
+        model.note = dto.note
         if keyWasCanonical {
             model.dedupKey = DedupKey.make(
                 accountID: dto.accountID,
@@ -328,7 +329,7 @@ struct TransactionController: RouteCollection {
         }
     }
 
-    /// Importa um extrato ou fatura. Faturas de cartão geram também as parcelas futuras.
+    /// Importa um extrato ou fatura. A fatura de cartão com mês substitui a anterior do mesmo mês.
     func importStatement(req: Request) async throws -> ImportReportDTO {
         let request = try req.content.decode(ImportRequestDTO.self)
         guard let account = try await AccountModel.find(request.accountID, on: req.db) else {

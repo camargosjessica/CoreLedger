@@ -100,6 +100,7 @@ func configure(_ app: Application) async throws {
     app.migrations.add(SeedSavingsRulesMigration())
     app.migrations.add(CreateRecurringCommitmentMigration())
     app.migrations.add(AddTransferSourceMigration())
+    app.migrations.add(AddNoteAndStatementMonthMigration())
     try await app.autoMigrate()
 }
 

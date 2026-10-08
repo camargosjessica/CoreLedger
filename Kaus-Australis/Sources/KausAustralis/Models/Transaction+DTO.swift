@@ -36,7 +36,8 @@ extension TransactionModel {
             ),
             isProjected: dto.isProjected,
             installment: dto.installment,
-            tags: tags
+            tags: tags,
+            note: dto.note
         )
     }
 
@@ -75,6 +76,7 @@ extension TransactionModel {
             installment: installment,
             dedupKey: dedupKey,
             tags: tags,
+            note: note,
             transferSourceID: $transferSource.id
         )
     }

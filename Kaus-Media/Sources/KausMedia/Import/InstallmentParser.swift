@@ -53,6 +53,12 @@ public enum InstallmentParser {
 }
 
 public enum InstallmentExpander {
+    /// Identifica a parcela de cada linha sem criar as parcelas futuras: a
+    /// fatura de cada mês traz as suas, e reenviar a fatura substitui a anterior.
+    public static func label(_ transactions: [ImportedTransaction], datedByPurchase: Bool = false) -> [ImportedTransaction] {
+        transactions.map { expand($0, datedByPurchase: datedByPurchase)[0] }
+    }
+
     /// Para cada lançamento parcelado, devolve a parcela original seguida das
     /// parcelas futuras (uma por mês, mesmo valor), marcadas como projetadas.
     ///
