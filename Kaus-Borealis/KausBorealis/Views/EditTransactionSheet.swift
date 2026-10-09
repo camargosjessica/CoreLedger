@@ -13,6 +13,7 @@ struct EditTransactionSheet: View {
     @State private var accountID: UUID?
     @State private var category: String
     @State private var tags: [String]
+    @State private var note: String
     @State private var transferAccountID: UUID?
 
     init(store: LedgerStore, transaction: TransactionDTO) {
@@ -24,6 +25,7 @@ struct EditTransactionSheet: View {
         _accountID = State(initialValue: transaction.accountID)
         _category = State(initialValue: transaction.category ?? "")
         _tags = State(initialValue: transaction.tags)
+        _note = State(initialValue: transaction.note ?? "")
         _transferAccountID = State(initialValue: transaction.transferAccountID)
     }
 
@@ -59,6 +61,12 @@ struct EditTransactionSheet: View {
                 }
                 .disabled(isCounterpart)
 
+                Section("Comentário") {
+                    TextField("O que foi essa compra?", text: $note, axis: .vertical)
+                        .lineLimit(1...4)
+                }
+                .disabled(isCounterpart)
+
                 transferSection
 
                 Section("Tags") {
@@ -71,7 +79,7 @@ struct EditTransactionSheet: View {
 
                 if transaction.isProjected {
                     Section {
-                        Text("Parcela projetada: ainda não apareceu numa fatura.")
+                        Text("Lançamento futuro: ainda não entra no saldo.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -136,6 +144,7 @@ struct EditTransactionSheet: View {
         updated.accountID = accountID
         updated.category = category.isEmpty ? nil : category
         updated.tags = tags
+        updated.note = TransactionNote.normalize(note)
         Task {
             await store.updateTransaction(updated, transferTo: transferAccountID)
             dismiss()

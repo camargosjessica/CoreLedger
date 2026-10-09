@@ -31,6 +31,10 @@ final class ImportBatchModel: Model, @unchecked Sendable {
     @OptionalField(key: "filename")
     var filename: String?
 
+    /// Mês da fatura (`"2026-12"`), quando a importação foi de um cartão.
+    @OptionalField(key: "statement_month")
+    var statementMonth: String?
+
     /// Envelope em objeto: um array Swift seria gravado como `jsonb[]`, e a coluna é `jsonb`.
     struct ConfirmationLog: Codable, Sendable {
         var snapshots: [ConfirmationSnapshot]
@@ -49,10 +53,17 @@ final class ImportBatchModel: Model, @unchecked Sendable {
 
     init() { }
 
-    init(id: UUID? = nil, accountID: UUID, filename: String?, confirmations: [ConfirmationSnapshot] = []) {
+    init(
+        id: UUID? = nil,
+        accountID: UUID,
+        filename: String?,
+        statementMonth: YearMonth? = nil,
+        confirmations: [ConfirmationSnapshot] = []
+    ) {
         self.id = id
         self.$account.id = accountID
         self.filename = filename
+        self.statementMonth = statementMonth?.description
         self.confirmationLog = ConfirmationLog(snapshots: confirmations)
     }
 }
@@ -63,6 +74,7 @@ extension ImportBatchModel {
             id: id,
             accountID: $account.id,
             filename: filename,
+            statementMonth: statementMonth.flatMap { YearMonth($0) },
             createdAt: createdAt,
             transactionCount: transactionCount,
             confirmedCount: confirmations.count

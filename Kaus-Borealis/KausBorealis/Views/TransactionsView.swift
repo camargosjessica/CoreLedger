@@ -12,6 +12,7 @@ struct TransactionsView: View {
     @State private var editing: TransactionDTO?
     @State private var pendingDelete: TransactionDTO?
     @State private var isConfirmingBulkDelete = false
+    @State private var isBulkEditing = false
     @State private var isExporting = false
     @State private var exportDocument: CSVFile?
 
@@ -105,6 +106,9 @@ struct TransactionsView: View {
             ) { result in
                 if case let .failure(error) = result { store.errorMessage = error.localizedDescription }
             }
+            .sheet(isPresented: $isBulkEditing) {
+                BulkEditSheet(store: store, transactions: selectedTransactions) { endSelection() }
+            }
             .sheet(item: $editing) { transaction in
                 EditTransactionSheet(store: store, transaction: transaction)
             }
@@ -195,6 +199,12 @@ struct TransactionsView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
             if isSelecting {
+                Button(allSelected ? "Desmarcar todos" : "Selecionar todos") { toggleSelectAll() }
+                    .disabled(store.transactions.isEmpty)
+                Button { isBulkEditing = true } label: {
+                    Label("Editar selecionados", systemImage: "square.and.pencil")
+                }
+                .disabled(selectedTransactions.isEmpty)
                 Button(role: .destructive) {
                     isConfirmingBulkDelete = true
                 } label: {
@@ -281,6 +291,25 @@ struct TransactionsView: View {
         }
     }
 
+    /// Contrapartidas de transferência ficam de fora: acompanham o original.
+    private var selectableIDs: Set<UUID> {
+        Set(store.transactions.filter { $0.transferSourceID == nil }.compactMap(\.id))
+    }
+
+    private var allSelected: Bool {
+        !selectableIDs.isEmpty && selectableIDs.isSubset(of: selection)
+    }
+
+    private var selectedTransactions: [TransactionDTO] {
+        store.transactions.filter { transaction in
+            transaction.transferSourceID == nil && transaction.id.map { selection.contains($0) } == true
+        }
+    }
+
+    private func toggleSelectAll() {
+        selection = allSelected ? [] : selectableIDs
+    }
+
     private func endSelection() {
         isSelecting = false
         selection = []
@@ -313,6 +342,94 @@ struct TransactionsView: View {
         isFiltered
             ? "Ajuste o período, a categoria, a tag ou a conta para ver outros lançamentos."
             : "Importe um extrato ou adicione um lançamento manualmente."
+    }
+}
+
+/// Mesma categoria e tags em vários lançamentos de uma vez.
+private struct BulkEditSheet: View {
+    @Bindable var store: LedgerStore
+    let transactions: [TransactionDTO]
+    let onSaved: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var category = ""
+    @State private var addTags: [String] = []
+    @State private var removeTags: Set<String> = []
+
+    /// Tags que algum dos selecionados já tem: as únicas que dá para tirar.
+    private var currentTags: [String] {
+        TagSet.normalize(transactions.flatMap(\.tags)).sorted()
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Categoria") {
+                    TextField("Manter a de cada lançamento", text: $category)
+                    if !store.categories.isEmpty {
+                        Picker("Usar existente", selection: $category) {
+                            Text("—").tag("")
+                            ForEach(store.categories, id: \.self) { name in
+                                Text(name).tag(name)
+                            }
+                        }
+                    }
+                }
+
+                Section("Adicionar tags") {
+                    TagEditor(tags: $addTags, suggestions: store.knownTags)
+                }
+
+                if !currentTags.isEmpty {
+                    Section("Remover tags") {
+                        ForEach(currentTags, id: \.self) { tag in
+                            Toggle(tag, isOn: Binding(
+                                get: { removeTags.contains(tag) },
+                                set: { isOn in
+                                    if isOn { removeTags.insert(tag) } else { removeTags.remove(tag) }
+                                }
+                            ))
+                        }
+                    }
+                }
+
+                Section {
+                    Text("Vale para os \(transactions.count) lançamento(s) selecionados. O que ficar em branco não muda.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Editar \(transactions.count)")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Salvar") { save() }
+                        .disabled(!hasChanges)
+                }
+            }
+        }
+    }
+
+    private var hasChanges: Bool {
+        !category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !addTags.isEmpty || !removeTags.isEmpty
+    }
+
+    private func save() {
+        let request = BulkUpdateRequest(
+            ids: transactions.compactMap(\.id),
+            category: category,
+            addTags: addTags,
+            removeTags: Array(removeTags)
+        )
+        Task {
+            await store.updateTransactions(request)
+            onSaved()
+            dismiss()
+        }
     }
 }
 
@@ -409,7 +526,7 @@ struct TransactionRow: View {
                         Text("\(installment.number)/\(installment.total)")
                     }
                     if transaction.isProjected {
-                        Text("projetado")
+                        Text("futuro")
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(.quaternary, in: Capsule())
@@ -417,6 +534,12 @@ struct TransactionRow: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                if let note = transaction.note {
+                    Text(note)
+                        .font(.caption)
+                        .italic()
+                        .lineLimit(2)
+                }
                 TagChips(tags: transaction.tags)
             }
             Spacer()
@@ -427,6 +550,8 @@ struct TransactionRow: View {
     }
 }
 
+/// Lançamento manual. Com mais de uma parcela (ex.: IPTU em 10 vezes), gera uma
+/// linha por mês, cada uma com data e valor editáveis antes de salvar.
 private struct NewTransactionSheet: View {
     @Bindable var store: LedgerStore
     @Environment(\.dismiss) private var dismiss
@@ -437,48 +562,172 @@ private struct NewTransactionSheet: View {
     @State private var accountID: UUID?
     /// Vazio deixa a categorização para as regras do servidor.
     @State private var category = ""
+    @State private var tags: [String] = []
+    @State private var note = ""
+    @State private var installmentCount = 1
+    @State private var installments: [InstallmentDraft] = []
 
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Descrição", text: $description)
-                TextField("Valor (negativo para despesa)", text: $amount)
-                DatePicker("Data", selection: $date, displayedComponents: .date)
-                Picker("Conta", selection: $accountID) {
-                    Text("Sem conta").tag(UUID?.none)
-                    ForEach(store.accounts) { account in
-                        Text(account.name).tag(account.id)
+                Section("Lançamento") {
+                    TextField("Descrição", text: $description)
+                    TextField(installmentCount > 1 ? "Valor de cada parcela (negativo para despesa)" : "Valor (negativo para despesa)", text: $amount)
+                    DatePicker(installmentCount > 1 ? "Primeira parcela" : "Data", selection: $date, displayedComponents: .date)
+                    Picker("Conta", selection: $accountID) {
+                        Text("Sem conta").tag(UUID?.none)
+                        ForEach(store.accounts) { account in
+                            Text(account.name).tag(account.id)
+                        }
+                    }
+                    Stepper("Parcelas: \(installmentCount)", value: $installmentCount, in: 1...60)
+                }
+
+                if installmentCount > 1 {
+                    Section {
+                        ForEach($installments) { $draft in
+                            HStack {
+                                Text("\(draft.number)/\(installmentCount)")
+                                    .font(.callout.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                                    .frame(minWidth: 44, alignment: .leading)
+                                DatePicker("Data", selection: $draft.date, displayedComponents: .date)
+                                    .labelsHidden()
+                                TextField("Valor", text: $draft.amount)
+                                    .multilineTextAlignment(.trailing)
+                            }
+                        }
+                    } header: {
+                        Text("Parcelas")
+                    } footer: {
+                        Text("Total: \(installmentTotal.brl). Ajuste a data ou o valor de qualquer parcela antes de salvar. Parcelas com data futura não entram no saldo até o dia chegar.")
                     }
                 }
-                TextField("Categoria (opcional)", text: $category)
+
+                Section("Categoria") {
+                    TextField("Categoria (opcional)", text: $category)
+                    if !store.categories.isEmpty {
+                        Picker("Usar existente", selection: $category) {
+                            Text("—").tag("")
+                            ForEach(store.categories, id: \.self) { name in
+                                Text(name).tag(name)
+                            }
+                        }
+                    }
+                }
+
+                Section("Tags") {
+                    TagEditor(tags: $tags, suggestions: store.knownTags)
+                }
+
+                Section("Comentário") {
+                    TextField("O que foi essa compra?", text: $note, axis: .vertical)
+                        .lineLimit(1...4)
+                }
             }
             .formStyle(.grouped)
             .navigationTitle("Novo lançamento")
+            .onChange(of: installmentCount) { regenerate() }
+            .onChange(of: amount) { regenerate() }
+            .onChange(of: date) { regenerate() }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancelar") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Salvar") { save() }
-                        .disabled(description.isEmpty || ValueParser.parse(amount) == nil)
+                    Button(installmentCount > 1 ? "Salvar \(installmentCount)" : "Salvar") { save() }
+                        .disabled(description.isEmpty || !isValid)
                 }
             }
         }
     }
 
+    private var isValid: Bool {
+        guard installmentCount > 1 else { return ValueParser.parse(amount) != nil }
+        return installments.count == installmentCount
+            && installments.allSatisfy { ValueParser.parse($0.amount) != nil }
+    }
+
+    private var installmentTotal: Double {
+        installments.compactMap { ValueParser.parse($0.amount) }.reduce(0, +)
+    }
+
+    /// Refaz as parcelas a partir do valor e da primeira data, mantendo as que
+    /// o usuário já ajustou à mão.
+    private func regenerate() {
+        guard installmentCount > 1 else {
+            installments = []
+            return
+        }
+        installments = (1...installmentCount).map { number in
+            if let edited = installments.first(where: { $0.number == number && $0.isEdited }) {
+                return edited
+            }
+            return InstallmentDraft(
+                number: number,
+                date: LedgerCalendar.addingMonths(number - 1, to: date),
+                amount: amount
+            )
+        }
+    }
+
     private func save() {
-        guard let value = ValueParser.parse(amount) else { return }
-        let transaction = TransactionDTO(
-            description: description,
-            amount: value,
-            date: date,
-            category: category.isEmpty ? nil : category,
-            accountID: accountID
-        )
+        let category = category.isEmpty ? nil : category
+        let note = TransactionNote.normalize(note)
+        let today = LedgerCalendar.startOfDay(Date())
+        let transactions: [TransactionDTO]
+        if installmentCount > 1 {
+            transactions = installments.compactMap { draft in
+                guard let value = ValueParser.parse(draft.amount) else { return nil }
+                return TransactionDTO(
+                    description: description,
+                    amount: value,
+                    date: draft.date,
+                    category: category,
+                    accountID: accountID,
+                    isProjected: LedgerCalendar.startOfDay(draft.date) > today,
+                    installment: Installment(number: draft.number, total: installmentCount),
+                    tags: tags,
+                    note: note
+                )
+            }
+        } else {
+            guard let value = ValueParser.parse(amount) else { return }
+            transactions = [
+                TransactionDTO(
+                    description: description,
+                    amount: value,
+                    date: date,
+                    category: category,
+                    accountID: accountID,
+                    isProjected: LedgerCalendar.startOfDay(date) > today,
+                    tags: tags,
+                    note: note
+                ),
+            ]
+        }
         Task {
-            await store.addTransaction(transaction)
+            await store.addTransactions(transactions)
             dismiss()
         }
+    }
+}
+
+private struct InstallmentDraft: Identifiable {
+    var id: Int { number }
+    let number: Int
+    var date: Date {
+        didSet { isEdited = true }
+    }
+    var amount: String {
+        didSet { isEdited = true }
+    }
+    private(set) var isEdited = false
+
+    init(number: Int, date: Date, amount: String) {
+        self.number = number
+        self.date = date
+        self.amount = amount
     }
 }
 

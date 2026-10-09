@@ -37,7 +37,7 @@ struct ImportView: View {
                         }
                     }
                     if selectedAccount?.kind == .creditCard {
-                        Text("Fatura de cartão: as parcelas futuras entram como projeção.")
+                        Text("Fatura de cartão: escolha o mês de cada fatura. Reenviar a fatura do mesmo mês substitui a anterior, mantendo tags e comentários das compras que continuam nela.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -55,6 +55,9 @@ struct ImportView: View {
                                     Text("Lançamentos até \(latestDate.numericDay)")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                }
+                                if selectedAccount?.kind == .creditCard {
+                                    statementMonthPicker(for: file)
                                 }
                             }
                             Spacer()
@@ -158,17 +161,43 @@ struct ImportView: View {
             ) {
                 Button("Desfazer", role: .destructive) { undo() }
             } message: {
-                Text("Os lançamentos criados por ela serão apagados e as parcelas confirmadas voltam a ser projeções.")
+                Text("Os lançamentos criados por ela serão apagados. Uma fatura substituída não volta: reenvie o arquivo dela se precisar.")
             }
         }
+    }
+
+    private func statementMonthPicker(for file: StatementFile) -> some View {
+        let month = file.statementMonth ?? YearMonth(date: Date())
+        return HStack(spacing: 6) {
+            Button {
+                setStatementMonth(month.adding(months: -1), for: file)
+            } label: {
+                Image(systemName: "chevron.left")
+            }
+            Text("Fatura de \(month.startDate.monthYear)")
+                .font(.caption)
+            Button {
+                setStatementMonth(month.adding(months: 1), for: file)
+            } label: {
+                Image(systemName: "chevron.right")
+            }
+        }
+        .buttonStyle(.borderless)
+    }
+
+    private func setStatementMonth(_ month: YearMonth, for file: StatementFile) {
+        guard let index = files.firstIndex(where: { $0.id == file.id }) else { return }
+        files[index].statementMonth = month
     }
 
     @ViewBuilder
     private func reportRows(_ report: ImportReportDTO) -> some View {
         LabeledContent("Importados", value: "\(report.imported)")
+        if report.replaced > 0 {
+            LabeledContent("Substituídos da fatura anterior", value: "\(report.replaced)")
+        }
+        LabeledContent("Com tags e comentário de antes", value: "\(report.suggested)")
         LabeledContent("Duplicados ignorados", value: "\(report.duplicates)")
-        LabeledContent("Parcelas projetadas", value: "\(report.projectedInstallments)")
-        LabeledContent("Parcelas confirmadas", value: "\(report.confirmedInstallments)")
         ForEach(report.failures, id: \.line) { failure in
             VStack(alignment: .leading) {
                 Text("Linha \(failure.line): \(failure.reason)")
@@ -195,7 +224,8 @@ struct ImportView: View {
 
     private func subtitle(for batch: ImportBatchDTO) -> String {
         let date = batch.createdAt.map { $0.shortDay } ?? ""
-        return "\(date) · \(batch.transactionCount) lançamento(s)"
+        let month = batch.statementMonth.map { " · fatura de \($0.startDate.monthYear)" } ?? ""
+        return "\(date)\(month) · \(batch.transactionCount) lançamento(s)"
     }
 
     private func undo() {
@@ -204,7 +234,7 @@ struct ImportView: View {
         isSending = true
         Task {
             if let response = await store.undoImport(batchID: id) {
-                undoSummary = "\(response.deleted) apagado(s), \(response.restored) projeção(ões) restaurada(s)."
+                undoSummary = "\(response.deleted) lançamento(s) apagado(s)."
                 results = []
             }
             isSending = false
@@ -244,7 +274,11 @@ struct ImportView: View {
             name: url.lastPathComponent,
             content: text,
             format: format,
-            latestDate: parsed.transactions.map(\.date).max()
+            latestDate: parsed.transactions.map(\.date).max(),
+            statementMonth: StatementMonth.guess(
+                filename: url.lastPathComponent,
+                latestDate: parsed.transactions.map(\.date).max()
+            )
         )
     }
 
@@ -265,7 +299,8 @@ struct ImportView: View {
                             accountID: accountID,
                             filename: file.isPasted ? nil : file.name,
                             content: file.content,
-                            format: file.format
+                            format: file.format,
+                            statementMonth: selectedAccount?.kind == .creditCard ? file.statementMonth : nil
                         )
                     )
                     results.append(FileResult(name: file.name, report: report))
@@ -287,9 +322,10 @@ private struct StatementFile: Identifiable {
     var name: String
     var content: String
     var format: StatementFormat?
-    /// Data mais recente do arquivo. As faturas sobem em ordem cronológica para
-    /// que cada uma confirme as parcelas que a anterior deixou previstas.
+    /// Data mais recente do arquivo; as faturas sobem em ordem cronológica.
     var latestDate: Date?
+    /// Mês da fatura de cartão; reenviar o mesmo mês substitui a anterior.
+    var statementMonth: YearMonth?
     var isPasted = false
 }
 

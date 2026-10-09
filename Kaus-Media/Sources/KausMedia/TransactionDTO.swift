@@ -17,6 +17,8 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
     /// Marcadores livres. São preenchidos pela regra da categoria na importação
     /// e podem ser trocados depois — inclusive por tags que o usuário inventar.
     public var tags: [String]
+    /// Comentário livre do usuário sobre o lançamento (o que foi a compra).
+    public var note: String?
     /// Conta da contrapartida desta transferência (ex.: a caixinha que recebeu
     /// o dinheiro). Somente leitura: muda por `PUT /api/transactions/:id/transfer`.
     public var transferAccountID: UUID?
@@ -35,6 +37,7 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
         installment: Installment? = nil,
         dedupKey: String? = nil,
         tags: [String] = [],
+        note: String? = nil,
         transferAccountID: UUID? = nil,
         transferSourceID: UUID? = nil
     ) {
@@ -48,6 +51,7 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
         self.installment = installment
         self.dedupKey = dedupKey
         self.tags = TagSet.normalize(tags)
+        self.note = TransactionNote.normalize(note)
         self.transferAccountID = transferAccountID
         self.transferSourceID = transferSourceID
     }
@@ -65,6 +69,7 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
         installment = try container.decodeIfPresent(Installment.self, forKey: .installment)
         dedupKey = try container.decodeIfPresent(String.self, forKey: .dedupKey)
         tags = TagSet.normalize(try container.decodeIfPresent([String].self, forKey: .tags) ?? [])
+        note = TransactionNote.normalize(try container.decodeIfPresent(String.self, forKey: .note))
         transferAccountID = try container.decodeIfPresent(UUID.self, forKey: .transferAccountID)
         transferSourceID = try container.decodeIfPresent(UUID.self, forKey: .transferSourceID)
     }
@@ -77,5 +82,13 @@ public struct TransferLinkRequest: Codable, Sendable {
 
     public init(accountID: UUID?) {
         self.accountID = accountID
+    }
+}
+
+public enum TransactionNote {
+    /// Comentário em branco é ausência de comentário.
+    public static func normalize(_ note: String?) -> String? {
+        guard let trimmed = note?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return nil }
+        return trimmed
     }
 }

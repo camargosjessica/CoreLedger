@@ -234,8 +234,13 @@ final class LedgerStore {
 
     // MARK: Lançamentos
 
-    func addTransaction(_ transaction: TransactionDTO) async {
-        await run { _ = try await self.client.createTransaction(transaction) }
+    /// Parcelas de um lançamento manual: todas sobem antes de recarregar a lista.
+    func addTransactions(_ transactions: [TransactionDTO]) async {
+        await run {
+            for transaction in transactions {
+                _ = try await self.client.createTransaction(transaction)
+            }
+        }
         await reload()
     }
 
@@ -280,6 +285,12 @@ final class LedgerStore {
     func deleteTransactions(ids: [UUID]) async {
         guard !ids.isEmpty else { return }
         await run { _ = try await self.client.deleteTransactions(ids: ids) }
+        await reload()
+    }
+
+    func updateTransactions(_ request: BulkUpdateRequest) async {
+        guard !request.ids.isEmpty else { return }
+        await run { _ = try await self.client.updateTransactions(request) }
         await reload()
     }
 

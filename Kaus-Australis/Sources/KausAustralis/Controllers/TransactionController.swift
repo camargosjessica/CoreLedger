@@ -12,6 +12,7 @@ struct TransactionController: RouteCollection {
         transactions.put(":transactionID", "transfer", use: setTransfer)
         transactions.delete(":transactionID", use: delete)
         transactions.delete(use: deleteBatch)
+        transactions.patch(use: updateBatch)
 
         routes.post("api", "imports", use: importStatement)
         routes.get("api", "imports", use: batches)
@@ -43,8 +44,11 @@ struct TransactionController: RouteCollection {
             builder = builder.filter(.sql(embed: "\(ident: "tags") @> ARRAY[\(bind: tag)]::text[]"))
         }
         if let search = query.search?.trimmingCharacters(in: .whitespacesAndNewlines), !search.isEmpty {
+            let pattern = TextSearch.pattern(for: search)
             builder = builder.group(.or) { group in
-                group.filter(\.$description ~~ search).filter(\.$category ~~ search)
+                for column in ["description", "category", "note"] {
+                    group.filter(TextSearch.matches(column: column, pattern: pattern))
+                }
             }
         }
 
@@ -200,6 +204,7 @@ struct TransactionController: RouteCollection {
         }
         // As tags do corpo são o estado final: mandar lista vazia apaga todas.
         model.tags = TagSet.normalize(dto.tags)
+        model.note = dto.note
         if keyWasCanonical {
             model.dedupKey = DedupKey.make(
                 accountID: dto.accountID,
@@ -256,6 +261,32 @@ struct TransactionController: RouteCollection {
             return models.count
         }
         return BulkDeleteResponse(deleted: deleted)
+    }
+
+    /// Edição em lote a partir da seleção na lista: categoria e tags.
+    /// Contrapartidas ficam de fora e acompanham o original.
+    func updateBatch(req: Request) async throws -> BulkUpdateResponse {
+        let request = try req.content.decode(BulkUpdateRequest.self)
+        guard !request.ids.isEmpty else { return BulkUpdateResponse(updated: 0) }
+        guard request.ids.count <= 1000 else {
+            throw Abort(.badRequest, reason: "No máximo 1000 lançamentos por vez")
+        }
+        let category = request.normalizedCategory
+
+        let updated = try await req.db.transaction { db -> Int in
+            let models = try await TransactionModel.query(on: db)
+                .filter(\.$id ~~ request.ids)
+                .filter(\.$transferSource.$id == nil)
+                .all()
+            for model in models {
+                if let category { model.category = category }
+                model.tags = request.applyTags(to: model.tags)
+                try await model.update(on: db)
+                try await model.syncCounterpart(on: db)
+            }
+            return models.count
+        }
+        return BulkUpdateResponse(updated: updated)
     }
 
     func batches(req: Request) async throws -> [ImportBatchDTO] {
@@ -328,7 +359,7 @@ struct TransactionController: RouteCollection {
         }
     }
 
-    /// Importa um extrato ou fatura. Faturas de cartão geram também as parcelas futuras.
+    /// Importa um extrato ou fatura. A fatura de cartão com mês substitui a anterior do mesmo mês.
     func importStatement(req: Request) async throws -> ImportReportDTO {
         let request = try req.content.decode(ImportRequestDTO.self)
         guard let account = try await AccountModel.find(request.accountID, on: req.db) else {
@@ -387,4 +418,25 @@ struct SummaryQuery: Content {
     var forecastMonths: Int?
     var baseMonths: Int?
     var includeTransfers: Bool?
+}
+
+/// Busca que ignora maiúsculas e acentos ("farmacia" acha "FARMÁCIA").
+enum TextSearch {
+    private static let accented = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ"
+    private static let plain = "aaaaaeeeeiiiiooooouuuucnaaaaaeeeeiiiiooooouuuucn"
+
+    /// Padrão `LIKE` já sem acentos, em minúsculas e com curingas escapados.
+    static func pattern(for search: String) -> String {
+        let folded = search
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            .lowercased()
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "%", with: "\\%")
+            .replacingOccurrences(of: "_", with: "\\_")
+        return "%\(folded)%"
+    }
+
+    static func matches(column: String, pattern: String) -> DatabaseQuery.Filter {
+        .sql(embed: "lower(translate(\(ident: column), \(bind: accented), \(bind: plain))) LIKE \(bind: pattern)")
+    }
 }

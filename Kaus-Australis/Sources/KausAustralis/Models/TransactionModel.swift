@@ -49,6 +49,10 @@ final class TransactionModel: Model, @unchecked Sendable {
     @Field(key: "tags")
     var tags: [String]
 
+    /// Comentário livre do usuário sobre o lançamento.
+    @OptionalField(key: "note")
+    var note: String?
+
     /// Preenchido só na contrapartida de uma transferência: aponta para o
     /// lançamento que a originou e que manda no valor, na data e na categoria.
     @OptionalParent(key: "transfer_source_id")
@@ -67,7 +71,8 @@ final class TransactionModel: Model, @unchecked Sendable {
         isProjected: Bool = false,
         installment: Installment? = nil,
         externalID: String? = nil,
-        tags: [String] = []
+        tags: [String] = [],
+        note: String? = nil
     ) {
         self.id = id
         self.description = description
@@ -81,6 +86,7 @@ final class TransactionModel: Model, @unchecked Sendable {
         self.installmentTotal = installment?.total
         self.externalID = externalID
         self.tags = TagSet.normalize(tags)
+        self.note = TransactionNote.normalize(note)
     }
 }
 
@@ -100,6 +106,7 @@ extension TransactionModel {
         date = origin.date
         isProjected = origin.isProjected
         tags = origin.tags
+        note = origin.note
         dedupKey = nil
         installmentNumber = nil
         installmentTotal = nil

@@ -18,6 +18,8 @@ extension RecategorizeResponse: @retroactive Content {}
 extension ImportBatchDTO: @retroactive Content {}
 extension BulkDeleteRequest: @retroactive Content {}
 extension BulkDeleteResponse: @retroactive Content {}
+extension BulkUpdateResponse: @retroactive Content {}
+extension BulkUpdateRequest: @retroactive Content {}
 extension ResetRequest: @retroactive Content {}
 extension ResetResponse: @retroactive Content {}
 extension DeleteCategoryResponse: @retroactive Content {}
@@ -100,6 +102,7 @@ func configure(_ app: Application) async throws {
     app.migrations.add(SeedSavingsRulesMigration())
     app.migrations.add(CreateRecurringCommitmentMigration())
     app.migrations.add(AddTransferSourceMigration())
+    app.migrations.add(AddNoteAndStatementMonthMigration())
     try await app.autoMigrate()
 }
 

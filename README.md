@@ -98,6 +98,7 @@ Em **Resumo** o painel de posição mostra quanto há guardado (contas do tipo c
 | `PUT` | `/api/transactions/:id/transfer` | `TransferLinkRequest` (`accountID` ou `null`) | `TransactionDTO` com `transferAccountID` (cria, move ou desfaz a contrapartida) |
 | `DELETE` | `/api/transactions/:id` | — | `204` |
 | `DELETE` | `/api/transactions` | `BulkDeleteRequest` (`ids`) | `BulkDeleteResponse` |
+| `PATCH` | `/api/transactions` | `BulkUpdateRequest` (`ids`, `category`, `addTags`, `removeTags`) | `BulkUpdateResponse` |
 | `POST` | `/api/imports` | `ImportRequestDTO` | `ImportReportDTO` (com o `batchID` do lote) |
 | `GET` | `/api/imports` | — | `[ImportBatchDTO]` |
 | `DELETE` | `/api/imports/:batchID` | — | `BulkDeleteResponse` (desfaz a importação) |
@@ -115,7 +116,7 @@ Contas têm tipo `checking`, `savings`, `creditCard`, `cash` ou `investment` e n
 
 Transferência entre contas próprias: ao ligar uma saída da conta corrente a uma caixinha (`PUT /api/transactions/:id/transfer`), o servidor cria na caixinha a contrapartida com o valor invertido (`transferSourceID` aponta para a origem). Editar a origem atualiza a contrapartida, e apagá-la (inclusive ao desfazer a importação) apaga a contrapartida junto. Use só em contas sem extrato importado, senão o valor entra duas vezes.
 
-`GET /api/transactions` aceita os filtros `accountID`, `from`, `to` (por dia inteiro), `search`, `category`, `tag`, `includeProjected`, `limit` (máx. 1000) e `offset`.
+`GET /api/transactions` aceita os filtros `accountID`, `from`, `to` (por dia inteiro), `search` (na descrição, categoria e comentário, ignorando maiúsculas e acentos), `category`, `tag`, `includeProjected`, `limit` (máx. 1000) e `offset`.
 
 `TransactionDTO`:
 ```json
@@ -131,13 +132,15 @@ Transferência entre contas próprias: ao ligar uma saída da conta corrente a u
   "dedupKey": "..."
 }
 ```
-As datas trafegam em ISO-8601. `category` é opcional; quando omitida o servidor aplica as regras e, sem correspondência, grava `"Geral"`. `isProjected` marca parcelas futuras ainda não confirmadas pela fatura, e `dedupKey` é atribuída pelo servidor (somente leitura).
+As datas trafegam em ISO-8601. `category` é opcional; quando omitida o servidor aplica as regras e, sem correspondência, grava `"Geral"`. `isProjected` marca lançamentos futuros lançados à mão (ainda fora do saldo), `note` é o comentário livre do usuário e `dedupKey` é atribuída pelo servidor (somente leitura).
 
 ### Importação
 
-`POST /api/imports` recebe o extrato em texto (`ImportRequestDTO`: `accountID`, `content`, `filename`, `format`, `expandInstallments`). O formato (CSV ou OFX) é detectado pelo conteúdo, contas do tipo `creditCard` expandem as parcelas futuras como lançamentos projetados, e lançamentos já existentes são ignorados pela chave de deduplicação — o relatório devolve `imported`, `duplicates`, `projectedInstallments`, `confirmedInstallments`, `failures` e o `batchID` usado para desfazer.
+`POST /api/imports` recebe o extrato em texto (`ImportRequestDTO`: `accountID`, `content`, `filename`, `format`, `statementMonth`). O formato (CSV ou OFX) é detectado pelo conteúdo e só as linhas do arquivo são gravadas: a importação não cria parcelas futuras, apenas identifica a parcela de cada linha ("2/10"). Nas contas do tipo `creditCard`, o `statementMonth` (ex.: `"2026-12"`, sugerido pelo app a partir do nome do arquivo) identifica a fatura: reenviar a fatura do mesmo cartão e mês substitui a anterior. Cada linha nova herda categoria, tags e comentário da mesma compra já lançada (descrição compatível e mesmo total de parcelas) ou, sem parcela, as tags de um lançamento com a mesma descrição. Lançamentos já existentes são ignorados pela chave de deduplicação — o relatório devolve `imported`, `duplicates`, `replaced`, `suggested`, `failures` e o `batchID` usado para desfazer.
 
-Planilhas `.xlsx` (Excel ou Google Planilhas, em Arquivo → Fazer download → .xlsx ou .csv) são convertidas para CSV no próprio app, com `SpreadsheetReader`, antes do envio. O parser procura o cabeçalho nas primeiras linhas, ignora subtotais e avisos de rodapé e junta a coluna de parcelamento ("Parcela 2 de 12") à descrição. Nas contas de cartão, quando o pagamento da fatura vem negativo (compras positivas, como no Itaú), os sinais são invertidos; sem pagamento na fatura, decide a maioria das linhas. Quando a fatura repete a data da compra nas parcelas (uma parcela 2+ datada antes do ciclo), a parcela N passa para N-1 meses depois, para confirmar a projeção feita pela fatura anterior. Arquivos `.xls` antigos não são lidos: salve como `.xlsx` ou `.csv`.
+Para lançar algo futuro que você já conhece (ex.: IPTU em 10 vezes), use Lançamentos → + e escolha o número de parcelas: o app gera uma linha por mês, com data e valor editáveis antes de salvar.
+
+Planilhas `.xlsx` (Excel ou Google Planilhas, em Arquivo → Fazer download → .xlsx ou .csv) são convertidas para CSV no próprio app, com `SpreadsheetReader`, antes do envio. O parser procura o cabeçalho nas primeiras linhas, ignora subtotais e avisos de rodapé e junta a coluna de parcelamento ("Parcela 2 de 12") à descrição. Nas contas de cartão, quando o pagamento da fatura vem negativo (compras positivas, como no Itaú), os sinais são invertidos; sem pagamento na fatura, decide a maioria das linhas. Quando a fatura repete a data da compra nas parcelas (uma parcela 2+ datada antes do ciclo), a parcela N passa para N-1 meses depois. Arquivos `.xls` antigos não são lidos: salve como `.xlsx` ou `.csv`.
 
 Dá para escolher vários arquivos de uma vez: eles sobem do mais antigo para o mais recente (pela data mais recente de cada um), cada um como uma importação separada que pode ser desfeita sozinha.
 
