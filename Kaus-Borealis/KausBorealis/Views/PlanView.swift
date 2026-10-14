@@ -30,13 +30,13 @@ struct PlanView: View {
                             title: "Receitas no ano",
                             value: plan.totals.reduce(0) { $0 + $1.income },
                             symbol: "arrow.down.left",
-                            color: .green
+                            color: Palette.income
                         )
                         MetricTile(
                             title: "Despesas no ano",
                             value: plan.totals.reduce(0) { $0 + $1.expenses },
                             symbol: "arrow.up.right",
-                            color: .red
+                            color: Palette.expense
                         )
                         MetricTile(
                             title: "Guardado no ano",
@@ -49,7 +49,7 @@ struct PlanView: View {
                             value: plan.totals.last?.cumulative ?? 0,
                             symbol: "chart.line.uptrend.xyaxis",
                             color: .indigo,
-                            valueColor: (plan.totals.last?.cumulative ?? 0) < 0 ? .red : .green
+                            valueColor: (plan.totals.last?.cumulative ?? 0) < 0 ? Palette.expense : Palette.income
                         )
                     }
 

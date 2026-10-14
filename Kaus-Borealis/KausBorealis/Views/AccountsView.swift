@@ -37,7 +37,7 @@ struct AccountsView: View {
                                 value: total(kind),
                                 symbol: kind.symbol,
                                 color: kind.color,
-                                valueColor: total(kind) < 0 ? .red : .primary
+                                valueColor: total(kind) < 0 ? Palette.expense : .primary
                             )
                         }
                     }
@@ -164,7 +164,7 @@ private struct AccountCard: View {
             }
             Text(account.balance?.brl ?? "—")
                 .font(.title2.weight(.bold).monospacedDigit())
-                .foregroundStyle((account.balance ?? 0) < 0 ? Color.red : Color.primary)
+                .foregroundStyle((account.balance ?? 0) < 0 ? Palette.expense : Color.primary)
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
         }

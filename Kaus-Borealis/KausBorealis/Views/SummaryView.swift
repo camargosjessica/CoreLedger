@@ -42,8 +42,8 @@ struct SummaryView: View {
                         PlanMonthCard(totals: currentPlan)
                     }
                     if !history.isEmpty {
-                        TrendCard(title: "Receitas", months: history, value: \.income, color: .green)
-                        TrendCard(title: "Despesas", months: history, value: { abs($0.expenses) }, color: .red)
+                        TrendCard(title: "Receitas", months: history, value: \.income, color: Palette.income)
+                        TrendCard(title: "Despesas", months: history, value: { abs($0.expenses) }, color: Palette.expense)
                     }
                     if let current = history.last {
                         CategoryBreakdownCard(summary: current)
@@ -307,7 +307,7 @@ private struct PlanMonthCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             CardHeader(title: "Plano do mês") {
-                DeltaPill(text: totals.net.signedBRL, color: totals.net < 0 ? .red : .green)
+                DeltaPill(text: totals.net.signedBRL, color: totals.net < 0 ? Palette.expense : Palette.income)
             }
             ProgressView(value: min(usage, 1))
                 .tint(usage >= 1 ? Color.red : usage > 0.8 ? Color.orange : Color.green)
@@ -320,7 +320,7 @@ private struct PlanMonthCard: View {
                 row("Essenciais", totals.essentialExpenses, .orange)
                 row("Guardado", totals.saved, .teal)
                 Divider()
-                row("Acumulado", totals.cumulative, totals.cumulative < 0 ? .red : .green)
+                row("Acumulado", totals.cumulative, totals.cumulative < 0 ? Palette.expense : Palette.income)
             }
         }
         .card()
@@ -412,12 +412,12 @@ private struct CashFlowCard: View {
         VStack(alignment: .leading, spacing: 12) {
             CardHeader(title: "Fluxo de caixa \(String(year))") {
                 if let last = totals.last {
-                    DeltaPill(text: last.cumulative.signedBRL, color: last.cumulative < 0 ? .red : .green)
+                    DeltaPill(text: last.cumulative.signedBRL, color: last.cumulative < 0 ? Palette.expense : Palette.income)
                 }
             }
             Chart(points) { point in
                 BarMark(x: .value("Mês", point.label), y: .value("Fluxo", point.cashFlow))
-                    .foregroundStyle(point.cashFlow < 0 ? Color.red.gradient : Color.green.gradient)
+                    .foregroundStyle(point.cashFlow < 0 ? Palette.expense.gradient : Palette.income.gradient)
                     .opacity(point.isForecast ? 0.45 : 1)
                     .cornerRadius(4)
                 LineMark(x: .value("Mês", point.label), y: .value("Acumulado", point.cumulative))
@@ -463,7 +463,7 @@ private struct TransactionListCard: View {
                     Spacer()
                     Text(transaction.amount.brl)
                         .font(.subheadline.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(transaction.amount < 0 ? Color.red : Color.green)
+                        .foregroundStyle(transaction.amount < 0 ? Palette.expense : Palette.income)
                 }
             }
         }
@@ -519,7 +519,7 @@ private struct MonthRow: View {
                 Spacer()
                 Text(summary.balance.brl)
                     .font(.subheadline.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(summary.balance < 0 ? Color.red : Color.green)
+                    .foregroundStyle(summary.balance < 0 ? Palette.expense : Palette.income)
             }
             HStack(spacing: 12) {
                 Label(summary.income.brl, systemImage: "arrow.down.left")

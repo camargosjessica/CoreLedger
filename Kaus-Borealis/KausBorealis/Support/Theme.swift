@@ -396,7 +396,7 @@ struct MonthStepper: View {
     var body: some View {
         HStack(spacing: 6) {
             stepButton("chevron.left", by: -1)
-            Text(month.startDate.formatted(.dateTime.month(.wide).year()).capitalized)
+            Text(month.startDate.monthYear)
                 .font(.subheadline.weight(.semibold))
                 .frame(minWidth: 130)
                 .padding(.horizontal, 12)

@@ -124,7 +124,7 @@ struct AnalysisView: View {
     private func metrics(_ report: SpendingReport) -> some View {
         let activeMonths = report.months.filter { $0.total > 0 }.count
         return MetricGrid {
-            MetricTile(title: "Gasto em \(report.year)", value: report.total, symbol: "cart.fill", color: .red)
+            MetricTile(title: "Gasto em \(report.year)", value: report.total, symbol: "cart.fill", color: Palette.expense)
             MetricTile(
                 title: "Média por mês",
                 value: activeMonths == 0 ? 0 : report.total / Double(activeMonths),

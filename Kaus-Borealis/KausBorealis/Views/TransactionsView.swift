@@ -40,17 +40,17 @@ struct TransactionsView: View {
                         value: total,
                         symbol: "equal.circle.fill",
                         color: .indigo,
-                        valueColor: total < 0 ? .red : .green
+                        valueColor: total < 0 ? Palette.expense : Palette.income
                     )
-                    MetricTile(title: "Entradas", value: income, symbol: "arrow.down.left", color: .green)
-                    MetricTile(title: "Saídas", value: spending, symbol: "arrow.up.right", color: .red)
+                    MetricTile(title: "Entradas", value: income, symbol: "arrow.down.left", color: Palette.income)
+                    MetricTile(title: "Saídas", value: spending, symbol: "arrow.up.right", color: Palette.expense)
                     if hasProjected {
                         MetricTile(
                             title: "Com previstos",
                             value: totalWithProjected,
                             symbol: "calendar.badge.clock",
                             color: .orange,
-                            valueColor: totalWithProjected < 0 ? .red : .green
+                            valueColor: totalWithProjected < 0 ? Palette.expense : Palette.income
                         )
                     }
                 }
@@ -447,24 +447,7 @@ private struct PeriodFilter: View {
             .labelsHidden()
 
             if store.period == .month {
-                HStack {
-                    Button {
-                        store.selectedMonth = store.selectedMonth.adding(months: -1)
-                    } label: {
-                        Label("Mês anterior", systemImage: "chevron.left")
-                    }
-                    Spacer()
-                    Text(store.selectedMonth.startDate.monthYear)
-                        .font(.headline)
-                    Spacer()
-                    Button {
-                        store.selectedMonth = store.selectedMonth.adding(months: 1)
-                    } label: {
-                        Label("Próximo mês", systemImage: "chevron.right")
-                    }
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.borderless)
+                MonthStepper(month: $store.selectedMonth)
             }
         }
     }
@@ -545,7 +528,7 @@ struct TransactionRow: View {
             Spacer()
             Text(transaction.amount.brl)
                 .font(.headline.monospacedDigit())
-                .foregroundStyle(transaction.amount < 0 ? Color.primary : Color.green)
+                .foregroundStyle(transaction.amount < 0 ? Color.primary : Palette.income)
         }
     }
 }
