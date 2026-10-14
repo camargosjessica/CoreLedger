@@ -1,8 +1,9 @@
 import SwiftUI
 import KausMedia
 
-/// A aba que substitui a planilha: grade de categorias por mês, com os valores
-/// realizados do extrato e os meses à frente preenchidos pelos compromissos.
+/// A aba que substitui a planilha: gráficos e grade de categorias por mês do
+/// ano escolhido, com os valores realizados do extrato e os meses à frente
+/// preenchidos pelos compromissos.
 struct PlanView: View {
     @Bindable var store: LedgerStore
 
@@ -48,10 +49,12 @@ struct PlanView: View {
                             title: "Acumulado em dezembro",
                             value: plan.totals.last?.cumulative ?? 0,
                             symbol: "chart.line.uptrend.xyaxis",
-                            color: .indigo,
+                            color: Palette.star,
                             valueColor: (plan.totals.last?.cumulative ?? 0) < 0 ? Palette.expense : Palette.income
                         )
                     }
+
+                    PlanCharts(year: store.planYear, totals: plan.totals)
 
                     VStack(alignment: .leading, spacing: 12) {
                         CardHeader(title: "Grade anual") {

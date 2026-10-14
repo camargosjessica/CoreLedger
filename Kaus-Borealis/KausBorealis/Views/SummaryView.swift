@@ -2,8 +2,9 @@ import Charts
 import SwiftUI
 import KausMedia
 
-/// Painel principal: posição, plano do mês, tendências, categorias e
-/// lançamentos, em cartões que se reorganizam conforme a largura da tela.
+/// Painel do mês: posição, plano do mês, categorias e lançamentos, em cartões
+/// que se reorganizam conforme a largura da tela. Gráficos do ano e meses
+/// futuros ficam em `PlanView`.
 struct SummaryView: View {
     @Bindable var store: LedgerStore
 
@@ -41,24 +42,14 @@ struct SummaryView: View {
                     if let currentPlan {
                         PlanMonthCard(totals: currentPlan)
                     }
-                    if !history.isEmpty {
-                        TrendCard(title: "Receitas", months: history, value: \.income, color: Palette.income)
-                        TrendCard(title: "Despesas", months: history, value: { abs($0.expenses) }, color: Palette.expense)
-                    }
                     if let current = history.last {
                         CategoryBreakdownCard(summary: current)
-                    }
-                    if let plan = store.plan, !plan.totals.isEmpty {
-                        CashFlowCard(year: store.planYear, totals: plan.totals)
                     }
                     if !upcoming.isEmpty {
                         TransactionListCard(title: "Próximas parcelas", transactions: upcoming, showsDate: true)
                     }
                     if !recent.isEmpty {
                         TransactionListCard(title: "Lançamentos recentes", transactions: recent, showsDate: false)
-                    }
-                    if !history.isEmpty || !forecast.isEmpty {
-                        MonthsCard(history: history, forecast: forecast)
                     }
                 }
             }
@@ -255,7 +246,7 @@ private struct CategoryTile: View {
                 .frame(width: 32, height: 32)
                 .background(style.color.opacity(0.16), in: Circle())
             Spacer(minLength: 0)
-            Text(entry.category.prefix(1).uppercased() + entry.category.dropFirst())
+            Text(displayName(entry.category))
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
             Text(entry.total.brl)
@@ -277,38 +268,76 @@ private struct CategoryTile: View {
     }
 }
 
-/// Onde o dinheiro foi no mês, em barras horizontais com a cor de cada categoria.
+/// Onde o dinheiro foi no mês: rosca com o total no centro e a fatia de cada categoria.
 private struct CategoryBreakdownCard: View {
     let summary: MonthlySummary
 
     var body: some View {
-        let totals = Array(expenseTotals(summary).prefix(6))
-        VStack(alignment: .leading, spacing: 12) {
+        let all = expenseTotals(summary)
+        let total = all.reduce(0) { $0 + $1.total }
+        let top = Array(all.prefix(6))
+        VStack(alignment: .leading, spacing: 14) {
             CardHeader(title: "Despesas por categoria")
-            if totals.isEmpty {
+            if top.isEmpty {
                 Text("Sem despesas neste mês.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                Chart(totals) { entry in
-                    BarMark(
-                        x: .value("Total", entry.total),
-                        y: .value("Categoria", entry.category)
+                Chart(top) { entry in
+                    SectorMark(
+                        angle: .value("Total", entry.total),
+                        innerRadius: .ratio(0.64),
+                        angularInset: 1.5
                     )
-                    .foregroundStyle(CategoryStyle.of(entry.category).color.gradient)
-                    .cornerRadius(6)
-                    .annotation(position: .trailing) {
-                        Text(entry.total.brl)
-                            .font(.caption2.monospacedDigit())
+                    .cornerRadius(4)
+                    .foregroundStyle(CategoryStyle.of(entry.category).color)
+                }
+                .chartBackground { _ in
+                    VStack(spacing: 2) {
+                        Text("Total")
+                            .font(.caption)
                             .foregroundStyle(.secondary)
+                        Text(total.brl)
+                            .font(.system(.headline, design: .rounded).weight(.bold).monospacedDigit())
+                            .minimumScaleFactor(0.6)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 40)
+                }
+                .frame(height: 180)
+                VStack(spacing: 8) {
+                    ForEach(top) { entry in
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(CategoryStyle.of(entry.category).color)
+                                .frame(width: 8, height: 8)
+                            Text(displayName(entry.category))
+                                .font(.subheadline)
+                                .lineLimit(1)
+                            Spacer()
+                            Text(entry.total.brl)
+                                .font(.subheadline.monospacedDigit())
+                            Text(percent(entry.total, of: total))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                                .frame(width: 38, alignment: .trailing)
+                        }
                     }
                 }
-                .chartXAxis(.hidden)
-                .frame(height: CGFloat(totals.count) * 36)
             }
         }
         .card()
     }
+
+    private func percent(_ value: Double, of total: Double) -> String {
+        guard total > 0 else { return "" }
+        return "\(Int((value / total * 100).rounded()))%"
+    }
+}
+
+/// Primeira letra maiúscula, sem mexer no restante ("cartão de crédito" → "Cartão de crédito").
+private func displayName(_ category: String) -> String {
+    category.prefix(1).uppercased() + category.dropFirst()
 }
 
 // MARK: - Plano e tendências
@@ -336,14 +365,14 @@ private struct PlanMonthCard: View {
                 DeltaPill(text: totals.net.signedBRL, color: totals.net < 0 ? Palette.expense : Palette.income)
             }
             ProgressView(value: min(usage, 1))
-                .tint(usage >= 1 ? Color.red : usage > 0.8 ? Color.orange : Color.green)
+                .tint(usage >= 1 ? Palette.expense : usage > 0.8 ? Palette.star : Palette.income)
             Text(usageLabel)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             VStack(spacing: 6) {
-                row("Receitas", totals.income, .green)
+                row("Receitas", totals.income, Palette.income)
                 row("Despesas", totals.expenses, .primary)
-                row("Essenciais", totals.essentialExpenses, .orange)
+                row("Essenciais", totals.essentialExpenses, Palette.star)
                 row("Guardado", totals.saved, .teal)
                 Divider()
                 row("Acumulado", totals.cumulative, totals.cumulative < 0 ? Palette.expense : Palette.income)
@@ -362,105 +391,6 @@ private struct PlanMonthCard: View {
                 .foregroundStyle(color)
         }
         .font(.subheadline)
-    }
-}
-
-private struct ChartPoint: Identifiable {
-    var month: Date
-    var value: Double
-
-    var id: Date { month }
-    var label: String { month.shortMonthYear }
-}
-
-/// Valor do último mês, variação em relação ao anterior e a curva dos últimos seis.
-private struct TrendCard: View {
-    let title: String
-    let months: [MonthlySummary]
-    let value: (MonthlySummary) -> Double
-    let color: Color
-
-    private var points: [ChartPoint] {
-        months.suffix(6).map { ChartPoint(month: $0.month, value: value($0)) }
-    }
-
-    var body: some View {
-        let latest = months.last.map(value) ?? 0
-        let previous = months.dropLast().last.map(value)
-        VStack(alignment: .leading, spacing: 8) {
-            CardHeader(title: title) {
-                if let previous {
-                    DeltaPill(text: (latest - previous).signedBRL, color: color)
-                }
-            }
-            Text(latest.brl)
-                .font(.title2.weight(.bold).monospacedDigit())
-                .foregroundStyle(color)
-            Chart(points) { point in
-                AreaMark(x: .value("Mês", point.label), y: .value("Valor", point.value))
-                    .foregroundStyle(
-                        LinearGradient(colors: [color.opacity(0.35), color.opacity(0.02)], startPoint: .top, endPoint: .bottom)
-                    )
-                    .interpolationMethod(.catmullRom)
-                LineMark(x: .value("Mês", point.label), y: .value("Valor", point.value))
-                    .foregroundStyle(color)
-                    .interpolationMethod(.catmullRom)
-                    .lineStyle(StrokeStyle(lineWidth: 2.5))
-            }
-            .chartYAxis { AxisMarks(position: .leading) }
-            .frame(height: 140)
-        }
-        .card()
-    }
-}
-
-/// Fluxo de caixa de cada mês do ano (barras) e o acumulado (linha), vindos da grade anual.
-private struct CashFlowCard: View {
-    let year: Int
-    let totals: [PlanMonthTotals]
-
-    private struct Point: Identifiable {
-        var label: String
-        var cashFlow: Double
-        var cumulative: Double
-        var isForecast: Bool
-
-        var id: String { label }
-    }
-
-    private var points: [Point] {
-        totals.map {
-            Point(label: $0.month.startDate.shortMonth, cashFlow: $0.cashFlow, cumulative: $0.cumulative, isForecast: $0.isForecast)
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            CardHeader(title: "Fluxo de caixa \(String(year))") {
-                if let last = totals.last {
-                    DeltaPill(text: last.cumulative.signedBRL, color: last.cumulative < 0 ? Palette.expense : Palette.income)
-                }
-            }
-            Chart(points) { point in
-                BarMark(x: .value("Mês", point.label), y: .value("Fluxo", point.cashFlow))
-                    .foregroundStyle(point.cashFlow < 0 ? Palette.expense.gradient : Palette.income.gradient)
-                    .opacity(point.isForecast ? 0.45 : 1)
-                    .cornerRadius(4)
-                LineMark(x: .value("Mês", point.label), y: .value("Acumulado", point.cumulative))
-                    .foregroundStyle(Color.indigo)
-                    .interpolationMethod(.catmullRom)
-                    .lineStyle(StrokeStyle(lineWidth: 2))
-            }
-            .chartYAxis { AxisMarks(position: .leading) }
-            .frame(height: 180)
-            HStack(spacing: 12) {
-                Label("Fluxo do mês", systemImage: "square.fill").foregroundStyle(.green)
-                Label("Acumulado", systemImage: "line.diagonal").foregroundStyle(.indigo)
-                Label("Previsto esmaecido", systemImage: "circle.lefthalf.filled").foregroundStyle(.secondary)
-            }
-            .font(.caption2)
-        }
-        .card()
     }
 }
 
@@ -505,57 +435,5 @@ private struct TransactionListCard: View {
             parts.append(transaction.date.shortDay)
         }
         return parts.joined(separator: " · ")
-    }
-}
-
-/// Histórico e previsão mês a mês, do mais recente para o mais antigo.
-private struct MonthsCard: View {
-    let history: [MonthlySummary]
-    let forecast: [MonthlySummary]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            CardHeader(title: "Mês a mês")
-            ForEach(Array(forecast.reversed()) + Array(history.reversed())) { month in
-                MonthRow(summary: month)
-                if month.id != history.first?.id {
-                    Divider()
-                }
-            }
-        }
-        .card()
-    }
-}
-
-private struct MonthRow: View {
-    let summary: MonthlySummary
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(summary.month.monthYear)
-                    .font(.subheadline.weight(.semibold))
-                if summary.isForecast {
-                    Text("previsto")
-                        .font(.caption2)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(.quaternary, in: Capsule())
-                }
-                Spacer()
-                Text(summary.balance.brl)
-                    .font(.subheadline.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(summary.balance < 0 ? Palette.expense : Palette.income)
-            }
-            HStack(spacing: 12) {
-                Label(summary.income.brl, systemImage: "arrow.down.left")
-                Label(summary.expenses.brl, systemImage: "arrow.up.right")
-                if summary.committedExpenses < 0 {
-                    Label(summary.committedExpenses.brl, systemImage: "calendar.badge.clock")
-                }
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
     }
 }

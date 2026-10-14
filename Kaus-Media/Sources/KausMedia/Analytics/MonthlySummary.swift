@@ -7,7 +7,7 @@ public struct MonthlySummary: Codable, Sendable, Hashable, Identifiable {
     public var income: Double
     public var expenses: Double
     public var byCategory: [String: Double]
-    /// `true` quando o mês é estimado (média histórica) em vez de realizado.
+    /// `true` para meses à frente, que só somam lançamentos futuros e parcelas.
     public var isForecast: Bool
     /// Parcelas futuras já contratadas que caem neste mês.
     public var committedExpenses: Double
