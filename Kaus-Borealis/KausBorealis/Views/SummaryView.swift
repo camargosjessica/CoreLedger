@@ -90,13 +90,12 @@ struct SummaryView: View {
 /// positiva/empatada/negativa, com guardado, disponível e cartão logo abaixo.
 private struct PositionHero: View {
     let position: FinancialPosition
-    @AppStorage(AppAccent.storageKey) private var accent: AppAccent = .amber
 
     private var statusColor: Color {
         switch position.status {
-        case .positive: return .green
-        case .even: return .orange
-        case .negative: return .red
+        case .positive: return Palette.income
+        case .even: return Palette.star
+        case .negative: return Palette.expense
         }
     }
 
@@ -153,15 +152,25 @@ private struct PositionHero: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
+        .background {
             LinearGradient(
-                colors: [Color(red: 0.08, green: 0.09, blue: 0.14), accent.color.mix(with: .black, by: 0.55)],
+                colors: [Color(hex: 0x0E1430), Color(hex: 0x1F2B55)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+            )
+            .overlay(alignment: .topTrailing) {
+                Circle()
+                    .fill(Palette.star.opacity(0.22))
+                    .frame(width: 220, height: 220)
+                    .blur(radius: 70)
+                    .offset(x: 60, y: -80)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(.white.opacity(0.08), lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
     }
 }
 
@@ -172,11 +181,17 @@ private struct HeroMetric: View {
     let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            IconBadge(symbol: symbol, color: color, size: 28)
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(color)
+                    .frame(width: 24, height: 24)
+                    .background(color.opacity(0.2), in: Circle())
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.7))
+            }
             Text(value.brl)
                 .font(.subheadline.weight(.semibold).monospacedDigit())
                 .foregroundStyle(.white)
@@ -185,7 +200,7 @@ private struct HeroMetric: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -233,21 +248,32 @@ private struct CategoryTile: View {
 
     var body: some View {
         let style = CategoryStyle.of(entry.category)
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Image(systemName: style.symbol)
-                .font(.title2.weight(.semibold))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(style.color)
+                .frame(width: 32, height: 32)
+                .background(style.color.opacity(0.16), in: Circle())
             Spacer(minLength: 0)
-            Text(entry.category)
+            Text(entry.category.prefix(1).uppercased() + entry.category.dropFirst())
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
             Text(entry.total.brl)
-                .font(.caption.monospacedDigit())
-                .opacity(0.9)
+                .font(.system(.callout, design: .rounded).weight(.bold).monospacedDigit())
         }
-        .foregroundStyle(.white)
         .padding(14)
-        .frame(width: 140, height: 120, alignment: .leading)
-        .background(style.color.gradient, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .frame(width: 150, height: 120, alignment: .leading)
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(alignment: .bottom) {
+            Capsule()
+                .fill(style.color)
+                .frame(height: 3)
+                .padding(.horizontal, 14)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Palette.hairline, lineWidth: 1)
+        )
     }
 }
 
