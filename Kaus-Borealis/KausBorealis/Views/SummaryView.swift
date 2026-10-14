@@ -3,8 +3,8 @@ import SwiftUI
 import KausMedia
 
 /// Painel do mês: posição, plano do mês, categorias e lançamentos, em cartões
-/// que se reorganizam conforme a largura da tela. Tendências e meses futuros
-/// ficam em `ProjectionView`.
+/// que se reorganizam conforme a largura da tela. Gráficos do ano e meses
+/// futuros ficam em `PlanView`.
 struct SummaryView: View {
     @Bindable var store: LedgerStore
 

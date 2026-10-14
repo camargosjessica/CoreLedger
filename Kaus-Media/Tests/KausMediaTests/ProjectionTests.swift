@@ -49,7 +49,7 @@ final class ProjectionTests: XCTestCase {
         XCTAssertEqual(result.history[0].income, 0, accuracy: 0.001)
     }
 
-    func testForecastUsesAverageOfClosedMonths() {
+    func testForecastDoesNotEstimateFromHistory() {
         let result = Projection.project(
             [
                 input("05/01/2025", -300, "Mercado"),
@@ -65,8 +65,9 @@ final class ProjectionTests: XCTestCase {
 
         XCTAssertEqual(result.forecast.count, 2)
         XCTAssertTrue(result.forecast.allSatisfy(\.isForecast))
-        XCTAssertEqual(result.forecast[0].byCategory["Mercado"]!, -200, accuracy: 0.001)
-        XCTAssertEqual(result.forecast[0].income, 3000, accuracy: 0.001)
+        XCTAssertNil(result.forecast[0].byCategory["Mercado"])
+        XCTAssertEqual(result.forecast[0].income, 0)
+        XCTAssertEqual(result.forecast[0].expenses, 0)
         XCTAssertEqual(result.forecast[0].month, LedgerCalendar.startOfMonth(DateParser.parse("01/05/2025")!))
     }
 
@@ -83,7 +84,8 @@ final class ProjectionTests: XCTestCase {
 
         XCTAssertEqual(result.forecast[0].committedExpenses, -199.90, accuracy: 0.001)
         XCTAssertEqual(result.forecast[0].byCategory["Compras"]!, -199.90, accuracy: 0.001)
-        XCTAssertEqual(result.forecast[0].byCategory["Mercado"]!, -200, accuracy: 0.001)
+        XCTAssertNil(result.forecast[0].byCategory["Mercado"])
+        XCTAssertEqual(result.forecast[0].expenses, -199.90, accuracy: 0.001)
         XCTAssertEqual(result.forecast[1].committedExpenses, -199.90, accuracy: 0.001)
     }
 
@@ -114,10 +116,8 @@ final class ProjectionTests: XCTestCase {
     func testForecastKeepsIncomeAndExpensesSeparateWithinACategory() {
         let result = Projection.project(
             [
-                input("05/01/2025", -500, "Compras"),
-                input("20/01/2025", 500, "Compras"),
-                input("05/02/2025", -500, "Compras"),
-                input("20/02/2025", 500, "Compras")
+                input("05/05/2025", -500, "Compras", projected: true),
+                input("20/05/2025", 500, "Compras", projected: true)
             ],
             forecastMonths: 1,
             reference: reference

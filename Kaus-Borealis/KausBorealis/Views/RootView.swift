@@ -24,9 +24,6 @@ struct RootView: View {
                 Tab("Análise", systemImage: "chart.bar.xaxis") {
                     AnalysisView(store: store)
                 }
-                Tab("Projeção", systemImage: "chart.line.uptrend.xyaxis") {
-                    ProjectionView(store: store)
-                }
                 Tab("Plano", systemImage: "calendar") {
                     PlanView(store: store)
                 }

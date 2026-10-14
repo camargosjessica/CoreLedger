@@ -395,8 +395,7 @@ struct TransactionController: RouteCollection {
                 )
             },
             transferCategories: query.includeTransfers == true ? [] : transferCategories,
-            forecastMonths: min(max(query.forecastMonths ?? 6, 0), 24),
-            baseMonths: min(max(query.baseMonths ?? 6, 1), 24)
+            forecastMonths: min(max(query.forecastMonths ?? 6, 0), 24)
         )
     }
 }
@@ -416,7 +415,6 @@ struct TransactionQuery: Content {
 struct SummaryQuery: Content {
     var accountID: UUID?
     var forecastMonths: Int?
-    var baseMonths: Int?
     var includeTransfers: Bool?
 }
 
