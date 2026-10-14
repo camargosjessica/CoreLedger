@@ -10,7 +10,7 @@ struct SettingsView: View {
     @State private var pendingReset = false
     @State private var resetSummary: String?
     @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .system
-    @AppStorage(AppAccent.storageKey) private var accent: AppAccent = .indigo
+    @AppStorage(AppAccent.storageKey) private var accent: AppAccent = .amber
 
     var body: some View {
         NavigationStack {

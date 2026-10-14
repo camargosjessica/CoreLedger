@@ -4,7 +4,7 @@ import KausMedia
 struct RootView: View {
     @State private var store = LedgerStore()
     @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .system
-    @AppStorage(AppAccent.storageKey) private var accent: AppAccent = .indigo
+    @AppStorage(AppAccent.storageKey) private var accent: AppAccent = .amber
 
     var body: some View {
         // Barra lateral no Mac e no iPad, barra de abas no iPhone.

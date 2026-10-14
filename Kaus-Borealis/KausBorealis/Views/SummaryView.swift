@@ -90,7 +90,7 @@ struct SummaryView: View {
 /// positiva/empatada/negativa, com guardado, disponível e cartão logo abaixo.
 private struct PositionHero: View {
     let position: FinancialPosition
-    @AppStorage(AppAccent.storageKey) private var accent: AppAccent = .indigo
+    @AppStorage(AppAccent.storageKey) private var accent: AppAccent = .amber
 
     private var statusColor: Color {
         switch position.status {
