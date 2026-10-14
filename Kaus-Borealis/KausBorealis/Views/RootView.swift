@@ -9,26 +9,32 @@ struct RootView: View {
     var body: some View {
         // Barra lateral no Mac e no iPad, barra de abas no iPhone.
         TabView {
-            Tab("Resumo", systemImage: "square.grid.2x2.fill") {
+            Tab("Resumo", systemImage: "sparkles") {
                 SummaryView(store: store)
             }
-            Tab("Lançamentos", systemImage: "list.bullet.rectangle.portrait.fill") {
-                TransactionsView(store: store)
+            TabSection("Dia a dia") {
+                Tab("Lançamentos", systemImage: "list.bullet.rectangle.portrait.fill") {
+                    TransactionsView(store: store)
+                }
+                Tab("Contas", systemImage: "creditcard.fill") {
+                    AccountsView(store: store)
+                }
             }
-            Tab("Análise", systemImage: "chart.bar.xaxis") {
-                AnalysisView(store: store)
+            TabSection("Planejar") {
+                Tab("Análise", systemImage: "chart.bar.xaxis") {
+                    AnalysisView(store: store)
+                }
+                Tab("Plano", systemImage: "calendar") {
+                    PlanView(store: store)
+                }
             }
-            Tab("Plano", systemImage: "calendar") {
-                PlanView(store: store)
-            }
-            Tab("Contas", systemImage: "creditcard.fill") {
-                AccountsView(store: store)
-            }
-            Tab("Regras", systemImage: "slider.horizontal.3") {
-                RulesView(store: store)
-            }
-            Tab("Ajustes", systemImage: "gearshape.fill") {
-                SettingsView(store: store)
+            TabSection("Configurar") {
+                Tab("Regras", systemImage: "slider.horizontal.3") {
+                    RulesView(store: store)
+                }
+                Tab("Ajustes", systemImage: "gearshape.fill") {
+                    SettingsView(store: store)
+                }
             }
         }
         .tabViewStyle(.sidebarAdaptable)
