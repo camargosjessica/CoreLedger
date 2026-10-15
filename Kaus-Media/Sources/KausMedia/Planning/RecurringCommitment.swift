@@ -35,6 +35,9 @@ public struct RecurringCommitment: Codable, Sendable, Hashable, Identifiable {
     /// Valor combinado para um mês específico, sobrepondo `amount`. É o reajuste
     /// da planilha ("a partir de julho a Copel vai para 350"); `0` zera o mês.
     public var overrides: [String: Double]
+    /// Reajustes permanentes (`YYYY-MM` -> valor): o valor novo vale daquele
+    /// mês em diante, e os meses anteriores continuam com o valor de antes.
+    public var priceChanges: [String: Double]
     public var accountID: UUID?
     public var notes: String?
 
@@ -50,6 +53,7 @@ public struct RecurringCommitment: Codable, Sendable, Hashable, Identifiable {
         tags: [String] = [],
         isEnabled: Bool = true,
         overrides: [String: Double] = [:],
+        priceChanges: [String: Double] = [:],
         accountID: UUID? = nil,
         notes: String? = nil
     ) {
@@ -64,8 +68,29 @@ public struct RecurringCommitment: Codable, Sendable, Hashable, Identifiable {
         self.tags = TagSet.normalize(tags)
         self.isEnabled = isEnabled
         self.overrides = overrides
+        self.priceChanges = priceChanges
         self.accountID = accountID
         self.notes = notes
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decodeIfPresent(UUID.self, forKey: .id),
+            name: try container.decode(String.self, forKey: .name),
+            category: try container.decode(String.self, forKey: .category),
+            kind: try container.decode(Kind.self, forKey: .kind),
+            amount: try container.decode(Double.self, forKey: .amount),
+            dayOfMonth: try container.decode(Int.self, forKey: .dayOfMonth),
+            start: try container.decode(YearMonth.self, forKey: .start),
+            end: try container.decodeIfPresent(YearMonth.self, forKey: .end),
+            tags: try container.decodeIfPresent([String].self, forKey: .tags) ?? [],
+            isEnabled: try container.decode(Bool.self, forKey: .isEnabled),
+            overrides: try container.decodeIfPresent([String: Double].self, forKey: .overrides) ?? [:],
+            priceChanges: try container.decodeIfPresent([String: Double].self, forKey: .priceChanges) ?? [:],
+            accountID: try container.decodeIfPresent(UUID.self, forKey: .accountID),
+            notes: try container.decodeIfPresent(String.self, forKey: .notes)
+        )
     }
 
     public var isEssential: Bool { tags.contains(TagSet.essential) }
@@ -80,8 +105,18 @@ public struct RecurringCommitment: Codable, Sendable, Hashable, Identifiable {
     /// receita positiva. `0` quando o compromisso não vale para aquele mês.
     public func plannedAmount(in month: YearMonth) -> Double {
         guard isActive(in: month) else { return 0 }
-        let value = overrides[month.description] ?? amount
+        let value = overrides[month.description] ?? baseAmount(in: month)
         return kind == .income ? abs(value) : -abs(value)
+    }
+
+    /// Valor padrão em vigor no mês, sem sinal: o último reajuste até aquele
+    /// mês ou, sem reajuste, `amount`.
+    public func baseAmount(in month: YearMonth) -> Double {
+        priceChanges
+            .compactMap { key, value in YearMonth(key).map { (month: $0, value: value) } }
+            .filter { $0.month <= month }
+            .max { $0.month < $1.month }?
+            .value ?? amount
     }
 
     public func date(in month: YearMonth) -> Date { month.date(day: dayOfMonth) }

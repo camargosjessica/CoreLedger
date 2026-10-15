@@ -70,6 +70,31 @@ final class RecurringCommitmentTests: XCTestCase {
         XCTAssertEqual(copel.plannedAmount(in: YearMonth(year: 2026, month: 8)), 0)
     }
 
+    func testPriceChangeAppliesFromItsMonthOnward() {
+        var aluguel = commitment("Aluguel", amount: 2000)
+        aluguel.priceChanges = ["2026-05": 2150, "2027-05": 2300]
+        aluguel.overrides = ["2026-08": 0]
+        XCTAssertEqual(aluguel.plannedAmount(in: YearMonth(year: 2026, month: 4)), -2000)
+        XCTAssertEqual(aluguel.plannedAmount(in: YearMonth(year: 2026, month: 5)), -2150)
+        XCTAssertEqual(aluguel.plannedAmount(in: YearMonth(year: 2026, month: 8)), 0)
+        XCTAssertEqual(aluguel.plannedAmount(in: YearMonth(year: 2027, month: 4)), -2150)
+        XCTAssertEqual(aluguel.plannedAmount(in: YearMonth(year: 2027, month: 6)), -2300)
+        XCTAssertEqual(aluguel.baseAmount(in: YearMonth(year: 2025, month: 1)), 2000)
+    }
+
+    func testDecodesCommitmentWithoutPriceChanges() throws {
+        let original = commitment("Copel", amount: 500, overrides: ["2026-07": 350])
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any]
+        )
+        object.removeValue(forKey: "priceChanges")
+        let decoded = try JSONDecoder().decode(
+            RecurringCommitment.self,
+            from: JSONSerialization.data(withJSONObject: object)
+        )
+        XCTAssertEqual(decoded, original)
+    }
+
     func testRespectsWindowAndDisabledFlag() {
         let parcela = commitment("Parcela", start: YearMonth(year: 2026, month: 2), end: YearMonth(year: 2026, month: 4))
         XCTAssertEqual(parcela.plannedAmount(in: YearMonth(year: 2026, month: 1)), 0)

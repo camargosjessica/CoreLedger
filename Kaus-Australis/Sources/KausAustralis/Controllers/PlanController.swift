@@ -126,6 +126,14 @@ struct PlanController: RouteCollection {
                 throw Abort(.badRequest, reason: "Valor inválido para \(month)")
             }
         }
+        for (month, value) in commitment.priceChanges {
+            guard YearMonth(month) != nil else {
+                throw Abort(.badRequest, reason: "Mês inválido em reajustes: \(month)")
+            }
+            guard value.isFinite, value >= 0 else {
+                throw Abort(.badRequest, reason: "Valor inválido para o reajuste de \(month)")
+            }
+        }
         if let accountID = commitment.accountID,
            try await AccountModel.find(accountID, on: req.db) == nil {
             throw Abort(.notFound, reason: "Conta não encontrada")
