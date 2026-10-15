@@ -43,6 +43,10 @@ final class RecurringCommitmentModel: Model, @unchecked Sendable {
     @Field(key: "overrides")
     var overrides: [String: Double]
 
+    /// Reajustes permanentes, por mês de início (`YYYY-MM` -> valor).
+    @Field(key: "price_changes")
+    var priceChanges: [String: Double]
+
     @OptionalParent(key: "account_id")
     var account: AccountModel?
 
@@ -70,6 +74,7 @@ final class RecurringCommitmentModel: Model, @unchecked Sendable {
         self.tags = TagSet.normalize(commitment.tags)
         self.isEnabled = commitment.isEnabled
         self.overrides = commitment.overrides.filter { YearMonth($0.key) != nil }
+        self.priceChanges = commitment.priceChanges.filter { YearMonth($0.key) != nil }
         self.$account.id = commitment.accountID
         self.notes = commitment.notes
     }
@@ -87,6 +92,7 @@ final class RecurringCommitmentModel: Model, @unchecked Sendable {
             tags: tags,
             isEnabled: isEnabled,
             overrides: overrides,
+            priceChanges: priceChanges,
             accountID: $account.id,
             notes: notes
         )

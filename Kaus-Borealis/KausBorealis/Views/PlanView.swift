@@ -236,7 +236,7 @@ private struct CommitmentCard: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 6) {
-                Text(commitment.plannedAmount(in: commitment.start).brl)
+                Text(commitment.plannedAmount(in: referenceMonth).brl)
                     .font(.headline.monospacedDigit())
                     .foregroundStyle(amountColor)
                 DeltaPill(
@@ -247,6 +247,13 @@ private struct CommitmentCard: View {
         }
         .card()
         .contentShape(Rectangle())
+    }
+
+    /// Mês de hoje, limitado à vigência, para o cartão mostrar o valor atual.
+    private var referenceMonth: YearMonth {
+        let current = max(YearMonth(date: Date()), commitment.start)
+        guard let end = commitment.end else { return current }
+        return min(current, end)
     }
 
     private var period: String {
@@ -273,11 +280,14 @@ private struct CommitmentSheet: View {
     @State private var tags: [String]
     @State private var isEnabled: Bool
     @State private var overrides: [String: Double]
+    @State private var priceChanges: [String: Double]
     @State private var accountID: UUID?
     @State private var notes: String
 
     @State private var overrideMonth: YearMonth
     @State private var overrideValue = ""
+    @State private var changeMonth: YearMonth
+    @State private var changeValue = ""
 
     init(store: LedgerStore, commitment: RecurringCommitment?) {
         self.store = store
@@ -294,9 +304,11 @@ private struct CommitmentSheet: View {
         _tags = State(initialValue: commitment?.tags ?? [])
         _isEnabled = State(initialValue: commitment?.isEnabled ?? true)
         _overrides = State(initialValue: commitment?.overrides ?? [:])
+        _priceChanges = State(initialValue: commitment?.priceChanges ?? [:])
         _accountID = State(initialValue: commitment?.accountID)
         _notes = State(initialValue: commitment?.notes ?? "")
         _overrideMonth = State(initialValue: commitment?.start ?? current)
+        _changeMonth = State(initialValue: max(current, commitment?.start ?? current))
     }
 
     var body: some View {
@@ -310,7 +322,7 @@ private struct CommitmentSheet: View {
                             Text(option.displayName).tag(option)
                         }
                     }
-                    TextField("Valor mensal", text: $amount)
+                    TextField(priceChanges.isEmpty ? "Valor mensal" : "Valor inicial", text: $amount)
                     Stepper("Dia \(dayOfMonth)", value: $dayOfMonth, in: 1...31)
                     Picker("Conta", selection: $accountID) {
                         Text("Sem conta").tag(UUID?.none)
@@ -327,6 +339,37 @@ private struct CommitmentSheet: View {
                     if hasEnd {
                         MonthPicker(title: "Fim", month: $end)
                     }
+                }
+
+                Section("Reajustes") {
+                    ForEach(sortedPriceChanges, id: \.key) { item in
+                        HStack {
+                            Text("A partir de \(item.key)")
+                            Spacer()
+                            Text(item.value.brl)
+                            Button {
+                                priceChanges.removeValue(forKey: item.key)
+                            } label: {
+                                Image(systemName: "minus.circle")
+                            }
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(Color.red)
+                        }
+                    }
+                    MonthPicker(title: "A partir de", month: $changeMonth)
+                    HStack {
+                        TextField("Novo valor", text: $changeValue)
+                        Button("Adicionar") {
+                            guard let value = ValueParser.parse(changeValue), value != 0 else { return }
+                            priceChanges[changeMonth.description] = abs(value)
+                            changeValue = ""
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(!(ValueParser.parse(changeValue).map { $0 != 0 } ?? false))
+                    }
+                    Text("O valor novo vale daquele mês em diante, e os meses anteriores continuam com o valor de antes. Ex.: aluguel reajustado em maio.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("Valores por mês") {
@@ -355,7 +398,7 @@ private struct CommitmentSheet: View {
                         .buttonStyle(.borderless)
                         .disabled(ValueParser.parse(overrideValue) == nil)
                     }
-                    Text("Use quando o valor mudar num mês específico, como o reajuste da luz.")
+                    Text("Vale só para aquele mês, como uma conta de luz que veio diferente.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -376,6 +419,10 @@ private struct CommitmentSheet: View {
                 }
             }
         }
+    }
+
+    private var sortedPriceChanges: [(key: String, value: Double)] {
+        priceChanges.sorted { $0.key < $1.key }.map { (key: $0.key, value: $0.value) }
     }
 
     private var sortedOverrides: [(key: String, value: Double)] {
@@ -403,6 +450,7 @@ private struct CommitmentSheet: View {
             tags: tags,
             isEnabled: isEnabled,
             overrides: overrides,
+            priceChanges: priceChanges,
             accountID: accountID,
             notes: notes.isEmpty ? nil : notes
         )
