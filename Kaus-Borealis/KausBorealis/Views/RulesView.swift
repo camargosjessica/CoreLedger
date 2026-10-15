@@ -417,9 +417,7 @@ private struct RuleForm: View {
                         Text("Entradas").tag(CategoryRule.AmountScope.credit)
                         Text("Despesas").tag(CategoryRule.AmountScope.debit)
                     }
-                    Stepper("Prioridade: \(priority)", value: $priority, in: 1...999)
                     Toggle("Ativa", isOn: $isEnabled)
-                    Toggle("É transferência", isOn: $isTransfer)
                 }
             }
         }
