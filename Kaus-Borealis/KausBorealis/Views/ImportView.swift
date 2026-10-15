@@ -8,6 +8,8 @@ import KausMedia
 /// Vários arquivos sobem um por vez, cada um como uma importação separada.
 struct ImportView: View {
     @Bindable var store: LedgerStore
+    /// Conta já escolhida quando a importação parte da tela de uma conta.
+    var initialAccountID: UUID?
     @Environment(\.dismiss) private var dismiss
 
     @State private var accountID: UUID?
@@ -131,6 +133,7 @@ struct ImportView: View {
             }
             .formStyle(.grouped)
             .navigationTitle("Importar")
+            .onAppear { if accountID == nil { accountID = initialAccountID } }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Fechar") { dismiss() }
