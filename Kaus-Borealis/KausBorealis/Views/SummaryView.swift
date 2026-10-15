@@ -73,10 +73,10 @@ struct SummaryView: View {
                 if store.isLoading && store.projection == nil {
                     ProgressView()
                 } else if isEmpty && !store.isLoading {
-                    ContentUnavailableView(
-                        "Nada por aqui ainda",
-                        systemImage: "chart.bar.xaxis",
-                        description: Text("Crie uma conta e importe um extrato para ver o painel.")
+                    EmptyState(
+                        symbol: "moon.stars",
+                        title: "Nada por aqui ainda",
+                        message: "Crie uma conta em Contas e importe um extrato em Lançamentos para ver o painel."
                     )
                 }
             }
@@ -288,9 +288,7 @@ private struct CategoryBreakdownCard: View {
         VStack(alignment: .leading, spacing: 14) {
             CardHeader(title: "Despesas por categoria")
             if top.isEmpty {
-                Text("Sem despesas neste mês.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                EmptyNote(symbol: "chart.pie", text: "Sem despesas neste mês.")
             } else {
                 Chart(top) { entry in
                     SectorMark(

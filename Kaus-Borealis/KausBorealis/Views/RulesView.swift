@@ -55,11 +55,14 @@ struct RulesView: View {
                 .card()
 
                 if parents.isEmpty {
-                    ContentUnavailableView(
-                        "Nenhuma categoria ainda",
-                        systemImage: "square.stack.3d.up",
-                        description: Text("Crie uma regra ou categorize um lançamento para começar.")
-                    )
+                    EmptyState(
+                        symbol: "square.stack.3d.up",
+                        title: "Nenhuma categoria ainda",
+                        message: "Crie uma regra ou categorize um lançamento para começar."
+                    ) {
+                        Button("Nova regra", systemImage: "plus") { newRuleCategory = NewRule(category: "") }
+                    }
+                    .card()
                 }
 
                 LazyVGrid(columns: columns, spacing: 16) {
