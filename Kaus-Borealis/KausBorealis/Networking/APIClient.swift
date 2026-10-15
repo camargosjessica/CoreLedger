@@ -263,6 +263,20 @@ struct APIClient: Sendable {
         try await sendIgnoringResponse(.delete, "api/commitments/\(id.uuidString)")
     }
 
+    // MARK: Limites
+
+    func limits() async throws -> [CategoryLimit] {
+        try await send(.get, "api/limits")
+    }
+
+    func saveLimit(_ limit: CategoryLimit) async throws -> CategoryLimit {
+        try await send(.put, "api/limits", body: limit)
+    }
+
+    func deleteLimit(category: String) async throws {
+        try await sendIgnoringResponse(.delete, "api/limits/\(Self.pathComponent(category))")
+    }
+
     /// Grade anual: linhas por categoria, colunas por mês.
     func plan(from: YearMonth, to: YearMonth, openingBalance: Double? = nil) async throws -> PlanResponse {
         var items = [

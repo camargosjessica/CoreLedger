@@ -8,6 +8,7 @@ import KausMedia
 extension TransactionDTO: @retroactive Content {}
 extension AccountDTO: @retroactive Content {}
 extension CategoryRule: @retroactive Content {}
+extension CategoryLimit: @retroactive Content {}
 extension ImportRequestDTO: @retroactive Content {}
 extension ImportReportDTO: @retroactive Content {}
 extension MonthlySummary: @retroactive Content {}
@@ -103,6 +104,7 @@ func configure(_ app: Application) async throws {
     app.migrations.add(CreateRecurringCommitmentMigration())
     app.migrations.add(AddTransferSourceMigration())
     app.migrations.add(AddNoteAndStatementMonthMigration())
+    app.migrations.add(CreateCategoryLimitMigration())
     try await app.autoMigrate()
 }
 
@@ -125,4 +127,5 @@ func routes(_ app: Application) throws {
     try api.register(collection: MaintenanceController())
     try api.register(collection: AnalyticsController())
     try api.register(collection: LabelController())
+    try api.register(collection: CategoryLimitController())
 }

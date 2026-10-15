@@ -8,12 +8,18 @@ struct PlanCharts: View {
     let year: Int
     let totals: [PlanMonthTotals]
 
-    private let columns = [GridItem(.adaptive(minimum: 340), spacing: 16, alignment: .top)]
-
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 16) {
-            IncomeExpenseCard(year: year, totals: totals)
-            CashFlowCard(year: year, totals: totals)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 16) {
+                IncomeExpenseCard(year: year, totals: totals)
+                    .frame(minWidth: 340)
+                CashFlowCard(year: year, totals: totals)
+                    .frame(minWidth: 340)
+            }
+            VStack(spacing: 16) {
+                IncomeExpenseCard(year: year, totals: totals)
+                CashFlowCard(year: year, totals: totals)
+            }
         }
     }
 }
@@ -82,7 +88,7 @@ private struct IncomeExpenseCard: View {
                     RuleMark(x: .value("Mês", currentMonth.month.startDate.shortMonth))
                         .foregroundStyle(.secondary.opacity(0.4))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 3]))
-                        .annotation(position: .top, alignment: .center) {
+                        .annotation(position: .overlay, alignment: .top) {
                             Text("hoje")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
