@@ -1,13 +1,15 @@
 import Foundation
 
-/// Como agrupar os gastos: pela categoria do lançamento ou pelas suas tags.
+/// Como agrupar os gastos: pela categoria-mãe, pela subcategoria ou pelas tags.
 public enum SpendingGrouping: String, Codable, Sendable, CaseIterable {
     case category
+    case subcategory
     case tag
 
     public var title: String {
         switch self {
         case .category: return "Categoria"
+        case .subcategory: return "Subcategoria"
         case .tag: return "Tag"
         }
     }
@@ -113,6 +115,8 @@ public enum SpendingAnalysis {
             let groups: [String]
             switch grouping {
             case .category:
+                groups = [CategoryPath.parent(of: category)]
+            case .subcategory:
                 groups = [category]
             case .tag:
                 let tags = TagSet.normalize(input.tags)

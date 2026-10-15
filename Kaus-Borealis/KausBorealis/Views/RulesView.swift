@@ -1,37 +1,35 @@
 import SwiftUI
 import KausMedia
 
-/// Regras de categorização: o que substitui a lista fixa no código.
+/// Categorias com subcategorias, preferências e as regras que as preenchem.
 struct RulesView: View {
     @Bindable var store: LedgerStore
-    @State private var isAdding = false
+    @State private var newRuleCategory: NewRule?
+    @State private var expanded: Set<String> = []
     @State private var recategorizeResult: Int?
-    @State private var pendingCategoryDeletion: String?
-    @State private var categoryDeletionResult: String?
-    @State private var renaming: LabelTarget?
+    @State private var pendingDeletion: String?
+    @State private var resultMessage: String?
+    @State private var renaming: String?
     @State private var newName = ""
-    @State private var pendingTagDeletion: String?
     @State private var limitTarget: String?
     @State private var limitText = ""
 
-    private var grouped: [RuleGroup] {
-        Dictionary(grouping: store.rules, by: \.category)
-            .map { RuleGroup(category: $0.key, rules: $0.value.sorted { $0.term < $1.term }) }
-            .sorted { $0.category < $1.category }
+    private var parents: [String] {
+        Array(Set(store.parentCategories + store.rules.map { CategoryPath.parent(of: $0.category) })).sorted()
     }
 
-    private let columns = [GridItem(.adaptive(minimum: 320), spacing: 16, alignment: .top)]
+    private let columns = [GridItem(.adaptive(minimum: 360), spacing: 16, alignment: .top)]
 
     var body: some View {
         NavigationStack {
             CardScreen {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 12) {
-                        IconBadge(symbol: "wand.and.stars", color: .indigo, size: 40)
+                        IconBadge(symbol: "wand.and.stars", color: .indigo, size: 36)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Categorização automática")
+                            Text("\(parents.count) categorias · \(store.rules.count) regras")
                                 .font(.headline)
-                            Text("\(store.rules.count) regras em \(grouped.count) categorias")
+                            Text("Toque numa categoria para ver subcategorias, limite e regras.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -41,41 +39,49 @@ struct RulesView: View {
                         } label: {
                             Label("Reaplicar ao histórico", systemImage: "arrow.triangle.2.circlepath")
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bordered)
                     }
                     if let recategorizeResult {
                         Text("\(recategorizeResult) lançamentos recategorizados")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    if let categoryDeletionResult {
-                        Text(categoryDeletionResult)
+                    if let resultMessage {
+                        Text(resultMessage)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
                 .card()
 
-                LabelsCard(
-                    store: store,
-                    onRename: { target in
-                        newName = target.name
-                        renaming = target
-                    },
-                    onDeleteCategory: { pendingCategoryDeletion = $0 },
-                    onDeleteTag: { pendingTagDeletion = $0 },
-                    onSetLimit: { category in
-                        limitText = store.limit(for: category).map { String(format: "%.2f", $0).replacingOccurrences(of: ".", with: ",") } ?? ""
-                        limitTarget = category
-                    }
-                )
+                if parents.isEmpty {
+                    ContentUnavailableView(
+                        "Nenhuma categoria ainda",
+                        systemImage: "square.stack.3d.up",
+                        description: Text("Crie uma regra ou categorize um lançamento para começar.")
+                    )
+                }
 
                 LazyVGrid(columns: columns, spacing: 16) {
-                    ForEach(grouped) { group in
-                        RuleGroupCard(
-                            group: group,
+                    ForEach(parents, id: \.self) { parent in
+                        CategoryCard(
+                            parent: parent,
                             store: store,
-                            onDeleteCategory: { pendingCategoryDeletion = group.category }
+                            isExpanded: expanded.contains(parent),
+                            onToggle: {
+                                if expanded.contains(parent) { expanded.remove(parent) } else { expanded.insert(parent) }
+                            },
+                            onRename: { category in
+                                newName = CategoryPath.child(of: category) ?? category
+                                renaming = category
+                            },
+                            onDelete: { pendingDeletion = $0 },
+                            onSetLimit: { category in
+                                limitText = store.limit(for: category)
+                                    .map { String(format: "%.2f", $0).replacingOccurrences(of: ".", with: ",") } ?? ""
+                                limitTarget = category
+                            },
+                            onNewRule: { newRuleCategory = NewRule(category: parent) }
                         )
                     }
                 }
@@ -83,45 +89,29 @@ struct RulesView: View {
             .navigationTitle("Regras")
             .refreshable { await store.reload() }
             .toolbar {
-                Button { isAdding = true } label: { Label("Nova regra", systemImage: "plus") }
+                Button { newRuleCategory = NewRule(category: "") } label: { Label("Nova regra", systemImage: "plus") }
             }
-            .sheet(isPresented: $isAdding) {
-                NavigationStack { RuleForm(store: store, rule: nil) }
-            }
-            .confirmationDialog(
-                pendingCategoryDeletion.map { "Apagar a categoria \($0)?" } ?? "",
-                isPresented: isConfirmingCategoryDeletion,
-                titleVisibility: .visible
-            ) {
-                Button("Apagar categoria", role: .destructive) { deleteCategory() }
-                Button("Cancelar", role: .cancel) { pendingCategoryDeletion = nil }
-            } message: {
-                Text("As regras somem e os lançamentos dessa categoria passam pelas regras restantes.")
+            .sheet(item: $newRuleCategory) { target in
+                NavigationStack { RuleForm(store: store, rule: nil, presetCategory: target.category) }
             }
             .confirmationDialog(
-                pendingTagDeletion.map { "Apagar a tag \($0)?" } ?? "",
-                isPresented: isConfirmingTagDeletion,
+                pendingDeletion.map { "Apagar \($0)?" } ?? "",
+                isPresented: isConfirmingDeletion,
                 titleVisibility: .visible
             ) {
-                Button("Apagar tag", role: .destructive) { deleteTag() }
-                Button("Cancelar", role: .cancel) { pendingTagDeletion = nil }
+                Button("Apagar", role: .destructive) { delete() }
+                Button("Cancelar", role: .cancel) { pendingDeletion = nil }
             } message: {
-                Text("A tag sai de todos os lançamentos, regras e contas fixas.")
+                Text("As regras somem e os lançamentos passam pelas regras restantes. Apagar uma categoria apaga também as subcategorias.")
             }
-            .alert(
-                renaming.map { "Renomear \($0.kindTitle) \($0.name)" } ?? "",
-                isPresented: isRenaming
-            ) {
+            .alert(renaming.map { "Renomear \($0)" } ?? "", isPresented: isRenaming) {
                 TextField("Novo nome", text: $newName)
                 Button("Salvar") { rename() }
                 Button("Cancelar", role: .cancel) { renaming = nil }
             } message: {
                 Text("Muda em todos os lançamentos, regras e contas fixas. Se o nome já existir, as duas se juntam.")
             }
-            .alert(
-                limitTarget.map { "Limite mensal de \($0)" } ?? "",
-                isPresented: isEditingLimit
-            ) {
+            .alert(limitTarget.map { "Limite mensal de \($0)" } ?? "", isPresented: isEditingLimit) {
                 TextField("Valor, ex.: 800,00", text: $limitText)
                 Button("Salvar") { saveLimit(ValueParser.parse(limitText).map(abs)) }
                 if limitTarget.flatMap(store.limit(for:)) != nil {
@@ -129,32 +119,28 @@ struct RulesView: View {
                 }
                 Button("Cancelar", role: .cancel) { limitTarget = nil }
             } message: {
-                Text("O Resumo avisa quando o gasto do mês nessa categoria passa de 80% do limite e quando estoura.")
+                Text("O Resumo avisa quando o gasto do mês passa de 80% do limite e quando estoura. O limite de uma categoria inclui as subcategorias.")
             }
         }
     }
 }
 
-extension RulesView {
-    private var isConfirmingCategoryDeletion: Binding<Bool> {
-        Binding(
-            get: { pendingCategoryDeletion != nil },
-            set: { if !$0 { pendingCategoryDeletion = nil } }
-        )
-    }
+private struct NewRule: Identifiable {
+    var category: String
+    var id: String { category }
+}
 
-    private var isConfirmingTagDeletion: Binding<Bool> {
-        Binding(
-            get: { pendingTagDeletion != nil },
-            set: { if !$0 { pendingTagDeletion = nil } }
-        )
+extension RulesView {
+    private var isConfirmingDeletion: Binding<Bool> {
+        Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } })
     }
 
     private var isEditingLimit: Binding<Bool> {
-        Binding(
-            get: { limitTarget != nil },
-            set: { if !$0 { limitTarget = nil } }
-        )
+        Binding(get: { limitTarget != nil }, set: { if !$0 { limitTarget = nil } })
+    }
+
+    private var isRenaming: Binding<Bool> {
+        Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })
     }
 
     private func saveLimit(_ value: Double?) {
@@ -163,138 +149,179 @@ extension RulesView {
         Task { await store.setLimit(value, for: category) }
     }
 
-    private var isRenaming: Binding<Bool> {
+    private func rename() {
+        guard let current = renaming else { return }
+        renaming = nil
+        let typed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typed.isEmpty else { return }
+        let name = CategoryPath.child(of: current) == nil
+            ? typed
+            : CategoryPath.join(CategoryPath.parent(of: current), typed)
+        guard name != current else { return }
+        Task {
+            guard let response = await store.renameCategory(current, to: name) else { return }
+            resultMessage = "\(response.transactions) lançamento(s), \(response.rules) regra(s) e \(response.commitments) conta(s) fixa(s) atualizado(s)."
+        }
+    }
+
+    private func delete() {
+        guard let category = pendingDeletion else { return }
+        pendingDeletion = nil
+        let targets = store.subcategories(of: category) + [category]
+        Task {
+            var rules = 0
+            var recategorized = 0
+            for target in targets {
+                guard let response = await store.deleteCategory(target) else { continue }
+                rules += response.removedRules
+                recategorized += response.recategorized
+            }
+            resultMessage = "\(rules) regra(s) apagada(s), \(recategorized) lançamento(s) recategorizado(s)."
+        }
+    }
+}
+
+/// Uma categoria-mãe: fechada mostra só o resumo; aberta mostra a chave
+/// essencial, o limite, as subcategorias e as regras.
+private struct CategoryCard: View {
+    let parent: String
+    @Bindable var store: LedgerStore
+    let isExpanded: Bool
+    let onToggle: () -> Void
+    let onRename: (String) -> Void
+    let onDelete: (String) -> Void
+    let onSetLimit: (String) -> Void
+    let onNewRule: () -> Void
+
+    private var subcategories: [String] { store.subcategories(of: parent) }
+
+    private var rules: [CategoryRule] {
+        store.rules
+            .filter { CategoryPath.isWithin($0.category, parent) }
+            .sorted { ($0.category, $0.term) < ($1.category, $1.term) }
+    }
+
+    private var summary: String {
+        var parts: [String] = []
+        if !subcategories.isEmpty {
+            parts.append(subcategories.count == 1 ? "1 subcategoria" : "\(subcategories.count) subcategorias")
+        }
+        parts.append(rules.count == 1 ? "1 regra" : "\(rules.count) regras")
+        if let limit = store.limit(for: parent) { parts.append("limite \(limit.brl)") }
+        return parts.joined(separator: " · ")
+    }
+
+    private var essentialBinding: Binding<Bool> {
         Binding(
-            get: { renaming != nil },
-            set: { if !$0 { renaming = nil } }
+            get: { store.isEssential(parent) },
+            set: { value in Task { await store.setEssential(value, for: parent) } }
         )
     }
 
-    private func rename() {
-        guard let target = renaming else { return }
-        renaming = nil
-        let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, name != target.name else { return }
-        Task {
-            let response: LabelChangeResponse?
-            switch target {
-            case .category(let current): response = await store.renameCategory(current, to: name)
-            case .tag(let current): response = await store.renameTag(current, to: name)
-            }
-            guard let response else { return }
-            categoryDeletionResult = Self.summary(response, verb: "atualizado(s)")
-        }
-    }
-
-    private func deleteTag() {
-        guard let tag = pendingTagDeletion else { return }
-        pendingTagDeletion = nil
-        Task {
-            guard let response = await store.deleteTag(tag) else { return }
-            categoryDeletionResult = Self.summary(response, verb: "sem a tag")
-        }
-    }
-
-    private static func summary(_ response: LabelChangeResponse, verb: String) -> String {
-        "\(response.transactions) lançamento(s), \(response.rules) regra(s) e \(response.commitments) conta(s) fixa(s) \(verb)."
-    }
-
-    private func deleteCategory() {
-        guard let category = pendingCategoryDeletion else { return }
-        pendingCategoryDeletion = nil
-        Task {
-            guard let response = await store.deleteCategory(category) else { return }
-            categoryDeletionResult =
-                "\(response.removedRules) regra(s) apagada(s), \(response.recategorized) lançamento(s) recategorizado(s)."
-        }
-    }
-}
-
-enum LabelTarget: Hashable {
-    case category(String)
-    case tag(String)
-
-    var name: String {
-        switch self {
-        case .category(let name), .tag(let name): return name
-        }
-    }
-
-    var kindTitle: String {
-        switch self {
-        case .category: return "a categoria"
-        case .tag: return "a tag"
-        }
-    }
-}
-
-/// Todas as categorias e tags em uso, inclusive as digitadas direto num
-/// lançamento, com as ações de renomear e apagar.
-private struct LabelsCard: View {
-    @Bindable var store: LedgerStore
-    let onRename: (LabelTarget) -> Void
-    let onDeleteCategory: (String) -> Void
-    let onDeleteTag: (String) -> Void
-    let onSetLimit: (String) -> Void
-
-    private let columns = [GridItem(.adaptive(minimum: 220), spacing: 8, alignment: .leading)]
-
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            CardHeader(title: "Categorias")
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-                ForEach(store.categories, id: \.self) { category in
-                    row(
-                        icon: CategoryIcon(category: category, size: 28),
-                        name: category,
-                        detail: store.limit(for: category).map { "limite \($0.brl)/mês" }
-                    ) {
-                        Button("Limite mensal…", systemImage: "gauge.with.needle") { onSetLimit(category) }
-                        Button("Renomear", systemImage: "pencil") { onRename(.category(category)) }
-                        Button("Apagar", systemImage: "trash", role: .destructive) { onDeleteCategory(category) }
+            Button(action: onToggle) {
+                HStack(spacing: 12) {
+                    CategoryIcon(category: parent, size: 36)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(parent)
+                            .font(.headline)
+                        Text(summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if store.isEssential(parent) {
+                        DeltaPill(text: "essencial", color: Palette.income)
+                    }
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                Divider()
+                Toggle("Essencial", isOn: essentialBinding)
+                HStack {
+                    Button(store.limit(for: parent).map { "Limite \($0.brl)/mês" } ?? "Definir limite mensal") {
+                        onSetLimit(parent)
+                    }
+                    .buttonStyle(.borderless)
+                    Spacer()
+                    Menu {
+                        Button("Renomear", systemImage: "pencil") { onRename(parent) }
+                        Button("Apagar", systemImage: "trash", role: .destructive) { onDelete(parent) }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .menuStyle(.button)
+                    .buttonStyle(.borderless)
+                    .fixedSize()
+                }
+
+                if !subcategories.isEmpty {
+                    sectionTitle("Subcategorias")
+                    ForEach(subcategories, id: \.self) { sub in
+                        subcategoryRow(sub)
                     }
                 }
-            }
-            Divider()
-            CardHeader(title: "Tags")
-            if store.knownTags.isEmpty {
-                Text("Nenhuma tag ainda. Crie ao editar um lançamento ou uma regra.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-                ForEach(store.knownTags, id: \.self) { tag in
-                    row(icon: IconBadge(symbol: "number", color: CategoryStyle.of(tag).color, size: 28), name: tag) {
-                        Button("Renomear", systemImage: "pencil") { onRename(.tag(tag)) }
-                        Button("Apagar", systemImage: "trash", role: .destructive) { onDeleteTag(tag) }
+
+                sectionTitle("Regras")
+                ForEach(rules) { rule in
+                    NavigationLink {
+                        RuleForm(store: store, rule: rule, presetCategory: rule.category)
+                    } label: {
+                        RuleRow(rule: rule, parent: parent)
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        Button("Apagar regra", systemImage: "trash", role: .destructive) {
+                            Task { await store.deleteRule(rule) }
+                        }
                     }
                 }
+                Button("Nova regra", systemImage: "plus", action: onNewRule)
+                    .buttonStyle(.borderless)
             }
         }
         .card()
     }
 
-    private func row<Icon: View, Actions: View>(
-        icon: Icon,
-        name: String,
-        detail: String? = nil,
-        @ViewBuilder actions: () -> Actions
-    ) -> some View {
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+    }
+
+    private func subcategoryRow(_ sub: String) -> some View {
         HStack(spacing: 8) {
-            icon
-            VStack(alignment: .leading, spacing: 1) {
-                Text(name)
-                    .lineLimit(1)
-                if let detail {
-                    Text(detail)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+            Circle()
+                .fill(CategoryStyle.of(parent).color)
+                .frame(width: 6, height: 6)
+            Text(CategoryPath.child(of: sub) ?? sub)
+            if let limit = store.limit(for: sub) {
+                Text("limite \(limit.brl)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            if store.isEssential(sub) {
+                DeltaPill(text: "essencial", color: Palette.income)
             }
             Spacer()
             Menu {
-                actions()
+                Button(
+                    store.isEssential(sub) ? "Não é essencial" : "Marcar como essencial",
+                    systemImage: "checkmark.seal"
+                ) {
+                    let value = !store.isEssential(sub)
+                    Task { await store.setEssential(value, for: sub) }
+                }
+                Button("Limite mensal…", systemImage: "gauge.with.needle") { onSetLimit(sub) }
+                Button("Renomear", systemImage: "pencil") { onRename(sub) }
+                Button("Apagar", systemImage: "trash", role: .destructive) { onDelete(sub) }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
@@ -302,63 +329,13 @@ private struct LabelsCard: View {
             .buttonStyle(.borderless)
             .fixedSize()
         }
-        .contextMenu { actions() }
-    }
-}
-
-private struct RuleGroup: Identifiable {
-    var category: String
-    var rules: [CategoryRule]
-
-    var id: String { category }
-}
-
-/// Uma categoria com as suas regras; tocar numa regra abre a edição.
-private struct RuleGroupCard: View {
-    let group: RuleGroup
-    @Bindable var store: LedgerStore
-    let onDeleteCategory: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                CategoryIcon(category: group.category)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(group.category)
-                        .font(.headline)
-                    Text(group.rules.count == 1 ? "1 regra" : "\(group.rules.count) regras")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button(role: .destructive, action: onDeleteCategory) {
-                    Label("Apagar categoria", systemImage: "trash")
-                        .labelStyle(.iconOnly)
-                        .foregroundStyle(Color.red)
-                }
-                .buttonStyle(.borderless)
-            }
-            Divider()
-            ForEach(group.rules) { rule in
-                NavigationLink {
-                    RuleForm(store: store, rule: rule)
-                } label: {
-                    RuleRow(rule: rule)
-                }
-                .buttonStyle(.plain)
-                .contextMenu {
-                    Button("Apagar regra", systemImage: "trash", role: .destructive) {
-                        Task { await store.deleteRule(rule) }
-                    }
-                }
-            }
-        }
-        .card()
+        .font(.subheadline)
     }
 }
 
 private struct RuleRow: View {
     let rule: CategoryRule
+    let parent: String
 
     private var matchTitle: String {
         switch rule.matchKind {
@@ -375,10 +352,9 @@ private struct RuleRow: View {
                     .font(.body.weight(.medium))
                     .strikethrough(!rule.isEnabled)
                     .foregroundStyle(rule.isEnabled ? Color.primary : Color.secondary)
-                Text("\(matchTitle) · prioridade \(rule.priority)")
+                Text(([CategoryPath.child(of: rule.category)].compactMap { $0 } + [matchTitle]).joined(separator: " · "))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                TagChips(tags: rule.tags)
             }
             Spacer()
             if rule.isTransfer {
@@ -396,6 +372,7 @@ private struct RuleRow: View {
 private struct RuleForm: View {
     @Bindable var store: LedgerStore
     let rule: CategoryRule?
+    var presetCategory = ""
     @Environment(\.dismiss) private var dismiss
 
     @State private var term = ""
@@ -406,10 +383,6 @@ private struct RuleForm: View {
     @State private var isEnabled = true
     @State private var isTransfer = false
     @State private var tags: [String] = []
-
-    @State private var sampleDescription = ""
-    @State private var sampleAmount = "-100,00"
-    @State private var previewResult: String?
 
     private var draft: CategoryRule {
         CategoryRule(
@@ -429,48 +402,22 @@ private struct RuleForm: View {
         Form {
             Section("Regra") {
                 TextField("Termo", text: $term)
-                TextField("Categoria", text: $category)
-                Picker("Comparação", selection: $matchKind) {
-                    Text("Palavra inteira").tag(CategoryRule.MatchKind.word)
-                    Text("Contém").tag(CategoryRule.MatchKind.contains)
-                    Text("Expressão regular").tag(CategoryRule.MatchKind.regex)
-                }
-                Picker("Aplica-se a", selection: $amountScope) {
-                    Text("Qualquer valor").tag(CategoryRule.AmountScope.any)
-                    Text("Entradas").tag(CategoryRule.AmountScope.credit)
-                    Text("Despesas").tag(CategoryRule.AmountScope.debit)
-                }
-                Stepper("Prioridade: \(priority)", value: $priority, in: 1...999)
-                Toggle("Ativa", isOn: $isEnabled)
-                Toggle("É transferência", isOn: $isTransfer)
+                CategoryField(category: $category, known: store.categories)
             }
 
-            Section("Tags sugeridas") {
-                TagEditor(tags: $tags, suggestions: store.knownTags)
-                Text("Preenchem os lançamentos importados por esta regra; dá para editar depois em cada lançamento.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Testar") {
-                TextField("Descrição de exemplo", text: $sampleDescription)
-                TextField("Valor", text: $sampleAmount)
-                Button("Simular") {
-                    Task {
-                        let amount = ValueParser.parse(sampleAmount) ?? 0
-                        let response = await store.preview(
-                            description: sampleDescription,
-                            amount: amount,
-                            rule: term.isEmpty ? nil : draft
-                        )
-                        previewResult = response.map { result in
-                            result.matchedTerm.map { "\(result.category) (por “\($0)”)" } ?? result.category
-                        }
+            Section {
+                DisclosureGroup("Avançado") {
+                    Picker("Comparação", selection: $matchKind) {
+                        Text("Palavra inteira").tag(CategoryRule.MatchKind.word)
+                        Text("Contém").tag(CategoryRule.MatchKind.contains)
+                        Text("Expressão regular").tag(CategoryRule.MatchKind.regex)
                     }
-                }
-                .disabled(sampleDescription.isEmpty)
-                if let previewResult {
-                    Text(previewResult).foregroundStyle(.secondary)
+                    Picker("Aplica-se a", selection: $amountScope) {
+                        Text("Qualquer valor").tag(CategoryRule.AmountScope.any)
+                        Text("Entradas").tag(CategoryRule.AmountScope.credit)
+                        Text("Despesas").tag(CategoryRule.AmountScope.debit)
+                    }
+                    Toggle("Ativa", isOn: $isEnabled)
                 }
             }
         }
@@ -488,7 +435,10 @@ private struct RuleForm: View {
             }
         }
         .onAppear {
-            guard let rule else { return }
+            guard let rule else {
+                category = presetCategory
+                return
+            }
             term = rule.term
             category = rule.category
             matchKind = rule.matchKind

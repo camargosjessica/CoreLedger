@@ -46,7 +46,8 @@ public struct CategoryLimitStatus: Sendable, Hashable, Identifiable {
     }
 
     /// Cruza os limites com os totais do mês (`MonthlySummary.byCategory`,
-    /// saídas negativas). Os mais apertados vêm primeiro.
+    /// saídas negativas). O limite de uma categoria conta as subcategorias.
+    /// Os mais apertados vêm primeiro.
     public static func evaluate(
         limits: [CategoryLimit],
         totalsByCategory: [String: Double]
@@ -57,7 +58,9 @@ public struct CategoryLimitStatus: Sendable, Hashable, Identifiable {
                 CategoryLimitStatus(
                     category: limit.category,
                     limit: limit.monthlyLimit,
-                    spent: max(0, -(totalsByCategory[limit.category] ?? 0))
+                    spent: max(0, -totalsByCategory.reduce(0) { sum, entry in
+                        CategoryPath.isWithin(entry.key, limit.category) ? sum + entry.value : sum
+                    })
                 )
             }
             .sorted { lhs, rhs in

@@ -16,6 +16,7 @@ final class LedgerStore {
     private(set) var plan: AnnualPlan?
     private(set) var commitments: [RecurringCommitment] = []
     private(set) var limits: [CategoryLimit] = []
+    private(set) var categorySettings: [CategorySetting] = []
     private(set) var knownTags: [String] = []
     /// Próximas parcelas projetadas, independentes do filtro de período da
     /// lista e do limite de linhas da página de lançamentos.
@@ -125,6 +126,30 @@ final class LedgerStore {
 
     private(set) var categoryCatalog: [String] = []
 
+    /// Categorias-mãe, para filtros e para a tela de Regras.
+    var parentCategories: [String] {
+        Array(Set(categories.map(CategoryPath.parent(of:)))).sorted()
+    }
+
+    func subcategories(of parent: String) -> [String] {
+        categories.filter { $0 != parent && CategoryPath.isWithin($0, parent) }.sorted()
+    }
+
+    /// Só a marcação da própria categoria, sem herdar da categoria-mãe.
+    func isEssential(_ category: String) -> Bool {
+        categorySettings.contains { $0.category == category && $0.isEssential }
+    }
+
+    func setEssential(_ isEssential: Bool, for category: String) async {
+        await run {
+            _ = try await self.client.saveCategorySetting(
+                CategorySetting(category: category, isEssential: isEssential)
+            )
+            self.categorySettings = try await self.client.categorySettings()
+        }
+        await reloadPlan()
+    }
+
     /// Muda a cada `reload`, para telas com dados próprios (Análise) recarregarem.
     private(set) var dataGeneration = 0
 
@@ -150,6 +175,7 @@ final class LedgerStore {
             async let batches = client.importBatches(accountID: self.selectedAccountID)
             async let position = client.position()
             async let limits = client.limits()
+            async let settings = client.categorySettings()
             async let plan = client.plan(from: self.planStart, to: self.planEnd)
             let today = LedgerCalendar.startOfDay(Date())
             async let upcoming = client.transactions(
@@ -167,6 +193,7 @@ final class LedgerStore {
             self.batches = try await batches
             self.position = try await position
             self.limits = try await limits
+            self.categorySettings = try await settings
             self.upcoming = try await upcoming
                 .filter(\.isProjected)
                 .sorted { $0.date < $1.date }

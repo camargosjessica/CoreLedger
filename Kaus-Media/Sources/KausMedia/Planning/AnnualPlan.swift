@@ -82,6 +82,7 @@ public struct AnnualPlan: Codable, Sendable, Hashable {
         savingCategories: Set<String> = ["Guardado"],
         transferCategories: Set<String> = [],
         tagsByCategory: [String: [String]] = [:],
+        essentialCategories: Set<String>? = nil,
         openingBalance: Double = 0,
         reference: Date = Date()
     ) -> AnnualPlan {
@@ -120,12 +121,20 @@ public struct AnnualPlan: Codable, Sendable, Hashable {
                 savingCategories: savingCategories,
                 recorded: byMonth.values.flatMap { $0 }
             )
-            let tags = TagSet.normalize(
-                owners.flatMap(\.tags) + (tagsByCategory[category] ?? TagSet.suggested(for: category))
-            )
-            // Sem tags próprias, o lançamento ou compromisso herda as da linha.
-            let isEssential: ([String]) -> Bool = { own in
-                (own.isEmpty ? tags : own).contains(TagSet.essential)
+            let tags: [String]
+            let isEssential: ([String]) -> Bool
+            if let essentialCategories {
+                // A chave "essencial" da categoria vale para a linha inteira.
+                let essential = CategoryPath.isEssential(category, in: essentialCategories)
+                tags = essential ? [TagSet.essential] : []
+                isEssential = { _ in essential }
+            } else {
+                let rowTags = TagSet.normalize(
+                    owners.flatMap(\.tags) + (tagsByCategory[category] ?? TagSet.suggested(for: category))
+                )
+                tags = rowTags
+                // Sem tags próprias, o lançamento ou compromisso herda as da linha.
+                isEssential = { own in (own.isEmpty ? rowTags : own).contains(TagSet.essential) }
             }
 
             var values: [String: Double] = [:]

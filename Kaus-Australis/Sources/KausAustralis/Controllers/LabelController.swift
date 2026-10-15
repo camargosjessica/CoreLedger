@@ -41,22 +41,41 @@ struct LabelController: RouteCollection {
             )
         }
 
+        // Renomear a categoria-mãe leva junto as subcategorias.
+        let renamed: (String) -> String? = { category in
+            guard CategoryPath.isWithin(category, current) else { return nil }
+            return name + category.dropFirst(current.count)
+        }
+        let subcategories = current + CategoryPath.separator
+
         return try await req.db.transaction { db in
             var response = LabelChangeResponse()
-            for model in try await TransactionModel.query(on: db).filter(\.$category == current).all() {
-                model.category = name
+            for model in try await TransactionModel.query(on: db).group(.or, { $0.filter(\.$category == current).filter(\.$category =~ subcategories) }).all() {
+                guard let category = renamed(model.category) else { continue }
+                model.category = category
                 try await model.update(on: db)
                 response.transactions += 1
             }
-            for model in try await CategoryRuleModel.query(on: db).filter(\.$category == current).all() {
-                model.category = name
+            for model in try await CategoryRuleModel.query(on: db).group(.or, { $0.filter(\.$category == current).filter(\.$category =~ subcategories) }).all() {
+                guard let category = renamed(model.category) else { continue }
+                model.category = category
                 try await model.update(on: db)
                 response.rules += 1
             }
-            for model in try await RecurringCommitmentModel.query(on: db).filter(\.$category == current).all() {
-                model.category = name
+            for model in try await RecurringCommitmentModel.query(on: db).group(.or, { $0.filter(\.$category == current).filter(\.$category =~ subcategories) }).all() {
+                guard let category = renamed(model.category) else { continue }
+                model.category = category
                 try await model.update(on: db)
                 response.commitments += 1
+            }
+            for model in try await CategorySettingModel.query(on: db).group(.or, { $0.filter(\.$category == current).filter(\.$category =~ subcategories) }).all() {
+                guard let category = renamed(model.category) else { continue }
+                if try await CategorySettingModel.query(on: db).filter(\.$category == category).count() > 0 {
+                    try await model.delete(on: db)
+                } else {
+                    model.category = category
+                    try await model.update(on: db)
+                }
             }
             // Ao juntar duas categorias, vale o limite que o destino já tinha.
             let targetHasLimit = try await CategoryLimitModel.query(on: db).filter(\.$category == name).count() > 0

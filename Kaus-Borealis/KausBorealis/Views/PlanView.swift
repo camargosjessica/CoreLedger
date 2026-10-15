@@ -233,7 +233,6 @@ private struct CommitmentCard: View {
                 Label(period, systemImage: "calendar")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                TagChips(tags: commitment.tags)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 6) {
@@ -305,15 +304,7 @@ private struct CommitmentSheet: View {
             Form {
                 Section("Compromisso") {
                     TextField("Nome", text: $name)
-                    TextField("Categoria", text: $category)
-                    if !store.categories.isEmpty {
-                        Picker("Usar existente", selection: $category) {
-                            Text("—").tag("")
-                            ForEach(store.categories, id: \.self) { existing in
-                                Text(existing).tag(existing)
-                            }
-                        }
-                    }
+                    CategoryField(category: $category, known: store.categories)
                     Picker("Tipo", selection: $kind) {
                         ForEach(RecurringCommitment.Kind.allCases, id: \.self) { option in
                             Text(option.displayName).tag(option)
@@ -336,10 +327,6 @@ private struct CommitmentSheet: View {
                     if hasEnd {
                         MonthPicker(title: "Fim", month: $end)
                     }
-                }
-
-                Section("Tags") {
-                    TagEditor(tags: $tags, suggestions: store.knownTags)
                 }
 
                 Section("Valores por mês") {

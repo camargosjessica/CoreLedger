@@ -73,10 +73,11 @@ struct PlanController: RouteCollection {
 
         let rules = try await req.categoryRules.rules()
         let categorizer = Categorizer(rules: rules)
-        var tagsByCategory: [String: [String]] = [:]
-        for rule in rules where !rule.tags.isEmpty {
-            tagsByCategory[rule.category, default: []].append(contentsOf: rule.tags)
-        }
+        let essentialCategories = Set(
+            try await CategorySettingModel.query(on: req.db)
+                .filter(\.$isEssential == true)
+                .all(\.$category)
+        )
         // O que o usuário declarou como aporte não pode ser tratado como
         // transferência descartável: é dinheiro dele, só mudou de lugar.
         let savingCategories = Set(commitments.filter { $0.kind == .saving }.map(\.category))
@@ -89,7 +90,7 @@ struct PlanController: RouteCollection {
             commitments: commitments,
             savingCategories: savingCategories,
             transferCategories: categorizer.transferCategories,
-            tagsByCategory: tagsByCategory,
+            essentialCategories: essentialCategories,
             openingBalance: query.openingBalance ?? 0,
             reference: reference
         )

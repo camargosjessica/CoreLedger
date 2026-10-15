@@ -46,15 +46,7 @@ struct EditTransactionSheet: View {
                 .disabled(isCounterpart)
 
                 Section("Categoria") {
-                    TextField("Categoria", text: $category)
-                    if !store.categories.isEmpty {
-                        Picker("Usar existente", selection: $category) {
-                            Text("—").tag("")
-                            ForEach(store.categories, id: \.self) { name in
-                                Text(name).tag(name)
-                            }
-                        }
-                    }
+                    CategoryField(category: $category, known: store.categories)
                     Text("Deixe em branco para o servidor aplicar as regras.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -68,14 +60,6 @@ struct EditTransactionSheet: View {
                 .disabled(isCounterpart)
 
                 transferSection
-
-                Section("Tags") {
-                    TagEditor(tags: $tags, suggestions: store.knownTags)
-                    Text("A tag \(TagSet.essential) marca o que é básico para sobreviver.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .disabled(isCounterpart)
 
                 if transaction.isProjected {
                     Section {
