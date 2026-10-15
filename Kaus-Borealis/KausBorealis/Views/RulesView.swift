@@ -384,10 +384,6 @@ private struct RuleForm: View {
     @State private var isTransfer = false
     @State private var tags: [String] = []
 
-    @State private var sampleDescription = ""
-    @State private var sampleAmount = "-100,00"
-    @State private var previewResult: String?
-
     private var draft: CategoryRule {
         CategoryRule(
             id: rule?.id,
@@ -411,41 +407,19 @@ private struct RuleForm: View {
 
             Section {
                 DisclosureGroup("Avançado") {
-                Picker("Comparação", selection: $matchKind) {
-                    Text("Palavra inteira").tag(CategoryRule.MatchKind.word)
-                    Text("Contém").tag(CategoryRule.MatchKind.contains)
-                    Text("Expressão regular").tag(CategoryRule.MatchKind.regex)
-                }
-                Picker("Aplica-se a", selection: $amountScope) {
-                    Text("Qualquer valor").tag(CategoryRule.AmountScope.any)
-                    Text("Entradas").tag(CategoryRule.AmountScope.credit)
-                    Text("Despesas").tag(CategoryRule.AmountScope.debit)
-                }
-                Stepper("Prioridade: \(priority)", value: $priority, in: 1...999)
-                Toggle("Ativa", isOn: $isEnabled)
-                Toggle("É transferência", isOn: $isTransfer)
-                }
-            }
-
-            Section("Testar") {
-                TextField("Descrição de exemplo", text: $sampleDescription)
-                TextField("Valor", text: $sampleAmount)
-                Button("Simular") {
-                    Task {
-                        let amount = ValueParser.parse(sampleAmount) ?? 0
-                        let response = await store.preview(
-                            description: sampleDescription,
-                            amount: amount,
-                            rule: term.isEmpty ? nil : draft
-                        )
-                        previewResult = response.map { result in
-                            result.matchedTerm.map { "\(result.category) (por “\($0)”)" } ?? result.category
-                        }
+                    Picker("Comparação", selection: $matchKind) {
+                        Text("Palavra inteira").tag(CategoryRule.MatchKind.word)
+                        Text("Contém").tag(CategoryRule.MatchKind.contains)
+                        Text("Expressão regular").tag(CategoryRule.MatchKind.regex)
                     }
-                }
-                .disabled(sampleDescription.isEmpty)
-                if let previewResult {
-                    Text(previewResult).foregroundStyle(.secondary)
+                    Picker("Aplica-se a", selection: $amountScope) {
+                        Text("Qualquer valor").tag(CategoryRule.AmountScope.any)
+                        Text("Entradas").tag(CategoryRule.AmountScope.credit)
+                        Text("Despesas").tag(CategoryRule.AmountScope.debit)
+                    }
+                    Stepper("Prioridade: \(priority)", value: $priority, in: 1...999)
+                    Toggle("Ativa", isOn: $isEnabled)
+                    Toggle("É transferência", isOn: $isTransfer)
                 }
             }
         }
