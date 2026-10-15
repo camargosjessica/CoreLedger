@@ -105,6 +105,9 @@ struct CategoryRuleController: RouteCollection {
         }
 
         return try await req.db.transaction { db in
+            try await CategoryLimitModel.query(on: db)
+                .filter(\.$category == name)
+                .delete()
             let rules = try await CategoryRuleModel.query(on: db)
                 .filter(\.$category == name)
                 .all()

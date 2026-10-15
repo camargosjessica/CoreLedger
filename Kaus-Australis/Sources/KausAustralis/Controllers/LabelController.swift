@@ -58,6 +58,16 @@ struct LabelController: RouteCollection {
                 try await model.update(on: db)
                 response.commitments += 1
             }
+            // Ao juntar duas categorias, vale o limite que o destino já tinha.
+            let targetHasLimit = try await CategoryLimitModel.query(on: db).filter(\.$category == name).count() > 0
+            for model in try await CategoryLimitModel.query(on: db).filter(\.$category == current).all() {
+                if targetHasLimit {
+                    try await model.delete(on: db)
+                } else {
+                    model.category = name
+                    try await model.update(on: db)
+                }
+            }
             return response
         }
     }

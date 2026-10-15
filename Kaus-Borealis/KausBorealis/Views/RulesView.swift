@@ -11,6 +11,8 @@ struct RulesView: View {
     @State private var renaming: LabelTarget?
     @State private var newName = ""
     @State private var pendingTagDeletion: String?
+    @State private var limitTarget: String?
+    @State private var limitText = ""
 
     private var grouped: [RuleGroup] {
         Dictionary(grouping: store.rules, by: \.category)
@@ -61,7 +63,11 @@ struct RulesView: View {
                         renaming = target
                     },
                     onDeleteCategory: { pendingCategoryDeletion = $0 },
-                    onDeleteTag: { pendingTagDeletion = $0 }
+                    onDeleteTag: { pendingTagDeletion = $0 },
+                    onSetLimit: { category in
+                        limitText = store.limit(for: category).map { String(format: "%.2f", $0).replacingOccurrences(of: ".", with: ",") } ?? ""
+                        limitTarget = category
+                    }
                 )
 
                 LazyVGrid(columns: columns, spacing: 16) {
@@ -112,6 +118,19 @@ struct RulesView: View {
             } message: {
                 Text("Muda em todos os lançamentos, regras e contas fixas. Se o nome já existir, as duas se juntam.")
             }
+            .alert(
+                limitTarget.map { "Limite mensal de \($0)" } ?? "",
+                isPresented: isEditingLimit
+            ) {
+                TextField("Valor, ex.: 800,00", text: $limitText)
+                Button("Salvar") { saveLimit(ValueParser.parse(limitText).map(abs)) }
+                if limitTarget.flatMap(store.limit(for:)) != nil {
+                    Button("Remover limite", role: .destructive) { saveLimit(nil) }
+                }
+                Button("Cancelar", role: .cancel) { limitTarget = nil }
+            } message: {
+                Text("O Resumo avisa quando o gasto do mês nessa categoria passa de 80% do limite e quando estoura.")
+            }
         }
     }
 }
@@ -129,6 +148,19 @@ extension RulesView {
             get: { pendingTagDeletion != nil },
             set: { if !$0 { pendingTagDeletion = nil } }
         )
+    }
+
+    private var isEditingLimit: Binding<Bool> {
+        Binding(
+            get: { limitTarget != nil },
+            set: { if !$0 { limitTarget = nil } }
+        )
+    }
+
+    private func saveLimit(_ value: Double?) {
+        guard let category = limitTarget else { return }
+        limitTarget = nil
+        Task { await store.setLimit(value, for: category) }
     }
 
     private var isRenaming: Binding<Bool> {
@@ -203,6 +235,7 @@ private struct LabelsCard: View {
     let onRename: (LabelTarget) -> Void
     let onDeleteCategory: (String) -> Void
     let onDeleteTag: (String) -> Void
+    let onSetLimit: (String) -> Void
 
     private let columns = [GridItem(.adaptive(minimum: 220), spacing: 8, alignment: .leading)]
 
@@ -211,7 +244,12 @@ private struct LabelsCard: View {
             CardHeader(title: "Categorias")
             LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
                 ForEach(store.categories, id: \.self) { category in
-                    row(icon: CategoryIcon(category: category, size: 28), name: category) {
+                    row(
+                        icon: CategoryIcon(category: category, size: 28),
+                        name: category,
+                        detail: store.limit(for: category).map { "limite \($0.brl)/mês" }
+                    ) {
+                        Button("Limite mensal…", systemImage: "gauge.with.needle") { onSetLimit(category) }
                         Button("Renomear", systemImage: "pencil") { onRename(.category(category)) }
                         Button("Apagar", systemImage: "trash", role: .destructive) { onDeleteCategory(category) }
                     }
@@ -239,12 +277,21 @@ private struct LabelsCard: View {
     private func row<Icon: View, Actions: View>(
         icon: Icon,
         name: String,
+        detail: String? = nil,
         @ViewBuilder actions: () -> Actions
     ) -> some View {
         HStack(spacing: 8) {
             icon
-            Text(name)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name)
+                    .lineLimit(1)
+                if let detail {
+                    Text(detail)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
             Spacer()
             Menu {
                 actions()

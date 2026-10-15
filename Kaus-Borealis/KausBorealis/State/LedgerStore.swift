@@ -15,6 +15,7 @@ final class LedgerStore {
     private(set) var position: FinancialPosition?
     private(set) var plan: AnnualPlan?
     private(set) var commitments: [RecurringCommitment] = []
+    private(set) var limits: [CategoryLimit] = []
     private(set) var knownTags: [String] = []
     /// Próximas parcelas projetadas, independentes do filtro de período da
     /// lista e do limite de linhas da página de lançamentos.
@@ -148,6 +149,7 @@ final class LedgerStore {
             async let projection = client.summary(accountID: self.selectedAccountID)
             async let batches = client.importBatches(accountID: self.selectedAccountID)
             async let position = client.position()
+            async let limits = client.limits()
             async let plan = client.plan(from: self.planStart, to: self.planEnd)
             let today = LedgerCalendar.startOfDay(Date())
             async let upcoming = client.transactions(
@@ -164,6 +166,7 @@ final class LedgerStore {
             self.projection = try await projection
             self.batches = try await batches
             self.position = try await position
+            self.limits = try await limits
             self.upcoming = try await upcoming
                 .filter(\.isProjected)
                 .sorted { $0.date < $1.date }
@@ -209,6 +212,24 @@ final class LedgerStore {
         guard let id = commitment.id else { return }
         await run { try await self.client.deleteCommitment(id: id) }
         await reloadPlan()
+    }
+
+    // MARK: Limites
+
+    func limit(for category: String) -> Double? {
+        limits.first { $0.category == category }?.monthlyLimit
+    }
+
+    /// Valor `nil` ou zero remove o limite da categoria.
+    func setLimit(_ monthlyLimit: Double?, for category: String) async {
+        await run {
+            if let monthlyLimit, monthlyLimit > 0 {
+                _ = try await self.client.saveLimit(CategoryLimit(category: category, monthlyLimit: monthlyLimit))
+            } else {
+                try await self.client.deleteLimit(category: category)
+            }
+            self.limits = try await self.client.limits()
+        }
     }
 
     // MARK: Contas

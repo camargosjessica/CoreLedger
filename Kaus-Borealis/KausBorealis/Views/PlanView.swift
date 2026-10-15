@@ -151,7 +151,7 @@ private struct PlanGrid: View {
                 .frame(width: labelWidth, alignment: .leading)
             ForEach(plan.totals) { totals in
                 VStack(spacing: 2) {
-                    Text(totals.month.startDate.monthYear)
+                    Text(totals.month.startDate.shortMonthYear)
                         .lineLimit(1)
                     if totals.isForecast {
                         Text("previsto")
