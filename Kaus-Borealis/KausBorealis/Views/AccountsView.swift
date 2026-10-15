@@ -23,11 +23,13 @@ struct AccountsView: View {
         NavigationStack {
             CardScreen {
                 if store.accounts.isEmpty && !store.isLoading {
-                    ContentUnavailableView(
-                        "Nenhuma conta",
-                        systemImage: "creditcard",
-                        description: Text("Crie uma conta para importar extratos e faturas.")
-                    )
+                    EmptyState(
+                        symbol: "creditcard",
+                        title: "Nenhuma conta",
+                        message: "Crie uma conta para importar extratos e faturas."
+                    ) {
+                        Button("Nova conta", systemImage: "plus") { isAdding = true }
+                    }
                     .card()
                 } else {
                     MetricGrid {

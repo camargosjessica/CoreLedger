@@ -200,9 +200,11 @@ struct AnalysisView: View {
                 }
             }
             if report.total == 0 {
-                Text("Sem despesas neste ano.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                EmptyState(
+                    symbol: "chart.bar.xaxis",
+                    title: "Sem despesas em \(String(report.year))",
+                    message: "Quando você importar extratos deste ano, os gastos aparecem aqui mês a mês."
+                )
             } else {
                 Chart(points(report)) { point in
                     BarMark(
@@ -249,9 +251,7 @@ struct AnalysisView: View {
                     .font(.subheadline.weight(.semibold).monospacedDigit())
             }
             if slices.isEmpty {
-                Text("Sem despesas.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                EmptyNote(symbol: "tray", text: "Sem despesas neste período.")
             }
             ForEach(slices) { slice in
                 HStack(spacing: 12) {

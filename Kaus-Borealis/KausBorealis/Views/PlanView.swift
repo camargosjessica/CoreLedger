@@ -66,19 +66,19 @@ struct PlanView: View {
                     }
                     .card()
                 } else {
-                    ContentUnavailableView(
-                        "Nada previsto para \(String(store.planYear))",
-                        systemImage: "calendar",
-                        description: Text("Importe extratos ou cadastre um compromisso para montar a grade.")
-                    )
+                    EmptyState(
+                        symbol: "calendar",
+                        title: "Nada previsto para \(String(store.planYear))",
+                        message: "Importe extratos ou cadastre um compromisso para montar a grade."
+                    ) {
+                        Button("Novo compromisso", systemImage: "plus") { isCreating = true }
+                    }
                     .card()
                 }
 
                 SectionTitle("Compromissos")
                 if store.commitments.isEmpty {
-                    Text("Cadastre aluguel, luz, salário, aporte na caixinha…")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    EmptyNote(symbol: "repeat", text: "Cadastre aluguel, luz, salário, aporte na caixinha…")
                         .card()
                 }
                 LazyVGrid(columns: columns, spacing: 12) {

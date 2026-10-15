@@ -58,11 +58,23 @@ struct TransactionsView: View {
                 filters
 
                 if store.transactions.isEmpty && !store.isLoading {
-                    ContentUnavailableView(
-                        emptyTitle,
-                        systemImage: "tray",
-                        description: Text(emptyDescription)
-                    )
+                    EmptyState(
+                        symbol: isFiltered ? "line.3.horizontal.decrease" : "tray",
+                        title: emptyTitle,
+                        message: emptyDescription
+                    ) {
+                        if hasNarrowingFilter {
+                            Button("Limpar filtros", systemImage: "xmark") {
+                                store.selectedCategory = nil
+                                store.selectedTag = nil
+                                store.selectedAccountID = nil
+                            }
+                        } else {
+                            Button("Importar", systemImage: "square.and.arrow.down") { isImporting = true }
+                            Button("Novo lançamento", systemImage: "plus") { isAdding = true }
+                                .buttonStyle(.bordered)
+                        }
+                    }
                     .card()
                 }
 
@@ -321,13 +333,17 @@ struct TransactionsView: View {
             || store.selectedAccountID != nil
     }
 
+    private var hasNarrowingFilter: Bool {
+        store.selectedCategory != nil || store.selectedTag != nil || store.selectedAccountID != nil
+    }
+
     private var emptyTitle: String {
         isFiltered ? "Nada neste filtro" : "Nenhum lançamento"
     }
 
     private var emptyDescription: String {
         isFiltered
-            ? "Ajuste o período, a categoria, a tag ou a conta para ver outros lançamentos."
+            ? "Ajuste o período, a categoria ou a conta para ver outros lançamentos."
             : "Importe um extrato ou adicione um lançamento manualmente."
     }
 }
