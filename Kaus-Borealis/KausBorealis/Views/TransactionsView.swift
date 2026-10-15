@@ -159,19 +159,6 @@ struct TransactionsView: View {
                         CategoryFilter(store: store)
                             .pickerStyle(.inline)
                     }
-                    FilterChip(
-                        title: store.selectedTag ?? "Todas as tags",
-                        symbol: "number",
-                        isActive: store.selectedTag != nil
-                    ) {
-                        Picker("Tag", selection: $store.selectedTag) {
-                            Text("Todas").tag(String?.none)
-                            ForEach(store.knownTags, id: \.self) { tag in
-                                Text(tag).tag(String?.some(tag))
-                            }
-                        }
-                        .pickerStyle(.inline)
-                    }
                 }
             }
         }
@@ -365,32 +352,7 @@ private struct BulkEditSheet: View {
         NavigationStack {
             Form {
                 Section("Categoria") {
-                    TextField("Manter a de cada lançamento", text: $category)
-                    if !store.categories.isEmpty {
-                        Picker("Usar existente", selection: $category) {
-                            Text("—").tag("")
-                            ForEach(store.categories, id: \.self) { name in
-                                Text(name).tag(name)
-                            }
-                        }
-                    }
-                }
-
-                Section("Adicionar tags") {
-                    TagEditor(tags: $addTags, suggestions: store.knownTags)
-                }
-
-                if !currentTags.isEmpty {
-                    Section("Remover tags") {
-                        ForEach(currentTags, id: \.self) { tag in
-                            Toggle(tag, isOn: Binding(
-                                get: { removeTags.contains(tag) },
-                                set: { isOn in
-                                    if isOn { removeTags.insert(tag) } else { removeTags.remove(tag) }
-                                }
-                            ))
-                        }
-                    }
+                    CategoryField(category: $category, known: store.categories, placeholder: "Manter a de cada lançamento")
                 }
 
                 Section {
@@ -478,8 +440,11 @@ private struct CategoryFilter: View {
     var body: some View {
         Picker("Categoria", selection: $store.selectedCategory) {
             Text("Todas").tag(String?.none)
-            ForEach(store.categories, id: \.self) { name in
-                Text(name).tag(String?.some(name))
+            ForEach(store.parentCategories, id: \.self) { parent in
+                Text(parent).tag(String?.some(parent))
+                ForEach(store.subcategories(of: parent), id: \.self) { sub in
+                    Text("    \(CategoryPath.child(of: sub) ?? sub)").tag(String?.some(sub))
+                }
             }
         }
     }
@@ -523,7 +488,6 @@ struct TransactionRow: View {
                         .italic()
                         .lineLimit(2)
                 }
-                TagChips(tags: transaction.tags)
             }
             Spacer()
             Text(transaction.amount.brl)
@@ -588,19 +552,7 @@ private struct NewTransactionSheet: View {
                 }
 
                 Section("Categoria") {
-                    TextField("Categoria (opcional)", text: $category)
-                    if !store.categories.isEmpty {
-                        Picker("Usar existente", selection: $category) {
-                            Text("—").tag("")
-                            ForEach(store.categories, id: \.self) { name in
-                                Text(name).tag(name)
-                            }
-                        }
-                    }
-                }
-
-                Section("Tags") {
-                    TagEditor(tags: $tags, suggestions: store.knownTags)
+                    CategoryField(category: $category, known: store.categories, placeholder: "Categoria (opcional)")
                 }
 
                 Section("Comentário") {

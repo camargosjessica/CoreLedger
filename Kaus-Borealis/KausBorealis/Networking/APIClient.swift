@@ -277,6 +277,16 @@ struct APIClient: Sendable {
         try await sendIgnoringResponse(.delete, "api/limits/\(Self.pathComponent(category))")
     }
 
+    // MARK: Preferências de categoria
+
+    func categorySettings() async throws -> [CategorySetting] {
+        try await send(.get, "api/category-settings")
+    }
+
+    func saveCategorySetting(_ setting: CategorySetting) async throws -> CategorySetting {
+        try await send(.put, "api/category-settings", body: setting)
+    }
+
     /// Grade anual: linhas por categoria, colunas por mês.
     func plan(from: YearMonth, to: YearMonth, openingBalance: Double? = nil) async throws -> PlanResponse {
         var items = [

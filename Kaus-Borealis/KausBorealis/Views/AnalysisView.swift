@@ -98,7 +98,7 @@ struct AnalysisView: View {
                     .buttonStyle(.borderless)
                 Spacer()
                 Picker("Agrupar por", selection: $grouping) {
-                    ForEach(SpendingGrouping.allCases, id: \.self) { Text($0.title).tag($0) }
+                    ForEach([SpendingGrouping.category, .subcategory], id: \.self) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .fixedSize()
@@ -241,7 +241,7 @@ struct AnalysisView: View {
         let slices = month?.slices ?? report.totals
         let total = month?.total ?? report.total
         let title = month.map { "Detalhe de \($0.month.startDate.monthYear)" }
-            ?? "\(report.grouping == .category ? "Categorias" : "Tags") de \(report.year)"
+            ?? "\(report.grouping == .category ? "Categorias" : "Subcategorias") de \(report.year)"
 
         return VStack(alignment: .leading, spacing: 12) {
             CardHeader(title: title) {

@@ -38,7 +38,11 @@ struct TransactionController: RouteCollection {
             builder = builder.filter(\.$isProjected == false)
         }
         if let category = query.category {
-            builder = builder.filter(\.$category == category)
+            let subcategories = category + CategoryPath.separator
+            builder = builder.group(.or) { group in
+                group.filter(\.$category == category)
+                    .filter(\.$category =~ subcategories)
+            }
         }
         if let tag = query.tag.flatMap({ TagSet.normalize([$0]).first }) {
             builder = builder.filter(.sql(embed: "\(ident: "tags") @> ARRAY[\(bind: tag)]::text[]"))

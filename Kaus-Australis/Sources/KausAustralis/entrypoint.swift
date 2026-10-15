@@ -9,6 +9,7 @@ extension TransactionDTO: @retroactive Content {}
 extension AccountDTO: @retroactive Content {}
 extension CategoryRule: @retroactive Content {}
 extension CategoryLimit: @retroactive Content {}
+extension CategorySetting: @retroactive Content {}
 extension ImportRequestDTO: @retroactive Content {}
 extension ImportReportDTO: @retroactive Content {}
 extension MonthlySummary: @retroactive Content {}
@@ -105,6 +106,8 @@ func configure(_ app: Application) async throws {
     app.migrations.add(AddTransferSourceMigration())
     app.migrations.add(AddNoteAndStatementMonthMigration())
     app.migrations.add(CreateCategoryLimitMigration())
+    app.migrations.add(CreateCategorySettingMigration())
+    app.migrations.add(ConvertTagsToSubcategoriesMigration())
     try await app.autoMigrate()
 }
 
@@ -128,4 +131,5 @@ func routes(_ app: Application) throws {
     try api.register(collection: AnalyticsController())
     try api.register(collection: LabelController())
     try api.register(collection: CategoryLimitController())
+    try api.register(collection: CategorySettingController())
 }
