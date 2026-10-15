@@ -424,6 +424,9 @@ private struct RuleForm: View {
         .formStyle(.grouped)
         .navigationTitle(rule == nil ? "Nova regra" : "Editar regra")
         .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancelar") { dismiss() }
+            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Salvar") {
                     Task {
