@@ -203,6 +203,9 @@ private struct AccountForm: View {
         .formStyle(.grouped)
         .navigationTitle(account == nil ? "Nova conta" : "Editar conta")
         .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancelar") { dismiss() }
+            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Salvar") { save() }
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
