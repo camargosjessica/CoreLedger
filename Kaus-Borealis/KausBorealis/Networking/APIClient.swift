@@ -26,301 +26,104 @@ enum APIError: LocalizedError {
 }
 
 /// Acesso às rotas do Kaus-Australis. Todos os tipos trocados são os do
-/// Kaus-Media — nenhum modelo é redeclarado aqui.
+/// Kaus-Media — nenhum modelo é redeclarado aqui. As rotas em si estão em
+/// `Endpoint`; o cliente só envia, trata o status e decodifica.
 struct APIClient: Sendable {
     var configuration: APIConfiguration
     var session: URLSession = .shared
 
     // MARK: Contas
 
-    func accounts() async throws -> [AccountDTO] {
-        try await send(.get, "api/accounts")
-    }
-
-    func createAccount(_ account: AccountDTO) async throws -> AccountDTO {
-        try await send(.post, "api/accounts", body: account)
-    }
-
+    func accounts() async throws -> [AccountDTO] { try await send(.accounts()) }
+    func createAccount(_ account: AccountDTO) async throws -> AccountDTO { try await send(.createAccount(account)) }
     func updateAccount(id: UUID, _ account: AccountDTO) async throws -> AccountDTO {
-        try await send(.put, "api/accounts/\(id.uuidString)", body: account)
+        try await send(.updateAccount(id: id, account))
     }
-
-    func deleteAccount(id: UUID) async throws {
-        try await sendIgnoringResponse(.delete, "api/accounts/\(id.uuidString)")
-    }
+    func deleteAccount(id: UUID) async throws { try await send(.deleteAccount(id: id)) }
+    func position() async throws -> FinancialPosition { try await send(.position()) }
 
     // MARK: Lançamentos
 
-    func transactions(_ query: TransactionQuery) async throws -> [TransactionDTO] {
-        var items = [URLQueryItem(name: "limit", value: String(query.limit))]
-        if query.offset > 0 {
-            items.append(URLQueryItem(name: "offset", value: String(query.offset)))
-        }
-        if let accountID = query.accountID {
-            items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))
-        }
-        if let from = query.from {
-            items.append(URLQueryItem(name: "from", value: from.ISO8601Format()))
-        }
-        if let to = query.to {
-            items.append(URLQueryItem(name: "to", value: to.ISO8601Format()))
-        }
-        if let search = query.search, !search.isEmpty {
-            items.append(URLQueryItem(name: "search", value: search))
-        }
-        if !query.includeProjected {
-            items.append(URLQueryItem(name: "includeProjected", value: "false"))
-        }
-        if let category = query.category {
-            items.append(URLQueryItem(name: "category", value: category))
-        }
-        if let tag = query.tag {
-            items.append(URLQueryItem(name: "tag", value: tag))
-        }
-        return try await send(.get, "api/transactions", query: items)
-    }
-
+    func transactions(_ query: TransactionQuery) async throws -> [TransactionDTO] { try await send(.transactions(query)) }
     func createTransaction(_ transaction: TransactionDTO) async throws -> TransactionDTO {
-        try await send(.post, "api/transactions", body: transaction)
+        try await send(.createTransaction(transaction))
     }
-
     func updateTransaction(id: UUID, _ transaction: TransactionDTO) async throws -> TransactionDTO {
-        try await send(.put, "api/transactions/\(id.uuidString)", body: transaction)
+        try await send(.updateTransaction(id: id, transaction))
     }
-
-    /// `accountID` recebe a contrapartida com o valor invertido; `nil` desfaz.
     func setTransfer(id: UUID, accountID: UUID?) async throws -> TransactionDTO {
-        try await send(.put, "api/transactions/\(id.uuidString)/transfer", body: TransferLinkRequest(accountID: accountID))
+        try await send(.setTransfer(id: id, accountID: accountID))
     }
-
-    func deleteTransaction(id: UUID) async throws {
-        try await sendIgnoringResponse(.delete, "api/transactions/\(id.uuidString)")
-    }
-
-    func deleteTransactions(ids: [UUID]) async throws -> BulkDeleteResponse {
-        try await send(.delete, "api/transactions", body: BulkDeleteRequest(ids: ids))
-    }
-
+    func deleteTransaction(id: UUID) async throws { try await send(.deleteTransaction(id: id)) }
+    func deleteTransactions(ids: [UUID]) async throws -> BulkDeleteResponse { try await send(.deleteTransactions(ids: ids)) }
     func updateTransactions(_ request: BulkUpdateRequest) async throws -> BulkUpdateResponse {
-        try await send(.patch, "api/transactions", body: request)
+        try await send(.updateTransactions(request))
+    }
+    func summary(accountID: UUID?, forecastMonths: Int) async throws -> LedgerProjection {
+        try await send(.summary(accountID: accountID, forecastMonths: forecastMonths))
     }
 
     // MARK: Importação
 
-    func importStatement(_ request: ImportRequestDTO) async throws -> ImportReportDTO {
-        try await send(.post, "api/imports", body: request)
-    }
+    func importStatement(_ request: ImportRequestDTO) async throws -> ImportReportDTO { try await send(.importStatement(request)) }
+    func importBatches(accountID: UUID?) async throws -> [ImportBatchDTO] { try await send(.importBatches(accountID: accountID)) }
+    func undoImport(batchID: UUID) async throws -> BulkDeleteResponse { try await send(.undoImport(batchID: batchID)) }
 
-    func importBatches(accountID: UUID?) async throws -> [ImportBatchDTO] {
-        var items: [URLQueryItem] = []
-        if let accountID {
-            items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))
-        }
-        return try await send(.get, "api/imports", query: items)
-    }
+    // MARK: Regras e rótulos
 
-    /// Apaga os lançamentos criados por uma importação e restaura as projeções
-    /// que ela havia confirmado.
-    func undoImport(batchID: UUID) async throws -> BulkDeleteResponse {
-        try await send(.delete, "api/imports/\(batchID.uuidString)")
-    }
-
-    // MARK: Regras
-
-    func categoryRules() async throws -> [CategoryRule] {
-        try await send(.get, "api/category-rules")
-    }
-
-    func createRule(_ rule: CategoryRule) async throws -> CategoryRule {
-        try await send(.post, "api/category-rules", body: rule)
-    }
-
-    func updateRule(id: UUID, _ rule: CategoryRule) async throws -> CategoryRule {
-        try await send(.put, "api/category-rules/\(id.uuidString)", body: rule)
-    }
-
-    func deleteRule(id: UUID) async throws {
-        try await sendIgnoringResponse(.delete, "api/category-rules/\(id.uuidString)")
-    }
-
-    func preview(_ request: CategoryPreviewRequest) async throws -> CategoryPreviewResponse {
-        try await send(.post, "api/category-rules/preview", body: request)
-    }
-
+    func categoryRules() async throws -> [CategoryRule] { try await send(.categoryRules()) }
+    func createRule(_ rule: CategoryRule) async throws -> CategoryRule { try await send(.createRule(rule)) }
+    func updateRule(id: UUID, _ rule: CategoryRule) async throws -> CategoryRule { try await send(.updateRule(id: id, rule)) }
+    func deleteRule(id: UUID) async throws { try await send(.deleteRule(id: id)) }
+    func preview(_ request: CategoryPreviewRequest) async throws -> CategoryPreviewResponse { try await send(.preview(request)) }
     func recategorize(accountID: UUID?, onlyUncategorized: Bool) async throws -> RecategorizeResponse {
-        var items: [URLQueryItem] = []
-        if let accountID {
-            items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))
-        }
-        if onlyUncategorized {
-            items.append(URLQueryItem(name: "onlyUncategorized", value: "true"))
-        }
-        return try await send(.post, "api/transactions/recategorize", query: items)
+        try await send(.recategorize(accountID: accountID, onlyUncategorized: onlyUncategorized))
     }
-
-    /// Apaga a categoria inteira: some das regras e os lançamentos que a usavam
-    /// voltam a passar pelas regras restantes.
-    func deleteCategory(_ name: String) async throws -> DeleteCategoryResponse {
-        let escaped = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? name
-        return try await send(.delete, "api/categories/\(escaped)")
-    }
-
-    /// Todas as categorias em uso no servidor, sem filtro nem paginação.
-    func categories() async throws -> [String] {
-        try await send(.get, "api/categories")
-    }
-
-    /// Troca o nome da categoria em lançamentos, regras e compromissos.
+    func categories() async throws -> [String] { try await send(.categories()) }
+    func deleteCategory(_ name: String) async throws -> DeleteCategoryResponse { try await send(.deleteCategory(name)) }
     func renameCategory(_ name: String, to newName: String) async throws -> LabelChangeResponse {
-        try await send(.put, "api/categories/\(Self.pathComponent(name))", body: RenameLabelRequest(name: newName))
+        try await send(.renameCategory(name, to: newName))
     }
-
     func renameTag(_ tag: String, to newName: String) async throws -> LabelChangeResponse {
-        try await send(.put, "api/tags/\(Self.pathComponent(tag))", body: RenameLabelRequest(name: newName))
+        try await send(.renameTag(tag, to: newName))
     }
-
-    func deleteTag(_ tag: String) async throws -> LabelChangeResponse {
-        try await send(.delete, "api/tags/\(Self.pathComponent(tag))")
-    }
-
-    private static func pathComponent(_ text: String) -> String {
-        text.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? text
-    }
+    func deleteTag(_ tag: String) async throws -> LabelChangeResponse { try await send(.deleteTag(tag)) }
 
     // MARK: Análise
 
-    /// Gastos do ano por categoria ou tag. Sem `accountID`, `accountKind` limita
-    /// às contas daquele tipo (ex.: todos os cartões).
-    func spending(
-        year: Int,
-        grouping: SpendingGrouping,
-        accountID: UUID?,
-        accountKind: AccountKind?
-    ) async throws -> SpendingReport {
-        var items = [
-            URLQueryItem(name: "year", value: String(year)),
-            URLQueryItem(name: "groupBy", value: grouping.rawValue)
-        ]
-        if let accountID {
-            items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))
-        } else if let accountKind {
-            items.append(URLQueryItem(name: "accountKind", value: accountKind.rawValue))
-        }
-        return try await send(.get, "api/analytics/spending", query: items)
+    func spending(year: Int, grouping: SpendingGrouping, accountID: UUID?, accountKind: AccountKind?) async throws -> SpendingReport {
+        try await send(.spending(year: year, grouping: grouping, accountID: accountID, accountKind: accountKind))
     }
 
     // MARK: Planejamento
 
-    func commitments() async throws -> [RecurringCommitment] {
-        try await send(.get, "api/commitments")
-    }
-
+    func commitments() async throws -> [RecurringCommitment] { try await send(.commitments()) }
     func createCommitment(_ commitment: RecurringCommitment) async throws -> RecurringCommitment {
-        try await send(.post, "api/commitments", body: commitment)
+        try await send(.createCommitment(commitment))
     }
-
     func updateCommitment(id: UUID, _ commitment: RecurringCommitment) async throws -> RecurringCommitment {
-        try await send(.put, "api/commitments/\(id.uuidString)", body: commitment)
+        try await send(.updateCommitment(id: id, commitment))
     }
-
-    func deleteCommitment(id: UUID) async throws {
-        try await sendIgnoringResponse(.delete, "api/commitments/\(id.uuidString)")
-    }
-
-    // MARK: Limites
-
-    func limits() async throws -> [CategoryLimit] {
-        try await send(.get, "api/limits")
-    }
-
-    func saveLimit(_ limit: CategoryLimit) async throws -> CategoryLimit {
-        try await send(.put, "api/limits", body: limit)
-    }
-
-    func deleteLimit(category: String) async throws {
-        try await sendIgnoringResponse(.delete, "api/limits/\(Self.pathComponent(category))")
-    }
-
-    // MARK: Preferências de categoria
-
-    func categorySettings() async throws -> [CategorySetting] {
-        try await send(.get, "api/category-settings")
-    }
-
+    func deleteCommitment(id: UUID) async throws { try await send(.deleteCommitment(id: id)) }
+    func limits() async throws -> [CategoryLimit] { try await send(.limits()) }
+    func saveLimit(_ limit: CategoryLimit) async throws -> CategoryLimit { try await send(.saveLimit(limit)) }
+    func deleteLimit(category: String) async throws { try await send(.deleteLimit(category: category)) }
+    func categorySettings() async throws -> [CategorySetting] { try await send(.categorySettings()) }
     func saveCategorySetting(_ setting: CategorySetting) async throws -> CategorySetting {
-        try await send(.put, "api/category-settings", body: setting)
+        try await send(.saveCategorySetting(setting))
     }
-
-    /// Grade anual: linhas por categoria, colunas por mês.
     func plan(from: YearMonth, to: YearMonth, openingBalance: Money?) async throws -> PlanResponse {
-        var items = [
-            URLQueryItem(name: "from", value: from.description),
-            URLQueryItem(name: "to", value: to.description)
-        ]
-        if let openingBalance {
-            items.append(URLQueryItem(name: "openingBalance", value: openingBalance.description))
-        }
-        return try await send(.get, "api/plan", query: items)
+        try await send(.plan(from: from, to: to, openingBalance: openingBalance))
     }
 
     // MARK: Manutenção
 
-    func reset(scope: ResetScope) async throws -> ResetResponse {
-        try await send(.post, "api/reset", body: ResetRequest(scope: scope))
-    }
-
-    // MARK: Resumo
-
-    func summary(accountID: UUID?, forecastMonths: Int) async throws -> LedgerProjection {
-        var items = [URLQueryItem(name: "forecastMonths", value: String(forecastMonths))]
-        if let accountID {
-            items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))
-        }
-        return try await send(.get, "api/summary", query: items)
-    }
-
-    /// Posição consolidada de todas as contas: não aceita filtro por conta,
-    /// porque o sentido dela é justamente somar caixinhas, contas e cartões.
-    func position() async throws -> FinancialPosition {
-        try await send(.get, "api/position")
-    }
+    func reset(scope: ResetScope) async throws -> ResetResponse { try await send(.reset(scope: scope)) }
 
     // MARK: Transporte
 
-    private enum Method: String {
-        case get = "GET"
-        case post = "POST"
-        case put = "PUT"
-        case delete = "DELETE"
-        case patch = "PATCH"
-    }
-
-    private func send<Response: Decodable>(
-        _ method: Method,
-        _ path: String,
-        query: [URLQueryItem] = []
-    ) async throws -> Response {
-        try decode(try await perform(method, path, query: query, body: nil))
-    }
-
-    private func send<Body: Encodable, Response: Decodable>(
-        _ method: Method,
-        _ path: String,
-        query: [URLQueryItem] = [],
-        body: Body
-    ) async throws -> Response {
-        try decode(try await perform(method, path, query: query, body: try Self.encoder.encode(body)))
-    }
-
-    private func sendIgnoringResponse(
-        _ method: Method,
-        _ path: String,
-        query: [URLQueryItem] = []
-    ) async throws {
-        _ = try await perform(method, path, query: query, body: nil)
-    }
-
-    private func decode<Response: Decodable>(_ data: Data) throws -> Response {
+    func send<Response: Decodable>(_ endpoint: Endpoint<Response>) async throws -> Response {
+        let data = try await perform(endpoint)
         do {
             return try Self.decoder.decode(Response.self, from: data)
         } catch {
@@ -328,30 +131,17 @@ struct APIClient: Sendable {
         }
     }
 
-    private func perform(
-        _ method: Method,
-        _ path: String,
-        query: [URLQueryItem],
-        body: Data?
-    ) async throws -> Data {
-        guard var components = URLComponents(
-            url: configuration.baseURL.appendingPathComponent(path),
-            resolvingAgainstBaseURL: false
-        ) else {
-            throw APIError.invalidURL
-        }
-        components.queryItems = query.isEmpty ? nil : query
-        guard let url = components.url else { throw APIError.invalidURL }
+    /// Rotas sem corpo de resposta: o status basta.
+    func send(_ endpoint: Endpoint<NoContent>) async throws {
+        _ = try await perform(endpoint)
+    }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = method.rawValue
-        if let token = configuration.token {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        if let body {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = body
-        }
+    private func perform<Response>(_ endpoint: Endpoint<Response>) async throws -> Data {
+        let request = try endpoint.urlRequest(
+            baseURL: configuration.baseURL,
+            token: configuration.token,
+            encoder: Self.encoder
+        )
 
         let data: Data
         let response: URLResponse
