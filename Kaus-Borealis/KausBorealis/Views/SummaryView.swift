@@ -11,32 +11,32 @@ struct SummaryView: View {
     private let columns = [GridItem(.adaptive(minimum: 320), spacing: 16, alignment: .top)]
 
     private var currentPlan: PlanMonthTotals? {
-        store.plan?.totals.first { $0.month == YearMonth(date: Date()) }
+        store.plan.annual?.totals.first { $0.month == YearMonth(date: Date()) }
     }
 
-    private var history: [MonthlySummary] { store.projection?.history ?? [] }
-    private var forecast: [MonthlySummary] { store.projection?.forecast ?? [] }
+    private var history: [MonthlySummary] { store.transactions.projection?.history ?? [] }
+    private var forecast: [MonthlySummary] { store.transactions.projection?.forecast ?? [] }
 
-    private var upcoming: [TransactionDTO] { Array(store.upcoming.prefix(5)) }
+    private var upcoming: [TransactionDTO] { Array(store.transactions.upcoming.prefix(5)) }
 
     private var limitStatuses: [CategoryLimitStatus] {
         let month = LedgerCalendar.startOfMonth(Date())
         let totals = history.first { $0.month == month }?.byCategory ?? [:]
-        return CategoryLimitStatus.evaluate(limits: store.limits, totalsByCategory: totals)
+        return CategoryLimitStatus.evaluate(limits: store.plan.limits, totalsByCategory: totals)
     }
 
     private var recent: [TransactionDTO] {
-        Array(store.transactions.filter { !$0.isProjected }.prefix(6))
+        Array(store.transactions.items.filter { !$0.isProjected }.prefix(6))
     }
 
     private var isEmpty: Bool {
-        store.position == nil && history.isEmpty && forecast.isEmpty && store.transactions.isEmpty && upcoming.isEmpty
+        store.accounts.position == nil && history.isEmpty && forecast.isEmpty && store.transactions.items.isEmpty && upcoming.isEmpty
     }
 
     var body: some View {
         NavigationStack {
             CardScreen {
-                if let position = store.position {
+                if let position = store.accounts.position {
                     PositionHero(position: position)
                 }
 
@@ -70,7 +70,7 @@ struct SummaryView: View {
             }
             .refreshable { await store.reload() }
             .overlay {
-                if store.isLoading && store.projection == nil {
+                if store.isLoading && store.transactions.projection == nil {
                     ProgressView()
                 } else if isEmpty && !store.isLoading {
                     EmptyState(

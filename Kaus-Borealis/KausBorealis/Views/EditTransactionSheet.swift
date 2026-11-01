@@ -38,7 +38,7 @@ struct EditTransactionSheet: View {
                     DatePicker("Data", selection: $date, displayedComponents: .date)
                     Picker("Conta", selection: $accountID) {
                         Text("Sem conta").tag(UUID?.none)
-                        ForEach(store.accounts) { account in
+                        ForEach(store.accounts.all) { account in
                             Text(account.name).tag(account.id)
                         }
                     }
@@ -100,7 +100,7 @@ struct EditTransactionSheet: View {
             } else {
                 Picker("Para a conta", selection: $transferAccountID) {
                     Text("Nenhuma").tag(UUID?.none)
-                    ForEach(store.accounts.filter { $0.id != accountID }) { account in
+                    ForEach(store.accounts.all.filter { $0.id != accountID }) { account in
                         Text(account.name).tag(account.id)
                     }
                 }
@@ -130,7 +130,7 @@ struct EditTransactionSheet: View {
         updated.tags = tags
         updated.note = TransactionNote.normalize(note)
         Task {
-            await store.updateTransaction(updated, transferTo: transferAccountID)
+            await store.transactions.update(updated, transferTo: transferAccountID)
             dismiss()
         }
     }

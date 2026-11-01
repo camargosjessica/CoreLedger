@@ -25,7 +25,7 @@ struct ImportView: View {
     @State private var undoSummary: String?
 
     private var selectedAccount: AccountDTO? {
-        store.accounts.first { $0.id == accountID }
+        store.accounts.all.first { $0.id == accountID }
     }
 
     var body: some View {
@@ -34,7 +34,7 @@ struct ImportView: View {
                 Section("Conta") {
                     Picker("Conta", selection: $accountID) {
                         Text("Escolha").tag(UUID?.none)
-                        ForEach(store.accounts) { account in
+                        ForEach(store.accounts.all) { account in
                             Text(account.name).tag(account.id)
                         }
                     }
@@ -114,9 +114,9 @@ struct ImportView: View {
                     Section { Text(undoSummary).font(.caption).foregroundStyle(.secondary) }
                 }
 
-                if !store.batches.isEmpty {
+                if !store.transactions.batches.isEmpty {
                     Section("Importações recentes") {
-                        ForEach(store.batches) { batch in
+                        ForEach(store.transactions.batches) { batch in
                             Button {
                                 pendingUndo = batch
                             } label: {
@@ -236,7 +236,7 @@ struct ImportView: View {
         pendingUndo = nil
         isSending = true
         Task {
-            if let response = await store.undoImport(batchID: id) {
+            if let response = await store.transactions.undoImport(batchID: id) {
                 undoSummary = "\(response.deleted) lançamento(s) apagado(s)."
                 results = []
             }
@@ -297,7 +297,7 @@ struct ImportView: View {
             for (index, file) in queue.enumerated() {
                 if queue.count > 1 { progress = "Importando \(index + 1) de \(queue.count)…" }
                 do {
-                    let report = try await store.importStatement(
+                    let report = try await store.transactions.importStatement(
                         ImportRequestDTO(
                             accountID: accountID,
                             filename: file.isPasted ? nil : file.name,
