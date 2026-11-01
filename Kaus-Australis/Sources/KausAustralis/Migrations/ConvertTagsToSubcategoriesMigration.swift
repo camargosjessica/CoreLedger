@@ -11,7 +11,16 @@ struct ConvertTagsToSubcategoriesMigration: AsyncMigration {
     func prepare(on database: Database) async throws {
         var essentials: Set<String> = []
 
-        for model in try await TransactionModel.query(on: database).all() where !model.tags.isEmpty {
+        // Só os campos usados aqui: os models evoluem (ex.: `amount_cents`) e
+        // esta migration roda antes dessas colunas existirem num banco novo.
+        let transactions = try await TransactionModel.query(on: database)
+            .field(\.$id).field(\.$category).field(\.$tags)
+            .all()
+        let commitments = try await RecurringCommitmentModel.query(on: database)
+            .field(\.$id).field(\.$category).field(\.$tags)
+            .all()
+
+        for model in transactions where !model.tags.isEmpty {
             model.category = convert(model.category, tags: model.tags, essentials: &essentials)
             model.tags = []
             try await model.update(on: database)
@@ -21,7 +30,7 @@ struct ConvertTagsToSubcategoriesMigration: AsyncMigration {
             model.tags = []
             try await model.update(on: database)
         }
-        for model in try await RecurringCommitmentModel.query(on: database).all() where !model.tags.isEmpty {
+        for model in commitments where !model.tags.isEmpty {
             model.category = convert(model.category, tags: model.tags, essentials: &essentials)
             model.tags = []
             try await model.update(on: database)

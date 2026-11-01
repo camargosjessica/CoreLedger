@@ -14,7 +14,7 @@ final class CategoryLimitTests: XCTestCase {
 
         XCTAssertEqual(statuses.map(\.category), ["Lazer", "Mercado", "Saúde"])
         XCTAssertEqual(statuses[0].level(), .over)
-        XCTAssertEqual(statuses[0].remaining, -50, accuracy: 0.001)
+        XCTAssertEqual(statuses[0].remaining, -50)
         XCTAssertEqual(statuses[1].level(), .near)
         XCTAssertEqual(statuses[2].level(), .ok)
     }
@@ -28,7 +28,7 @@ final class CategoryLimitTests: XCTestCase {
             totalsByCategory: ["Compras": -120, "Viagem": 80]
         )
 
-        XCTAssertEqual(statuses.first { $0.category == "Compras" }?.spent ?? -1, 120, accuracy: 0.001)
+        XCTAssertEqual(statuses.first { $0.category == "Compras" }?.spent ?? -1, 120)
         XCTAssertEqual(statuses.first { $0.category == "Viagem" }?.spent, 0)
     }
 

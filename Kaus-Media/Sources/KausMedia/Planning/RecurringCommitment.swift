@@ -25,7 +25,7 @@ public struct RecurringCommitment: Codable, Sendable, Hashable, Identifiable {
     public var category: String
     public var kind: Kind
     /// Valor mensal padrão, sempre positivo — o sinal vem de `kind`.
-    public var amount: Double
+    public var amount: Money
     public var dayOfMonth: Int
     public var start: YearMonth
     /// `nil` significa recorrência sem fim previsto.
@@ -34,10 +34,10 @@ public struct RecurringCommitment: Codable, Sendable, Hashable, Identifiable {
     public var isEnabled: Bool
     /// Valor combinado para um mês específico, sobrepondo `amount`. É o reajuste
     /// da planilha ("a partir de julho a Copel vai para 350"); `0` zera o mês.
-    public var overrides: [String: Double]
+    public var overrides: [String: Money]
     /// Reajustes permanentes (`YYYY-MM` -> valor): o valor novo vale daquele
     /// mês em diante, e os meses anteriores continuam com o valor de antes.
-    public var priceChanges: [String: Double]
+    public var priceChanges: [String: Money]
     public var accountID: UUID?
     public var notes: String?
 
@@ -46,14 +46,14 @@ public struct RecurringCommitment: Codable, Sendable, Hashable, Identifiable {
         name: String,
         category: String,
         kind: Kind = .expense,
-        amount: Double,
+        amount: Money,
         dayOfMonth: Int = 1,
         start: YearMonth,
         end: YearMonth? = nil,
         tags: [String] = [],
         isEnabled: Bool = true,
-        overrides: [String: Double] = [:],
-        priceChanges: [String: Double] = [:],
+        overrides: [String: Money] = [:],
+        priceChanges: [String: Money] = [:],
         accountID: UUID? = nil,
         notes: String? = nil
     ) {
@@ -80,14 +80,14 @@ public struct RecurringCommitment: Codable, Sendable, Hashable, Identifiable {
             name: try container.decode(String.self, forKey: .name),
             category: try container.decode(String.self, forKey: .category),
             kind: try container.decode(Kind.self, forKey: .kind),
-            amount: try container.decode(Double.self, forKey: .amount),
+            amount: try container.decode(Money.self, forKey: .amount),
             dayOfMonth: try container.decode(Int.self, forKey: .dayOfMonth),
             start: try container.decode(YearMonth.self, forKey: .start),
             end: try container.decodeIfPresent(YearMonth.self, forKey: .end),
             tags: try container.decodeIfPresent([String].self, forKey: .tags) ?? [],
             isEnabled: try container.decode(Bool.self, forKey: .isEnabled),
-            overrides: try container.decodeIfPresent([String: Double].self, forKey: .overrides) ?? [:],
-            priceChanges: try container.decodeIfPresent([String: Double].self, forKey: .priceChanges) ?? [:],
+            overrides: try container.decodeIfPresent([String: Money].self, forKey: .overrides) ?? [:],
+            priceChanges: try container.decodeIfPresent([String: Money].self, forKey: .priceChanges) ?? [:],
             accountID: try container.decodeIfPresent(UUID.self, forKey: .accountID),
             notes: try container.decodeIfPresent(String.self, forKey: .notes)
         )
@@ -103,7 +103,7 @@ public struct RecurringCommitment: Codable, Sendable, Hashable, Identifiable {
 
     /// Valor planejado para o mês, já com sinal: despesa e aporte negativos,
     /// receita positiva. `0` quando o compromisso não vale para aquele mês.
-    public func plannedAmount(in month: YearMonth) -> Double {
+    public func plannedAmount(in month: YearMonth) -> Money {
         guard isActive(in: month) else { return 0 }
         let value = overrides[month.description] ?? baseAmount(in: month)
         return kind == .income ? abs(value) : -abs(value)
@@ -111,7 +111,7 @@ public struct RecurringCommitment: Codable, Sendable, Hashable, Identifiable {
 
     /// Valor padrão em vigor no mês, sem sinal: o último reajuste até aquele
     /// mês ou, sem reajuste, `amount`.
-    public func baseAmount(in month: YearMonth) -> Double {
+    public func baseAmount(in month: YearMonth) -> Money {
         priceChanges
             .compactMap { key, value in YearMonth(key).map { (month: $0, value: value) } }
             .filter { $0.month <= month }

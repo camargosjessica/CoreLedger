@@ -19,7 +19,7 @@ public struct ImportedTransaction: Sendable, Hashable {
     public var date: Date
     public var description: String
     /// Negativo = saída, positivo = entrada.
-    public var amount: Double
+    public var amount: Money
     /// Identificador do lançamento no banco de origem (`FITID`, no OFX).
     /// Quando existe, é a base mais confiável para deduplicação.
     public var externalID: String?
@@ -31,7 +31,7 @@ public struct ImportedTransaction: Sendable, Hashable {
     public init(
         date: Date,
         description: String,
-        amount: Double,
+        amount: Money,
         externalID: String? = nil,
         installment: Installment? = nil,
         isProjected: Bool = false

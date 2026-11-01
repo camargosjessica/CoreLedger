@@ -3,7 +3,7 @@ import XCTest
 
 final class ProjectionTests: XCTestCase {
 
-    private func input(_ date: String, _ amount: Double, _ category: String, projected: Bool = false) -> Projection.Input {
+    private func input(_ date: String, _ amount: Money, _ category: String, projected: Bool = false) -> Projection.Input {
         Projection.Input(
             date: DateParser.parse(date)!,
             amount: amount,
@@ -26,10 +26,10 @@ final class ProjectionTests: XCTestCase {
         )
 
         XCTAssertEqual(result.history.count, 2)
-        XCTAssertEqual(result.history[0].expenses, -150, accuracy: 0.001)
+        XCTAssertEqual(result.history[0].expenses, -150)
         XCTAssertEqual(result.history[0].byCategory["Mercado"], -150)
-        XCTAssertEqual(result.history[1].income, 4000, accuracy: 0.001)
-        XCTAssertEqual(result.history[1].balance, 4000, accuracy: 0.001)
+        XCTAssertEqual(result.history[1].income, 4000)
+        XCTAssertEqual(result.history[1].balance, 4000)
     }
 
     func testTransferCategoriesAreExcluded() {
@@ -45,8 +45,8 @@ final class ProjectionTests: XCTestCase {
         )
 
         XCTAssertEqual(result.history.count, 1)
-        XCTAssertEqual(result.history[0].expenses, -200, accuracy: 0.001)
-        XCTAssertEqual(result.history[0].income, 0, accuracy: 0.001)
+        XCTAssertEqual(result.history[0].expenses, -200)
+        XCTAssertEqual(result.history[0].income, 0)
     }
 
     func testForecastDoesNotEstimateFromHistory() {
@@ -82,11 +82,11 @@ final class ProjectionTests: XCTestCase {
             reference: reference
         )
 
-        XCTAssertEqual(result.forecast[0].committedExpenses, -199.90, accuracy: 0.001)
-        XCTAssertEqual(result.forecast[0].byCategory["Compras"]!, -199.90, accuracy: 0.001)
+        XCTAssertEqual(result.forecast[0].committedExpenses, -199.90)
+        XCTAssertEqual(result.forecast[0].byCategory["Compras"]!, -199.90)
         XCTAssertNil(result.forecast[0].byCategory["Mercado"])
-        XCTAssertEqual(result.forecast[0].expenses, -199.90, accuracy: 0.001)
-        XCTAssertEqual(result.forecast[1].committedExpenses, -199.90, accuracy: 0.001)
+        XCTAssertEqual(result.forecast[0].expenses, -199.90)
+        XCTAssertEqual(result.forecast[1].committedExpenses, -199.90)
     }
 
     func testProjectedTransactionsDoNotPolluteHistory() {
@@ -111,7 +111,7 @@ final class ProjectionTests: XCTestCase {
         )
 
         XCTAssertTrue(result.history.isEmpty)
-        XCTAssertEqual(result.forecast[0].expenses, -199.90, accuracy: 0.001)
+        XCTAssertEqual(result.forecast[0].expenses, -199.90)
     }
     func testForecastKeepsIncomeAndExpensesSeparateWithinACategory() {
         let result = Projection.project(
@@ -123,15 +123,15 @@ final class ProjectionTests: XCTestCase {
             reference: reference
         )
 
-        XCTAssertEqual(result.forecast[0].expenses, -500, accuracy: 0.001)
-        XCTAssertEqual(result.forecast[0].income, 500, accuracy: 0.001)
+        XCTAssertEqual(result.forecast[0].expenses, -500)
+        XCTAssertEqual(result.forecast[0].income, 500)
         XCTAssertEqual(result.forecast[0].byCategory["Compras"], 0)
     }
 }
 
 final class FormattingTests: XCTestCase {
     func testCurrencyIsAlwaysBrazilian() {
-        XCTAssertEqual((-1234.56).brl.replacingOccurrences(of: "\u{00A0}", with: " "), "-R$ 1.234,56")
+        XCTAssertEqual(Money(-1234.56).brl.replacingOccurrences(of: "\u{00A0}", with: " "), "-R$ 1.234,56")
     }
 
     func testMonthYearUsesUTC() {

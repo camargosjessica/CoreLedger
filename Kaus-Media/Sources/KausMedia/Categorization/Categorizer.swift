@@ -25,7 +25,7 @@ public struct Categorizer: Sendable {
     }
 
     /// Primeira regra que casa, na ordem de prioridade.
-    public func match(description: String, amount: Double) -> Match? {
+    public func match(description: String, amount: Money) -> Match? {
         let normalized = TextNormalizer.normalize(description)
         for compiled in compiledRules where compiled.rule.amountScope.matches(amount) {
             if compiled.matches(normalized) {
@@ -36,14 +36,14 @@ public struct Categorizer: Sendable {
     }
 
     /// Categoria da descrição, ou o rótulo padrão de entrada/saída se nenhuma regra casar.
-    public func category(for description: String, amount: Double) -> String {
+    public func category(for description: String, amount: Money) -> String {
         match(description: description, amount: amount)?.category
             ?? (amount >= 0 ? CategoryRule.uncategorizedCredit : CategoryRule.uncategorizedDebit)
     }
 
     /// Tags sugeridas para a descrição: as da regra que casou ou, na falta
     /// delas, as padrão da categoria. O usuário sobrescreve depois.
-    public func tags(for description: String, amount: Double) -> [String] {
+    public func tags(for description: String, amount: Money) -> [String] {
         guard let match = match(description: description, amount: amount) else { return [] }
         return match.rule.tags.isEmpty ? TagSet.suggested(for: match.category) : match.rule.tags
     }

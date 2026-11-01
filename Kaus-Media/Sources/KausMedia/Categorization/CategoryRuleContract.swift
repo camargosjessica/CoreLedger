@@ -4,10 +4,10 @@ import Foundation
 /// descrição, opcionalmente com uma regra que ainda não foi salva.
 public struct CategoryPreviewRequest: Codable, Sendable {
     public var description: String
-    public var amount: Double
+    public var amount: Money
     public var rule: CategoryRule?
 
-    public init(description: String, amount: Double, rule: CategoryRule? = nil) {
+    public init(description: String, amount: Money, rule: CategoryRule? = nil) {
         self.description = description
         self.amount = amount
         self.rule = rule

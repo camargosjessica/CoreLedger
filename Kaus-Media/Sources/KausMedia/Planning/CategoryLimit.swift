@@ -4,11 +4,11 @@ import Foundation
 public struct CategoryLimit: Codable, Sendable, Hashable, Identifiable {
     public var category: String
     /// Valor positivo: quanto se aceita gastar na categoria por mês.
-    public var monthlyLimit: Double
+    public var monthlyLimit: Money
 
     public var id: String { category }
 
-    public init(category: String, monthlyLimit: Double) {
+    public init(category: String, monthlyLimit: Money) {
         self.category = category
         self.monthlyLimit = monthlyLimit
     }
@@ -23,12 +23,12 @@ public struct CategoryLimitStatus: Sendable, Hashable, Identifiable {
     }
 
     public var category: String
-    public var limit: Double
+    public var limit: Money
     /// Gasto líquido do mês na categoria (estornos descontam), nunca negativo.
-    public var spent: Double
+    public var spent: Money
 
     public var id: String { category }
-    public var remaining: Double { limit - spent }
+    public var remaining: Money { limit - spent }
     public var ratio: Double { limit > 0 ? spent / limit : 0 }
 
     public func level(warningRatio: Double = CategoryLimitStatus.defaultWarningRatio) -> Level {
@@ -39,7 +39,7 @@ public struct CategoryLimitStatus: Sendable, Hashable, Identifiable {
 
     public static let defaultWarningRatio = 0.8
 
-    public init(category: String, limit: Double, spent: Double) {
+    public init(category: String, limit: Money, spent: Money) {
         self.category = category
         self.limit = limit
         self.spent = spent
@@ -50,7 +50,7 @@ public struct CategoryLimitStatus: Sendable, Hashable, Identifiable {
     /// Os mais apertados vêm primeiro.
     public static func evaluate(
         limits: [CategoryLimit],
-        totalsByCategory: [String: Double]
+        totalsByCategory: [String: Money]
     ) -> [CategoryLimitStatus] {
         limits
             .filter { $0.monthlyLimit > 0 }

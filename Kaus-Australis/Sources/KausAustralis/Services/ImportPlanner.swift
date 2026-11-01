@@ -85,7 +85,7 @@ enum ImportPlanner {
     struct StoredInstallment {
         var key: String
         var description: String
-        var amount: Double
+        var amount: Money
         var date: Date
         var installment: Installment
     }
@@ -114,7 +114,7 @@ enum ImportPlanner {
                     && !claimed.contains(candidate.key)
                     && candidate.installment == installment
                     && LedgerCalendar.startOfMonth(candidate.date) == month
-                    && abs(candidate.amount.centsValue - transaction.amount.centsValue) <= 5
+                    && abs(candidate.amount - transaction.amount) <= Money(cents: 5)
                     && InstallmentDescription.matches(candidate.description, transaction.description)
             }) else { return key }
 

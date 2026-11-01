@@ -2,9 +2,9 @@ import Foundation
 
 /// Formatação pt-BR fixa: o extrato é em reais independentemente do locale do
 /// aparelho, e o servidor (Linux, locale C) precisa produzir o mesmo texto.
-extension Double {
+extension Money {
     public var brl: String {
-        Formatters.currency.string(from: NSNumber(value: self)) ?? "R$ 0,00"
+        Formatters.currency.string(from: NSDecimalNumber(decimal: decimalValue)) ?? "R$ 0,00"
     }
 }
 

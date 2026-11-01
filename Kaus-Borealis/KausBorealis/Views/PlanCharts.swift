@@ -43,7 +43,7 @@ private struct IncomeExpenseCard: View {
     private struct Bar: Identifiable {
         var label: String
         var kind: String
-        var value: Double
+        var value: Money
         var isForecast: Bool
 
         var id: String { label + kind }

@@ -24,7 +24,7 @@ struct CategoryLimitController: RouteCollection {
         guard !dto.category.isEmpty else {
             throw Abort(.badRequest, reason: "A categoria é obrigatória")
         }
-        guard dto.monthlyLimit.isFinite, dto.monthlyLimit > 0 else {
+        guard dto.monthlyLimit > 0 else {
             throw Abort(.badRequest, reason: "O limite deve ser maior que zero")
         }
 

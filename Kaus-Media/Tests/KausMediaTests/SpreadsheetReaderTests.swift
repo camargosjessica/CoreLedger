@@ -101,8 +101,8 @@ final class SpreadsheetReaderTests: XCTestCase {
         XCTAssertEqual(parsed.transactions.map(\.description), [
             "Pagamento Efetuado", "IFD*RESTAURANTE", "Shopee*loja Parcela 2 de 12",
         ])
-        XCTAssertEqual(parsed.transactions[0].amount, -6873.37, accuracy: 0.001)
-        XCTAssertEqual(parsed.transactions[1].amount, 44.32, accuracy: 0.001)
+        XCTAssertEqual(parsed.transactions[0].amount, -6873.37)
+        XCTAssertEqual(parsed.transactions[1].amount, 44.32)
     }
 
     func testNumberFormatting() {
@@ -115,7 +115,7 @@ final class SpreadsheetReaderTests: XCTestCase {
 
 final class CardStatementTests: XCTestCase {
 
-    private func line(_ amount: Double) -> ImportedTransaction {
+    private func line(_ amount: Money) -> ImportedTransaction {
         ImportedTransaction(date: DateParser.parse("01/07/2026")!, description: "x", amount: amount)
     }
 

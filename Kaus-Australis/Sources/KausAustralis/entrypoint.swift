@@ -109,6 +109,7 @@ func configure(_ app: Application) async throws {
     app.migrations.add(CreateCategorySettingMigration())
     app.migrations.add(ConvertTagsToSubcategoriesMigration())
     app.migrations.add(AddCommitmentPriceChangesMigration())
+    app.migrations.add(ConvertAmountsToCentsMigration())
     try await app.autoMigrate()
 }
 

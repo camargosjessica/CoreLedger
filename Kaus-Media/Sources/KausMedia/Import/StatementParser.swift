@@ -268,13 +268,13 @@ struct ColumnLayout {
         if let creditIndex, creditIndex < fields.count {
             let credit = fields[creditIndex].trimmed()
             if !credit.isEmpty, let parsed = ValueParser.parse(credit), parsed != 0 {
-                return String(abs(parsed))
+                return abs(parsed).description
             }
         }
         if let debitIndex, debitIndex < fields.count {
             let debit = fields[debitIndex].trimmed()
             if !debit.isEmpty, let parsed = ValueParser.parse(debit), parsed != 0 {
-                return String(-abs(parsed))
+                return (-abs(parsed)).description
             }
         }
         // Sem cabeçalho: último campo numérico da linha.

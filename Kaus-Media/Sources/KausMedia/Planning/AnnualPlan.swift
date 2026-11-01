@@ -6,23 +6,23 @@ public struct PlanRow: Codable, Sendable, Hashable, Identifiable {
     public var kind: RecurringCommitment.Kind
     public var tags: [String]
     /// Valor por mês, com sinal (despesa e aporte negativos), indexado por `YearMonth`.
-    public var values: [String: Double]
+    public var values: [String: Money]
     /// Meses em que o valor veio de lançamento já confirmado pelo extrato, e não
     /// de parcela projetada ou de compromisso planejado.
     public var realizedMonths: [String]
 
     public var id: String { category }
-    public var total: Double { values.values.reduce(0, +) }
+    public var total: Money { values.values.reduce(0, +) }
     public var isEssential: Bool { tags.contains(TagSet.essential) }
 
-    public func value(in month: YearMonth) -> Double { values[month.description] ?? 0 }
+    public func value(in month: YearMonth) -> Money { values[month.description] ?? 0 }
     public func isRealized(in month: YearMonth) -> Bool { realizedMonths.contains(month.description) }
 
     public init(
         category: String,
         kind: RecurringCommitment.Kind,
         tags: [String] = [],
-        values: [String: Double] = [:],
+        values: [String: Money] = [:],
         realizedMonths: [String] = []
     ) {
         self.category = category
@@ -37,19 +37,19 @@ public struct PlanRow: Codable, Sendable, Hashable, Identifiable {
 public struct PlanMonthTotals: Codable, Sendable, Hashable, Identifiable {
     public var month: YearMonth
     public var isForecast: Bool
-    public var income: Double
+    public var income: Money
     /// Negativo.
-    public var expenses: Double
+    public var expenses: Money
     /// Negativo: saiu da conta, mas continua sendo seu.
-    public var saved: Double
+    public var saved: Money
     /// Parte das despesas marcada como `essencial` (negativo).
-    public var essentialExpenses: Double
+    public var essentialExpenses: Money
     /// `income + expenses` — o que sobra antes de guardar.
-    public var net: Double
+    public var net: Money
     /// `net + saved` — o que de fato entra ou sai da conta no mês.
-    public var cashFlow: Double
+    public var cashFlow: Money
     /// Soma dos `cashFlow` até este mês, partindo do saldo inicial informado.
-    public var cumulative: Double
+    public var cumulative: Money
 
     public var id: String { month.description }
 }
@@ -83,7 +83,7 @@ public struct AnnualPlan: Codable, Sendable, Hashable {
         transferCategories: Set<String> = [],
         tagsByCategory: [String: [String]] = [:],
         essentialCategories: Set<String>? = nil,
-        openingBalance: Double = 0,
+        openingBalance: Money = 0,
         reference: Date = Date()
     ) -> AnnualPlan {
         let months = YearMonth.range(from: start, to: end)
@@ -111,7 +111,7 @@ public struct AnnualPlan: Codable, Sendable, Hashable {
         let categories = Set(entries.keys).union(commitmentsByCategory.keys)
 
         var rows: [PlanRow] = []
-        var essentialByMonth: [String: Double] = [:]
+        var essentialByMonth: [String: Money] = [:]
         for category in categories {
             let owners = commitmentsByCategory[category] ?? []
             let byMonth = entries[category] ?? [:]
@@ -137,7 +137,7 @@ public struct AnnualPlan: Codable, Sendable, Hashable {
                 isEssential = { own in (own.isEmpty ? rowTags : own).contains(TagSet.essential) }
             }
 
-            var values: [String: Double] = [:]
+            var values: [String: Money] = [:]
             var realizedMonths: [String] = []
             for month in months {
                 let key = month.description
@@ -183,9 +183,9 @@ public struct AnnualPlan: Codable, Sendable, Hashable {
         var cumulative = openingBalance
         var totals: [PlanMonthTotals] = []
         for month in months {
-            var income: Double = 0
-            var expenses: Double = 0
-            var saved: Double = 0
+            var income: Money = 0
+            var expenses: Money = 0
+            var saved: Money = 0
 
             for row in rows {
                 let value = row.value(in: month)

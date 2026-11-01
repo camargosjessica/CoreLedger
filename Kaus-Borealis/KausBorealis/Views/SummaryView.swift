@@ -176,7 +176,7 @@ private struct PositionHero: View {
 
 private struct HeroMetric: View {
     let title: String
-    let value: Double
+    let value: Money
     let symbol: String
     let color: Color
 
@@ -208,7 +208,7 @@ private struct HeroMetric: View {
 
 private struct CategoryTotal: Identifiable {
     var category: String
-    var total: Double
+    var total: Money
 
     var id: String { category }
 }
@@ -336,7 +336,7 @@ private struct CategoryBreakdownCard: View {
         .card()
     }
 
-    private func percent(_ value: Double, of total: Double) -> String {
+    private func percent(_ value: Money, of total: Money) -> String {
         guard total > 0 else { return "" }
         return "\(Int((value / total * 100).rounded()))%"
     }
@@ -388,7 +388,7 @@ private struct PlanMonthCard: View {
         .card()
     }
 
-    private func row(_ title: String, _ value: Double, _ color: Color) -> some View {
+    private func row(_ title: String, _ value: Money, _ color: Color) -> some View {
         HStack {
             Text(title)
                 .foregroundStyle(.secondary)

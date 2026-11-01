@@ -31,7 +31,7 @@ public struct AccountDTO: Codable, Sendable, Hashable, Identifiable {
     public var createdAt: Date?
     /// Agregados calculados pelo servidor (não enviados na criação).
     public var transactionCount: Int?
-    public var balance: Double?
+    public var balance: Money?
 
     public init(
         id: UUID? = nil,
@@ -39,7 +39,7 @@ public struct AccountDTO: Codable, Sendable, Hashable, Identifiable {
         kind: AccountKind = .checking,
         createdAt: Date? = nil,
         transactionCount: Int? = nil,
-        balance: Double? = nil
+        balance: Money? = nil
     ) {
         self.id = id
         self.name = name

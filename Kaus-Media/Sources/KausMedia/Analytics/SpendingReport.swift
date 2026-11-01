@@ -18,14 +18,14 @@ public enum SpendingGrouping: String, Codable, Sendable, CaseIterable {
 /// Quanto foi gasto num grupo (categoria ou tag), sempre positivo.
 public struct SpendingSlice: Codable, Sendable, Hashable, Identifiable {
     public var group: String
-    public var realized: Double
+    public var realized: Money
     /// Parcelas previstas que ainda não apareceram numa fatura.
-    public var projected: Double
+    public var projected: Money
 
-    public var total: Double { realized + projected }
+    public var total: Money { realized + projected }
     public var id: String { group }
 
-    public init(group: String, realized: Double = 0, projected: Double = 0) {
+    public init(group: String, realized: Money = 0, projected: Money = 0) {
         self.group = group
         self.realized = realized
         self.projected = projected
@@ -35,13 +35,13 @@ public struct SpendingSlice: Codable, Sendable, Hashable, Identifiable {
 public struct SpendingMonth: Codable, Sendable, Hashable, Identifiable {
     public var month: YearMonth
     /// Gasto do mês contando cada lançamento uma vez, mesmo com várias tags.
-    public var total: Double
-    public var projected: Double
+    public var total: Money
+    public var projected: Money
     public var slices: [SpendingSlice]
 
     public var id: YearMonth { month }
 
-    public init(month: YearMonth, total: Double = 0, projected: Double = 0, slices: [SpendingSlice] = []) {
+    public init(month: YearMonth, total: Money = 0, projected: Money = 0, slices: [SpendingSlice] = []) {
         self.month = month
         self.total = total
         self.projected = projected
@@ -60,9 +60,9 @@ public struct SpendingReport: Codable, Sendable, Hashable {
     public var months: [SpendingMonth]
     /// Do maior para o menor.
     public var totals: [SpendingSlice]
-    public var total: Double
+    public var total: Money
 
-    public init(year: Int, grouping: SpendingGrouping, months: [SpendingMonth], totals: [SpendingSlice], total: Double) {
+    public init(year: Int, grouping: SpendingGrouping, months: [SpendingMonth], totals: [SpendingSlice], total: Money) {
         self.year = year
         self.grouping = grouping
         self.months = months
@@ -74,12 +74,12 @@ public struct SpendingReport: Codable, Sendable, Hashable {
 public enum SpendingAnalysis {
     public struct Input: Sendable {
         public var date: Date
-        public var amount: Double
+        public var amount: Money
         public var category: String?
         public var tags: [String]
         public var isProjected: Bool
 
-        public init(date: Date, amount: Double, category: String?, tags: [String] = [], isProjected: Bool = false) {
+        public init(date: Date, amount: Money, category: String?, tags: [String] = [], isProjected: Bool = false) {
             self.date = date
             self.amount = amount
             self.category = category
@@ -140,7 +140,7 @@ public enum SpendingAnalysis {
         )
     }
 
-    private static func add(_ value: Double, projected: Bool, to group: String, in slices: inout [String: SpendingSlice]) {
+    private static func add(_ value: Money, projected: Bool, to group: String, in slices: inout [String: SpendingSlice]) {
         var slice = slices[group] ?? SpendingSlice(group: group)
         if projected { slice.projected += value } else { slice.realized += value }
         slices[group] = slice

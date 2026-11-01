@@ -11,8 +11,9 @@ final class TransactionModel: Model, @unchecked Sendable {
     @Field(key: "description")
     var description: String
     
-    @Field(key: "amount")
-    var amount: Double
+    /// Valor em centavos: `Double` acumularia erro nas somas.
+    @Field(key: "amount_cents")
+    var amountCents: Int
     
     @Field(key: "category")
     var category: String
@@ -63,7 +64,7 @@ final class TransactionModel: Model, @unchecked Sendable {
     init(
         id: UUID? = nil,
         description: String,
-        amount: Double,
+        amount: Money,
         category: String,
         date: Date,
         accountID: UUID? = nil,
@@ -91,6 +92,11 @@ final class TransactionModel: Model, @unchecked Sendable {
 }
 
 extension TransactionModel {
+    var amount: Money {
+        get { Money(cents: amountCents) }
+        set { amountCents = newValue.cents }
+    }
+
     var installment: Installment? {
         guard let installmentNumber, let installmentTotal else { return nil }
         return Installment(number: installmentNumber, total: installmentTotal)

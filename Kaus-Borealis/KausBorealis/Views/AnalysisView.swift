@@ -127,7 +127,7 @@ struct AnalysisView: View {
             MetricTile(title: "Gasto em \(report.year)", value: report.total, symbol: "cart.fill", color: Palette.expense)
             MetricTile(
                 title: "Média por mês",
-                value: activeMonths == 0 ? 0 : report.total / Double(activeMonths),
+                value: activeMonths == 0 ? 0 : report.total / activeMonths,
                 symbol: "chart.bar.fill",
                 color: .orange
             )
@@ -153,7 +153,7 @@ struct AnalysisView: View {
     private struct BarPoint: Identifiable {
         var month: String
         var group: String
-        var value: Double
+        var value: Money
         var isProjected: Bool
 
         var id: String { "\(month)|\(group)|\(isProjected)" }

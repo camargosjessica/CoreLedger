@@ -4,24 +4,24 @@ import Foundation
 public struct MonthlySummary: Codable, Sendable, Hashable, Identifiable {
     /// Primeiro dia do mês, em UTC.
     public var month: Date
-    public var income: Double
-    public var expenses: Double
-    public var byCategory: [String: Double]
+    public var income: Money
+    public var expenses: Money
+    public var byCategory: [String: Money]
     /// `true` para meses à frente, que só somam lançamentos futuros e parcelas.
     public var isForecast: Bool
     /// Parcelas futuras já contratadas que caem neste mês.
-    public var committedExpenses: Double
+    public var committedExpenses: Money
 
     public var id: Date { month }
-    public var balance: Double { income + expenses }
+    public var balance: Money { income + expenses }
 
     public init(
         month: Date,
-        income: Double = 0,
-        expenses: Double = 0,
-        byCategory: [String: Double] = [:],
+        income: Money = 0,
+        expenses: Money = 0,
+        byCategory: [String: Money] = [:],
         isForecast: Bool = false,
-        committedExpenses: Double = 0
+        committedExpenses: Money = 0
     ) {
         self.month = month
         self.income = income

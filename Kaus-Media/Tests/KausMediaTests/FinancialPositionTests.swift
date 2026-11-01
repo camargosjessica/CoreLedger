@@ -2,7 +2,7 @@ import XCTest
 @testable import KausMedia
 
 final class FinancialPositionTests: XCTestCase {
-    private func account(_ name: String, _ kind: AccountKind, _ balance: Double) -> AccountPosition {
+    private func account(_ name: String, _ kind: AccountKind, _ balance: Money) -> AccountPosition {
         AccountPosition(accountID: UUID(), name: name, kind: kind, balance: balance)
     }
 

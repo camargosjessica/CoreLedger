@@ -22,7 +22,7 @@ public struct CategoryRule: Codable, Sendable, Hashable, Identifiable {
         case credit
         case debit
 
-        public func matches(_ amount: Double) -> Bool {
+        public func matches(_ amount: Money) -> Bool {
             switch self {
             case .any: return true
             case .credit: return amount >= 0

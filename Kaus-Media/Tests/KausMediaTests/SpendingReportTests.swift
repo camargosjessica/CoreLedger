@@ -2,7 +2,7 @@ import XCTest
 @testable import KausMedia
 
 final class SpendingReportTests: XCTestCase {
-    private func input(_ day: String, _ amount: Double, _ category: String, tags: [String] = [], projected: Bool = false) -> SpendingAnalysis.Input {
+    private func input(_ day: String, _ amount: Money, _ category: String, tags: [String] = [], projected: Bool = false) -> SpendingAnalysis.Input {
         SpendingAnalysis.Input(
             date: DateParser.parse(day)!,
             amount: amount,

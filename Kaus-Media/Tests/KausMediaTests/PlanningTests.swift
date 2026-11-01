@@ -38,10 +38,10 @@ final class RecurringCommitmentTests: XCTestCase {
     private func commitment(
         _ name: String,
         kind: RecurringCommitment.Kind = .expense,
-        amount: Double = 100,
+        amount: Money = 100,
         start: YearMonth = YearMonth(year: 2026, month: 1),
         end: YearMonth? = nil,
-        overrides: [String: Double] = [:],
+        overrides: [String: Money] = [:],
         tags: [String] = []
     ) -> RecurringCommitment {
         RecurringCommitment(
@@ -121,7 +121,7 @@ final class AnnualPlanTests: XCTestCase {
 
     private func transaction(
         _ description: String,
-        _ amount: Double,
+        _ amount: Money,
         _ month: YearMonth,
         category: String,
         isProjected: Bool = false
@@ -318,7 +318,7 @@ final class AnnualPlanTests: XCTestCase {
     func testVariableSpendingKeepsPlanAsFloorWithinCurrentMonth() {
         let month = YearMonth(year: 2026, month: 3)
         let budget = RecurringCommitment(name: "Feira", category: "Mercado", amount: 800, start: month)
-        func plan(_ amounts: [Double]) -> Double? {
+        func plan(_ amounts: [Money]) -> Money? {
             AnnualPlan.build(
                 from: month,
                 to: month,

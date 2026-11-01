@@ -24,11 +24,11 @@ struct TransactionsView: View {
 
     /// Projeções ficam de fora do saldo: ainda não saíram da conta.
     private var realized: [TransactionDTO] { store.transactions.filter { !$0.isProjected } }
-    private var total: Double { realized.reduce(0) { $0 + $1.amount } }
-    private var income: Double { realized.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount } }
-    private var spending: Double { realized.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount } }
+    private var total: Money { realized.reduce(0) { $0 + $1.amount } }
+    private var income: Money { realized.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount } }
+    private var spending: Money { realized.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount } }
     /// Com um cartão filtrado num mês futuro, é o valor previsto da fatura.
-    private var totalWithProjected: Double { store.transactions.reduce(0) { $0 + $1.amount } }
+    private var totalWithProjected: Money { store.transactions.reduce(0) { $0 + $1.amount } }
     private var hasProjected: Bool { store.transactions.contains(where: \.isProjected) }
 
     var body: some View {
@@ -599,7 +599,7 @@ private struct NewTransactionSheet: View {
             && installments.allSatisfy { ValueParser.parse($0.amount) != nil }
     }
 
-    private var installmentTotal: Double {
+    private var installmentTotal: Money {
         installments.compactMap { ValueParser.parse($0.amount) }.reduce(0, +)
     }
 

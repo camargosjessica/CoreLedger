@@ -288,13 +288,13 @@ struct APIClient: Sendable {
     }
 
     /// Grade anual: linhas por categoria, colunas por mês.
-    func plan(from: YearMonth, to: YearMonth, openingBalance: Double? = nil) async throws -> PlanResponse {
+    func plan(from: YearMonth, to: YearMonth, openingBalance: Money? = nil) async throws -> PlanResponse {
         var items = [
             URLQueryItem(name: "from", value: from.description),
             URLQueryItem(name: "to", value: to.description)
         ]
         if let openingBalance {
-            items.append(URLQueryItem(name: "openingBalance", value: String(openingBalance)))
+            items.append(URLQueryItem(name: "openingBalance", value: openingBalance.description))
         }
         return try await send(.get, "api/plan", query: items)
     }
