@@ -47,21 +47,13 @@ struct PlanController: RouteCollection {
         return .noContent
     }
 
-    private static func month(_ text: String?, field: String) throws -> YearMonth? {
-        guard let text else { return nil }
-        guard let month = YearMonth(text) else {
-            throw Abort(.badRequest, reason: "\(field) deve ser AAAA-MM com ano entre 1 e 9999")
-        }
-        return month
-    }
-
     /// A grade anual: uma linha por categoria, uma coluna por mês, com o valor
     /// real quando o extrato já trouxe e o planejado quando o mês é futuro.
     func plan(req: Request) async throws -> PlanResponse {
         let query = try req.query.decode(PlanQuery.self)
         let reference = Date()
-        let start = try Self.month(query.from, field: "from") ?? YearMonth(date: reference).adding(months: -2)
-        let requestedEnd = try Self.month(query.to, field: "to") ?? start.adding(months: 11)
+        let start = try Validation.month(query.from, field: "from") ?? YearMonth(date: reference).adding(months: -2)
+        let requestedEnd = try Validation.month(query.to, field: "to") ?? start.adding(months: 11)
         let end = min(requestedEnd, start.adding(months: Self.maxPlanMonths - 1))
 
         let commitments = try await RecurringCommitmentModel.query(on: req.db).all().map { $0.toDTO() }
@@ -106,48 +98,14 @@ struct PlanController: RouteCollection {
     }
 
     private func validate(_ commitment: RecurringCommitment, on req: Request) async throws {
-        guard !commitment.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw Abort(.badRequest, reason: "O nome é obrigatório")
-        }
-        guard !commitment.category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw Abort(.badRequest, reason: "A categoria é obrigatória")
-        }
-        guard commitment.amount >= 0 else {
-            throw Abort(.badRequest, reason: "Valor inválido")
-        }
-        if let end = commitment.end, end < commitment.start {
-            throw Abort(.badRequest, reason: "O mês final é anterior ao inicial")
-        }
-        for (month, value) in commitment.overrides {
-            guard YearMonth(month) != nil else {
-                throw Abort(.badRequest, reason: "Mês inválido em valores por mês: \(month)")
-            }
-            guard value >= 0 else {
-                throw Abort(.badRequest, reason: "Valor inválido para \(month)")
-            }
-        }
-        for (month, value) in commitment.priceChanges {
-            guard YearMonth(month) != nil else {
-                throw Abort(.badRequest, reason: "Mês inválido em reajustes: \(month)")
-            }
-            guard value >= 0 else {
-                throw Abort(.badRequest, reason: "Valor inválido para o reajuste de \(month)")
-            }
-        }
-        if let accountID = commitment.accountID,
-           try await AccountModel.find(accountID, on: req.db) == nil {
-            throw Abort(.notFound, reason: "Conta não encontrada")
+        try Validation.commitment(commitment)
+        if let accountID = commitment.accountID {
+            _ = try await AccountModel.find(accountID, on: req.db, or: .accountNotFound)
         }
     }
 
     private func find(_ req: Request) async throws -> RecurringCommitmentModel {
-        guard let id = req.parameters.get("commitmentID", as: UUID.self) else {
-            throw Abort(.badRequest, reason: "Identificador inválido")
-        }
-        guard let model = try await RecurringCommitmentModel.find(id, on: req.db) else {
-            throw Abort(.notFound, reason: "Compromisso não encontrado")
-        }
-        return model
+        try await RecurringCommitmentModel.find(req.parameters.uuid("commitmentID"), on: req.db, or: .commitmentNotFound)
     }
 }
 

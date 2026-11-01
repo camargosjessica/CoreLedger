@@ -11,9 +11,7 @@ struct MaintenanceController: RouteCollection {
 
     func reset(req: Request) async throws -> ResetResponse {
         let request = try req.content.decode(ResetRequest.self)
-        guard request.confirmation == ResetRequest.confirmationPhrase else {
-            throw Abort(.badRequest, reason: "Confirmação inválida: envie \"\(ResetRequest.confirmationPhrase)\"")
-        }
+        try Validation.resetConfirmation(request)
 
         return try await req.db.transaction { db in
             var response = ResetResponse()

@@ -18,11 +18,7 @@ struct CategorySettingController: RouteCollection {
     }
 
     func upsert(req: Request) async throws -> CategorySetting {
-        var dto = try req.content.decode(CategorySetting.self)
-        dto.category = dto.category.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !dto.category.isEmpty else {
-            throw Abort(.badRequest, reason: "A categoria é obrigatória")
-        }
+        let dto = try Validation.setting(req.content.decode(CategorySetting.self))
 
         let existing = try await CategorySettingModel.query(on: req.db)
             .filter(\.$category == dto.category)

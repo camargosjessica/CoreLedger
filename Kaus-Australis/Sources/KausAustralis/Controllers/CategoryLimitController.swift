@@ -19,14 +19,7 @@ struct CategoryLimitController: RouteCollection {
     }
 
     func upsert(req: Request) async throws -> CategoryLimit {
-        var dto = try req.content.decode(CategoryLimit.self)
-        dto.category = dto.category.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !dto.category.isEmpty else {
-            throw Abort(.badRequest, reason: "A categoria é obrigatória")
-        }
-        guard dto.monthlyLimit > 0 else {
-            throw Abort(.badRequest, reason: "O limite deve ser maior que zero")
-        }
+        let dto = try Validation.limit(req.content.decode(CategoryLimit.self))
 
         if let model = try await CategoryLimitModel.query(on: req.db)
             .filter(\.$category == dto.category)
@@ -41,9 +34,7 @@ struct CategoryLimitController: RouteCollection {
     }
 
     func delete(req: Request) async throws -> HTTPStatus {
-        guard let category = req.parameters.get("category"), !category.isEmpty else {
-            throw Abort(.badRequest, reason: "Categoria inválida")
-        }
+        let category = try req.parameters.label("category", invalid: .invalidCategory)
         try await CategoryLimitModel.query(on: req.db)
             .filter(\.$category == category)
             .delete()

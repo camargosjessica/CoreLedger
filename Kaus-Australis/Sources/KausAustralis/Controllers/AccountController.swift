@@ -54,13 +54,9 @@ struct AccountController: RouteCollection {
 
     func create(req: Request) async throws -> Response {
         let dto = try req.content.decode(AccountDTO.self)
-        let name = dto.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else {
-            throw Abort(.badRequest, reason: "O nome da conta é obrigatório")
-        }
-
+        let name = try Validation.accountName(dto.name)
         if try await AccountModel.query(on: req.db).filter(\.$name == name).first() != nil {
-            throw Abort(.conflict, reason: "Já existe uma conta com o nome \(name)")
+            throw LedgerError.accountNameTaken(name)
         }
 
         let model = AccountModel(name: name, kind: dto.kind)
@@ -71,11 +67,7 @@ struct AccountController: RouteCollection {
     func update(req: Request) async throws -> AccountDTO {
         let model = try await find(req)
         let dto = try req.content.decode(AccountDTO.self)
-        let name = dto.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else {
-            throw Abort(.badRequest, reason: "O nome da conta é obrigatório")
-        }
-        model.name = name
+        model.name = try Validation.accountName(dto.name)
         model.kind = dto.kind.rawValue
         try await model.update(on: req.db)
         return model.toDTO()
@@ -90,12 +82,6 @@ struct AccountController: RouteCollection {
     }
 
     private func find(_ req: Request) async throws -> AccountModel {
-        guard let id = req.parameters.get("accountID", as: UUID.self) else {
-            throw Abort(.badRequest, reason: "Identificador de conta inválido")
-        }
-        guard let model = try await AccountModel.find(id, on: req.db) else {
-            throw Abort(.notFound, reason: "Conta não encontrada")
-        }
-        return model
+        try await AccountModel.find(req.parameters.uuid("accountID"), on: req.db, or: .accountNotFound)
     }
 }
