@@ -1,0 +1,23 @@
+{
+  "sourceLanguage": "pt-BR",
+  "strings": {
+    "Caixinha ou poupança": {},
+    "Cartão de crédito": {},
+    "Categoria": {},
+    "Conta corrente": {},
+    "Despesa": {},
+    "Dinheiro": {},
+    "Empatada": {},
+    "Guardar": {},
+    "Investimento": {},
+    "Lançamentos e contas": {},
+    "Lançamentos e importações": {},
+    "Negativa": {},
+    "Positiva": {},
+    "Receita": {},
+    "Subcategoria": {},
+    "Tag": {},
+    "Tudo, inclusive regras": {}
+  },
+  "version": "1.0"
+}
