@@ -170,7 +170,7 @@ struct ImportView: View {
     }
 
     private func statementMonthPicker(for file: StatementFile) -> some View {
-        let month = file.statementMonth ?? YearMonth(date: Date())
+        let month = file.statementMonth ?? store.clock.currentMonth()
         return HStack(spacing: 6) {
             Button {
                 setStatementMonth(month.adding(months: -1), for: file)

@@ -84,7 +84,7 @@ public struct AnnualPlan: Codable, Sendable, Hashable {
         tagsByCategory: [String: [String]] = [:],
         essentialCategories: Set<String>? = nil,
         openingBalance: Money = 0,
-        reference: Date = Date()
+        reference: Date
     ) -> AnnualPlan {
         let months = YearMonth.range(from: start, to: end)
         guard !months.isEmpty else { return AnnualPlan() }

@@ -59,6 +59,7 @@ struct RootView: View {
         }
         .tabViewStyle(.sidebarAdaptable)
         .environment(store)
+        .environment(\.ledgerClock, store.clock)
         .tabViewSidebarHeader { SidebarBrand() }
         .tabViewSidebarFooter { SidebarNetWorth(accounts: store.accounts.all) }
         .tint(accent.color)

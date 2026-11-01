@@ -39,6 +39,7 @@ private func forecastNote(_ totals: [PlanMonthTotals]) -> some View {
 private struct IncomeExpenseCard: View {
     let year: Int
     let totals: [PlanMonthTotals]
+    @Environment(\.ledgerClock) private var clock
 
     private struct Bar: Identifiable {
         var label: String
@@ -59,7 +60,7 @@ private struct IncomeExpenseCard: View {
     }
 
     private var currentMonth: PlanMonthTotals? {
-        totals.first { $0.month == YearMonth(date: Date()) }
+        totals.first { $0.month == clock.currentMonth() }
     }
 
     var body: some View {

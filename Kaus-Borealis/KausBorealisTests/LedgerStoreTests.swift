@@ -95,4 +95,18 @@ struct LedgerStoreTests {
         #expect(!store.transactions.items.isEmpty)
         #expect(store.transactions.items.allSatisfy { $0.category == "Saúde" })
     }
+
+    @Test func periodsFollowTheInjectedClock() async throws {
+        let now = try #require(DateParser.parse("15/03/2026"))
+        let (store, api) = makeStore(clock: .fixed(now))
+        #expect(store.transactions.selectedMonth == YearMonth(year: 2026, month: 3))
+        #expect(store.plan.year == 2026)
+
+        store.transactions.period = .last3Months
+        await store.transactions.reloadList()
+
+        let query = try #require(api.listQueries.last)
+        #expect(query.from == YearMonth(year: 2026, month: 1).startDate)
+        #expect(query.to == DateParser.parse("31/03/2026"))
+    }
 }

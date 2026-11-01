@@ -123,4 +123,20 @@ struct LedgerAPITests {
             #expect(authorized.status == .ok)
         }
     }
+
+    @Test("O resumo projeta a partir do relógio do app")
+    func summaryUsesInjectedClock() async throws {
+        let today = try #require(DateParser.parse("15/01/2026"))
+        try await Integration.withApp(clock: .fixed(today)) { app in
+            let card = try await app.createAccount("Cartão", kind: .creditCard)
+            try await app.createTransaction("Compra", -80, on: "10/01/2026", account: card)
+            try await app.createTransaction("Parcela 2/2", -50, on: "10/03/2026", account: card, projected: true)
+
+            let summary = try await app.get("api/summary?forecastMonths=3").content.decode(LedgerProjection.self)
+
+            #expect(summary.history.map(\.expenses) == [-80])
+            #expect(summary.forecast.map(\.month) == [2, 3, 4].map { YearMonth(year: 2026, month: $0).startDate })
+            #expect(summary.forecast.map(\.committedExpenses) == [0, -50, 0])
+        }
+    }
 }

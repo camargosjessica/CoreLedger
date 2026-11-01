@@ -3,6 +3,7 @@ import KausMedia
 
 struct CommitmentCard: View {
     let commitment: RecurringCommitment
+    @Environment(\.ledgerClock) private var clock
 
     private var amountColor: Color {
         switch commitment.kind {
@@ -44,7 +45,7 @@ struct CommitmentCard: View {
 
     /// Mês de hoje, limitado à vigência, para o cartão mostrar o valor atual.
     private var referenceMonth: YearMonth {
-        let current = max(YearMonth(date: Date()), commitment.start)
+        let current = max(clock.currentMonth(), commitment.start)
         guard let end = commitment.end else { return current }
         return min(current, end)
     }

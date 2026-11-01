@@ -27,7 +27,7 @@ public enum Projection {
         _ inputs: [Input],
         transferCategories: Set<String> = [],
         forecastMonths: Int = 6,
-        reference: Date = Date()
+        reference: Date
     ) -> LedgerProjection {
         let currentMonth = LedgerCalendar.startOfMonth(reference)
         let relevant = inputs.filter { !transferCategories.contains($0.category) }
