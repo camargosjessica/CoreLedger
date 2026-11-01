@@ -81,4 +81,18 @@ struct LedgerStoreTests {
 
         #expect(store.transactions.selectedCategory == "Supermercado")
     }
+
+    @Test func reloadWaitsForTheQueryThatReplacedIt() async throws {
+        let api = SpyLedgerAPI()
+        api.latency = .milliseconds(150)
+        let (store, _) = makeStore(api)
+
+        async let first: Void = store.transactions.reloadList()
+        try await Task.sleep(for: .milliseconds(30))
+        store.transactions.selectedCategory = "Saúde"
+        await first
+
+        #expect(!store.transactions.items.isEmpty)
+        #expect(store.transactions.items.allSatisfy { $0.category == "Saúde" })
+    }
 }
