@@ -113,7 +113,8 @@ enum CSVReader {
             if candidates.contains(character) { counts[character, default: 0] += 1 }
         }
 
-        return candidates
+        return
+            candidates
             .map { ($0, counts[$0] ?? 0) }
             .max { $0.1 < $1.1 }
             .flatMap { $0.1 > 0 ? $0.0 : nil } ?? ";"

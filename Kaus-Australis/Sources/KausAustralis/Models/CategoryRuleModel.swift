@@ -38,7 +38,7 @@ final class CategoryRuleModel: Model, @unchecked Sendable {
     @Timestamp(key: "created_at", on: .create)
     var createdAt: Date?
 
-    init() { }
+    init() {}
 
     init(id: UUID? = nil, rule: CategoryRule) {
         self.id = id

@@ -65,7 +65,7 @@ struct LedgerStoreTests {
         let checking = try #require(store.accounts.all.first { $0.kind == .checking })
 
         await store.transactions.add([
-            TransactionDTO(description: "Café", amount: -7.5, date: Date(), accountID: checking.id),
+            TransactionDTO(description: "Café", amount: -7.5, date: Date(), accountID: checking.id)
         ])
 
         let updated = try #require(store.accounts.all.first { $0.id == checking.id })

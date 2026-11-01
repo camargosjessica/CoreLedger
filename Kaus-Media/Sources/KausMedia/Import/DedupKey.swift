@@ -27,7 +27,7 @@ public enum DedupKey {
                 "v1", account, "parc", month,
                 normalizedDescription(description),
                 String(cents),
-                "\(installment.number)of\(installment.total)"
+                "\(installment.number)of\(installment.total)",
             ].joined(separator: "|")
         }
 
@@ -41,7 +41,7 @@ public enum DedupKey {
             "v1", account, "tx",
             LedgerCalendar.isoDay(date),
             normalizedDescription(description),
-            String(cents)
+            String(cents),
         ].joined(separator: "|")
     }
 

@@ -26,7 +26,8 @@ struct Endpoint<Response: Decodable>: Sendable {
         guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
             throw APIError.invalidURL
         }
-        let basePath = components.percentEncodedPath.hasSuffix("/")
+        let basePath =
+            components.percentEncodedPath.hasSuffix("/")
             ? String(components.percentEncodedPath.dropLast())
             : components.percentEncodedPath
         components.percentEncodedPath = basePath + "/" + path

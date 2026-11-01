@@ -36,10 +36,10 @@ struct LedgerAPITests {
         try await Integration.withApp { app in
             let account = try await app.createAccount("Corrente", kind: .checking)
             let csv = """
-            Data;Histórico;Valor
-            15/01/2026;SUPERMERCADO BOM PRECO;-1.234,56
-            16/01/2026;SALARIO JANEIRO;4.200,00
-            """
+                Data;Histórico;Valor
+                15/01/2026;SUPERMERCADO BOM PRECO;-1.234,56
+                16/01/2026;SALARIO JANEIRO;4.200,00
+                """
             let request = ImportRequestDTO(accountID: account, filename: "extrato.csv", content: csv)
 
             let first = try await app.post("api/imports", request).content.decode(ImportReportDTO.self)

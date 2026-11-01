@@ -106,9 +106,11 @@ struct CommitmentSheet: View {
                         .buttonStyle(.borderless)
                         .disabled(!(ValueParser.parse(changeValue).map { $0 != 0 } ?? false))
                     }
-                    Text("O valor novo vale daquele mês em diante, e os meses anteriores continuam com o valor de antes. Ex.: aluguel reajustado em maio.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text(
+                        "O valor novo vale daquele mês em diante, e os meses anteriores continuam com o valor de antes. Ex.: aluguel reajustado em maio."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
 
                 Section("Valores por mês") {

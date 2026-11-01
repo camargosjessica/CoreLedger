@@ -19,7 +19,7 @@ final class ProjectionTests: XCTestCase {
             [
                 input("01/01/2025", -100, "Mercado"),
                 input("31/01/2025", -50, "Mercado"),
-                input("01/02/2025", 4000, "Salário")
+                input("01/02/2025", 4000, "Salário"),
             ],
             forecastMonths: 0,
             reference: reference
@@ -37,7 +37,7 @@ final class ProjectionTests: XCTestCase {
             [
                 input("05/01/2025", -1000, "Transferências"),
                 input("05/01/2025", 1000, "Transferências"),
-                input("05/01/2025", -200, "Mercado")
+                input("05/01/2025", -200, "Mercado"),
             ],
             transferCategories: ["Transferências"],
             forecastMonths: 0,
@@ -57,7 +57,7 @@ final class ProjectionTests: XCTestCase {
                 input("05/03/2025", -200, "Mercado"),
                 input("05/01/2025", 3000, "Salário"),
                 input("05/02/2025", 3000, "Salário"),
-                input("05/03/2025", 3000, "Salário")
+                input("05/03/2025", 3000, "Salário"),
             ],
             forecastMonths: 2,
             reference: reference
@@ -76,7 +76,7 @@ final class ProjectionTests: XCTestCase {
             [
                 input("05/03/2025", -200, "Mercado"),
                 input("10/05/2025", -199.90, "Compras", projected: true),
-                input("10/06/2025", -199.90, "Compras", projected: true)
+                input("10/06/2025", -199.90, "Compras", projected: true),
             ],
             forecastMonths: 2,
             reference: reference
@@ -93,7 +93,7 @@ final class ProjectionTests: XCTestCase {
         let result = Projection.project(
             [
                 input("05/03/2025", -200, "Mercado"),
-                input("10/05/2025", -199.90, "Compras", projected: true)
+                input("10/05/2025", -199.90, "Compras", projected: true),
             ],
             forecastMonths: 1,
             reference: reference
@@ -117,7 +117,7 @@ final class ProjectionTests: XCTestCase {
         let result = Projection.project(
             [
                 input("05/05/2025", -500, "Compras", projected: true),
-                input("20/05/2025", 500, "Compras", projected: true)
+                input("20/05/2025", 500, "Compras", projected: true),
             ],
             forecastMonths: 1,
             reference: reference

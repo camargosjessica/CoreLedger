@@ -83,7 +83,7 @@ public enum DateParser {
     }
 
     private static let formats = [
-        "dd/MM/yyyy", "dd/MM/yy", "yyyy-MM-dd", "dd-MM-yyyy", "dd.MM.yyyy", "yyyy/MM/dd", "yyyyMMdd"
+        "dd/MM/yyyy", "dd/MM/yy", "yyyy-MM-dd", "dd-MM-yyyy", "dd.MM.yyyy", "yyyy/MM/dd", "yyyyMMdd",
     ]
 
     private static let formatters: [DateFormatter] = formats.map { format in

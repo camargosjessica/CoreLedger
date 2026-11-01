@@ -131,7 +131,7 @@ public enum TagSet {
         "Educação": [essential],
         "Alimentação": ["variável"],
         "Assinaturas": ["variável"],
-        "Guardado": ["reserva"]
+        "Guardado": ["reserva"],
     ]
 
     public static func suggested(for category: String?) -> [String] {
@@ -143,7 +143,8 @@ public enum TagSet {
     /// para que "Essencial" e "essencial " não virem duas tags diferentes.
     public static func normalize(_ tags: [String]) -> [String] {
         var seen: Set<String> = []
-        return tags
+        return
+            tags
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
             .filter { !$0.isEmpty && seen.insert($0).inserted }
     }

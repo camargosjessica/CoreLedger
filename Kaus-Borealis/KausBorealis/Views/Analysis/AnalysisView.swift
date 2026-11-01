@@ -69,7 +69,9 @@ struct AnalysisView: View {
         case .cards: (accountID, kind) = (nil, .creditCard)
         case .account(let id): (accountID, kind) = (id, nil)
         }
-        guard let loaded = await store.transactions.spending(year: year, grouping: grouping, accountID: accountID, accountKind: kind) else { return }
+        guard let loaded = await store.transactions.spending(year: year, grouping: grouping, accountID: accountID, accountKind: kind) else {
+            return
+        }
         report = loaded
         if let selectedLabel, !loaded.months.contains(where: { label($0.month) == selectedLabel }) {
             self.selectedLabel = nil
@@ -89,13 +91,21 @@ struct AnalysisView: View {
     private var filters: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Button { year -= 1 } label: { Image(systemName: "chevron.left") }
-                    .buttonStyle(.borderless)
+                Button {
+                    year -= 1
+                } label: {
+                    Image(systemName: "chevron.left")
+                }
+                .buttonStyle(.borderless)
                 Text(String(year))
                     .font(.title3.weight(.semibold).monospacedDigit())
                     .frame(minWidth: 60)
-                Button { year += 1 } label: { Image(systemName: "chevron.right") }
-                    .buttonStyle(.borderless)
+                Button {
+                    year += 1
+                } label: {
+                    Image(systemName: "chevron.right")
+                }
+                .buttonStyle(.borderless)
                 Spacer()
                 Picker("Agrupar por", selection: $grouping) {
                     ForEach([SpendingGrouping.category, .subcategory], id: \.self) { Text($0.title).tag($0) }
@@ -180,7 +190,7 @@ struct AnalysisView: View {
             return merged.values.flatMap { slice in
                 [
                     BarPoint(month: label(month.month), group: slice.group, value: slice.realized, isProjected: false),
-                    BarPoint(month: label(month.month), group: slice.group, value: slice.projected, isProjected: true)
+                    BarPoint(month: label(month.month), group: slice.group, value: slice.projected, isProjected: true),
                 ].filter { $0.value > 0 }
             }
         }
@@ -242,7 +252,8 @@ struct AnalysisView: View {
         let month = report.months.first { label($0.month) == selectedLabel }
         let slices = month?.slices ?? report.totals
         let total = month?.total ?? report.total
-        let title = month.map { "Detalhe de \($0.month.startDate.monthYear)" }
+        let title =
+            month.map { "Detalhe de \($0.month.startDate.monthYear)" }
             ?? "\(report.grouping == .category ? "Categorias" : "Subcategorias") de \(report.year)"
 
         return VStack(alignment: .leading, spacing: 12) {

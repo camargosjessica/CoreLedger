@@ -14,7 +14,8 @@ public struct Categorizer: Sendable {
     private let compiledRules: [CompiledRule]
 
     public init(rules: [CategoryRule]) {
-        self.compiledRules = rules
+        self.compiledRules =
+            rules
             .filter(\.isEnabled)
             .sorted { lhs, rhs in
                 if lhs.priority != rhs.priority { return lhs.priority < rhs.priority }
@@ -77,7 +78,8 @@ private struct CompiledRule: Sendable {
         case .word:
             // Fronteiras explícitas em vez de `\b`, para funcionar também com
             // termos que começam ou terminam em caractere não alfanumérico.
-            let pattern = "(?<![\\p{L}\\p{N}])"
+            let pattern =
+                "(?<![\\p{L}\\p{N}])"
                 + NSRegularExpression.escapedPattern(for: term)
                 + "(?![\\p{L}\\p{N}])"
             self.literal = nil

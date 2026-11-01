@@ -33,7 +33,7 @@ final class TransactionMappingTests: XCTestCase {
     func testModelFromDTO_ManualCategoryDoesNotInheritTagsFromDescriptionRule() {
         let categorizer = Categorizer(rules: [
             CategoryRule(term: "mercado", category: "Mercado", matchKind: .contains, tags: ["variável"]),
-            CategoryRule(term: "aluguel", category: "Moradia", tags: ["casa"])
+            CategoryRule(term: "aluguel", category: "Moradia", tags: ["casa"]),
         ])
         let dto = TransactionDTO(description: "Compra Mercado", amount: -80, date: Date(), category: "Moradia")
 
@@ -256,10 +256,10 @@ final class ImportPlannerTests: XCTestCase {
 
     func testCreditCardInvoiceProducesFutureInstallments() {
         let invoice = """
-        Data;Descrição;Valor
-        15/01/2025;NETSHOES PARC 03/10;-199,90
-        15/01/2025;PADARIA CENTRAL;-18,90
-        """
+            Data;Descrição;Valor
+            15/01/2025;NETSHOES PARC 03/10;-199,90
+            15/01/2025;PADARIA CENTRAL;-18,90
+            """
 
         let parsed = StatementParser.parse(content: invoice, filename: "fatura.csv")
         let expanded = InstallmentExpander.expand(parsed.transactions)
@@ -317,8 +317,8 @@ final class ImportBatchTests: XCTestCase {
     func testConfirmationSnapshotDecodesLegacyPayload() throws {
         let id = UUID()
         let json = """
-        [{"transactionID":"\(id.uuidString)","date":760000000,"amount":-50}]
-        """
+            [{"transactionID":"\(id.uuidString)","date":760000000,"amount":-50}]
+            """
 
         let decoded = try JSONDecoder().decode(
             [ImportBatchModel.ConfirmationSnapshot].self,

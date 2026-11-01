@@ -94,55 +94,88 @@ extension CategoryRule {
     /// A partir daí a fonte da verdade é a tabela `category_rules`.
     public static let seed: [CategoryRule] = {
         let groups: [(category: String, priority: Int, isTransfer: Bool, terms: [(String, MatchKind)])] = [
-            ("Alimentação", 10, false, [
-                ("ifood", .contains), ("rappi", .contains), ("restaurante", .contains),
-                ("padaria", .contains), ("lanchonete", .contains), ("burger", .contains),
-                ("pizzaria", .contains), ("cafeteria", .contains)
-            ]),
-            ("Mercado", 10, false, [
-                ("mercado", .contains), ("supermerc", .contains), ("atacad", .contains),
-                ("carrefour", .contains), ("assai", .contains), ("pao de acucar", .contains),
-                ("hortifruti", .contains)
-            ]),
-            ("Transporte", 20, false, [
-                ("uber", .word), ("99app", .contains), ("99 pop", .contains), ("cabify", .word),
-                ("posto", .word), ("combust", .contains), ("shell", .word), ("ipiranga", .word),
-                ("estacion", .contains), ("pedagio", .contains)
-            ]),
-            ("Moradia", 20, false, [
-                ("aluguel", .contains), ("condominio", .contains), ("energia", .contains),
-                ("enel", .word), ("cemig", .word), ("sabesp", .word), ("copasa", .word),
-                ("iptu", .word)
-            ]),
-            ("Assinaturas", 15, false, [
-                ("netflix", .contains), ("spotify", .contains), ("amazon prime", .contains),
-                ("disney", .contains), ("hbo", .word), ("youtube", .contains),
-                ("apple.com", .contains), ("icloud", .contains)
-            ]),
-            ("Saúde", 20, false, [
-                ("farmacia", .contains), ("drogaria", .contains), ("hospital", .contains),
-                ("clinica", .contains), ("unimed", .contains), ("laborat", .contains),
-                ("odonto", .contains)
-            ]),
-            ("Telefone/Internet", 30, false, [
-                ("vivo", .word), ("claro", .word), ("tim", .word), ("oi fibra", .contains),
-                ("internet", .word), ("net servicos", .contains), ("telefon", .contains)
-            ]),
-            ("Educação", 25, false, [
-                ("escola", .word), ("faculdade", .word), ("universidade", .word),
-                ("curso", .word), ("mensalidade", .contains)
-            ]),
-            ("Salário", 5, false, [
-                ("salario", .contains), ("pagamento folha", .contains), ("provento", .contains),
-                ("adiantamento salarial", .contains)
-            ]),
-            ("Cartão de crédito", 5, true, [
-                ("pagamento de fatura", .contains), ("pgto fatura", .contains),
-                ("pagto cartao", .contains)
-            ]),
-            ("Transferências", 90, true, [
-                ("pix", .word), ("ted", .word), ("doc", .word), ("transf", .contains)
-            ])
+            (
+                "Alimentação", 10, false,
+                [
+                    ("ifood", .contains), ("rappi", .contains), ("restaurante", .contains),
+                    ("padaria", .contains), ("lanchonete", .contains), ("burger", .contains),
+                    ("pizzaria", .contains), ("cafeteria", .contains),
+                ]
+            ),
+            (
+                "Mercado", 10, false,
+                [
+                    ("mercado", .contains), ("supermerc", .contains), ("atacad", .contains),
+                    ("carrefour", .contains), ("assai", .contains), ("pao de acucar", .contains),
+                    ("hortifruti", .contains),
+                ]
+            ),
+            (
+                "Transporte", 20, false,
+                [
+                    ("uber", .word), ("99app", .contains), ("99 pop", .contains), ("cabify", .word),
+                    ("posto", .word), ("combust", .contains), ("shell", .word), ("ipiranga", .word),
+                    ("estacion", .contains), ("pedagio", .contains),
+                ]
+            ),
+            (
+                "Moradia", 20, false,
+                [
+                    ("aluguel", .contains), ("condominio", .contains), ("energia", .contains),
+                    ("enel", .word), ("cemig", .word), ("sabesp", .word), ("copasa", .word),
+                    ("iptu", .word),
+                ]
+            ),
+            (
+                "Assinaturas", 15, false,
+                [
+                    ("netflix", .contains), ("spotify", .contains), ("amazon prime", .contains),
+                    ("disney", .contains), ("hbo", .word), ("youtube", .contains),
+                    ("apple.com", .contains), ("icloud", .contains),
+                ]
+            ),
+            (
+                "Saúde", 20, false,
+                [
+                    ("farmacia", .contains), ("drogaria", .contains), ("hospital", .contains),
+                    ("clinica", .contains), ("unimed", .contains), ("laborat", .contains),
+                    ("odonto", .contains),
+                ]
+            ),
+            (
+                "Telefone/Internet", 30, false,
+                [
+                    ("vivo", .word), ("claro", .word), ("tim", .word), ("oi fibra", .contains),
+                    ("internet", .word), ("net servicos", .contains), ("telefon", .contains),
+                ]
+            ),
+            (
+                "Educação", 25, false,
+                [
+                    ("escola", .word), ("faculdade", .word), ("universidade", .word),
+                    ("curso", .word), ("mensalidade", .contains),
+                ]
+            ),
+            (
+                "Salário", 5, false,
+                [
+                    ("salario", .contains), ("pagamento folha", .contains), ("provento", .contains),
+                    ("adiantamento salarial", .contains),
+                ]
+            ),
+            (
+                "Cartão de crédito", 5, true,
+                [
+                    ("pagamento de fatura", .contains), ("pgto fatura", .contains),
+                    ("pagto cartao", .contains),
+                ]
+            ),
+            (
+                "Transferências", 90, true,
+                [
+                    ("pix", .word), ("ted", .word), ("doc", .word), ("transf", .contains),
+                ]
+            ),
         ]
 
         return expand(groups) + savingsSeed
@@ -152,12 +185,15 @@ extension CategoryRule {
     /// São transferência, não despesa: guardar dinheiro não empobrece ninguém,
     /// e contar como saída faria a previsão projetar um gasto inexistente.
     public static let savingsSeed: [CategoryRule] = expand([
-        ("Guardado", 5, true, [
-            ("caixinha", .contains), ("aplicac", .contains), ("aplic aut", .contains),
-            ("resgate", .contains), ("poupanca", .contains), ("rdb", .word),
-            ("cdb", .word), ("tesouro direto", .contains), ("fundo de invest", .contains),
-            ("reserva de emergencia", .contains)
-        ])
+        (
+            "Guardado", 5, true,
+            [
+                ("caixinha", .contains), ("aplicac", .contains), ("aplic aut", .contains),
+                ("resgate", .contains), ("poupanca", .contains), ("rdb", .word),
+                ("cdb", .word), ("tesouro direto", .contains), ("fundo de invest", .contains),
+                ("reserva de emergencia", .contains),
+            ]
+        )
     ])
 
     private static func expand(

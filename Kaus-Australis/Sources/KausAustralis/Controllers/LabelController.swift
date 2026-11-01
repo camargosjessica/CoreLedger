@@ -32,7 +32,8 @@ struct LabelController: RouteCollection {
         let name = try newName(req)
         let transfers = try await req.categoryRules.categorizer().transferCategories
         if transfers.contains(name) != transfers.contains(current),
-           try await Self.categories(on: req.db).contains(name) {
+            try await Self.categories(on: req.db).contains(name)
+        {
             throw LedgerError.incompatibleCategoryMerge(name: name, current: current)
         }
 
@@ -45,25 +46,33 @@ struct LabelController: RouteCollection {
 
         return try await req.db.transaction { db in
             var response = LabelChangeResponse()
-            for model in try await TransactionModel.query(on: db).group(.or, { $0.filter(\.$category == current).filter(\.$category =~ subcategories) }).all() {
+            for model in try await TransactionModel.query(on: db).group(
+                .or, { $0.filter(\.$category == current).filter(\.$category =~ subcategories) }
+            ).all() {
                 guard let category = renamed(model.category) else { continue }
                 model.category = category
                 try await model.update(on: db)
                 response.transactions += 1
             }
-            for model in try await CategoryRuleModel.query(on: db).group(.or, { $0.filter(\.$category == current).filter(\.$category =~ subcategories) }).all() {
+            for model in try await CategoryRuleModel.query(on: db).group(
+                .or, { $0.filter(\.$category == current).filter(\.$category =~ subcategories) }
+            ).all() {
                 guard let category = renamed(model.category) else { continue }
                 model.category = category
                 try await model.update(on: db)
                 response.rules += 1
             }
-            for model in try await RecurringCommitmentModel.query(on: db).group(.or, { $0.filter(\.$category == current).filter(\.$category =~ subcategories) }).all() {
+            for model in try await RecurringCommitmentModel.query(on: db).group(
+                .or, { $0.filter(\.$category == current).filter(\.$category =~ subcategories) }
+            ).all() {
                 guard let category = renamed(model.category) else { continue }
                 model.category = category
                 try await model.update(on: db)
                 response.commitments += 1
             }
-            for model in try await CategorySettingModel.query(on: db).group(.or, { $0.filter(\.$category == current).filter(\.$category =~ subcategories) }).all() {
+            for model in try await CategorySettingModel.query(on: db).group(
+                .or, { $0.filter(\.$category == current).filter(\.$category =~ subcategories) }
+            ).all() {
                 guard let category = renamed(model.category) else { continue }
                 if try await CategorySettingModel.query(on: db).filter(\.$category == category).count() > 0 {
                     try await model.delete(on: db)

@@ -101,7 +101,11 @@ struct PlanView: View {
             .navigationTitle("Plano")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button { isCreating = true } label: { Label("Novo compromisso", systemImage: "plus") }
+                    Button {
+                        isCreating = true
+                    } label: {
+                        Label("Novo compromisso", systemImage: "plus")
+                    }
                 }
             }
             .refreshable { await store.plan.reloadGrid() }
@@ -121,7 +125,7 @@ struct PlanView: View {
 }
 
 #if DEBUG
-#Preview {
-    PlanView().previewLedger()
-}
+    #Preview {
+        PlanView().previewLedger()
+    }
 #endif

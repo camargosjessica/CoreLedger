@@ -23,7 +23,8 @@ struct CategoryLimitController: RouteCollection {
 
         if let model = try await CategoryLimitModel.query(on: req.db)
             .filter(\.$category == dto.category)
-            .first() {
+            .first()
+        {
             model.monthlyLimit = dto.monthlyLimit
             try await model.update(on: req.db)
             return model.toDTO()

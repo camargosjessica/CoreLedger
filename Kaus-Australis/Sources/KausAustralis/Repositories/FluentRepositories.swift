@@ -40,7 +40,8 @@ struct FluentTransactionRepository: TransactionRepository {
                 }
             }
         }
-        return try await builder
+        return
+            try await builder
             .range(lower: filter.offset, upper: filter.offset + filter.limit - 1)
             .all()
     }
@@ -152,7 +153,8 @@ enum TextSearch {
 
     /// Padrão `LIKE` já sem acentos, em minúsculas e com curingas escapados.
     static func pattern(for search: String) -> String {
-        let folded = search
+        let folded =
+            search
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
             .lowercased()
             .replacingOccurrences(of: "\\", with: "\\\\")

@@ -60,7 +60,8 @@ public struct BulkUpdateRequest: Codable, Sendable {
     /// Categoria a gravar, ou `nil` quando não muda.
     public var normalizedCategory: String? {
         guard let trimmed = category?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !trimmed.isEmpty else { return nil }
+            !trimmed.isEmpty
+        else { return nil }
         return trimmed
     }
 

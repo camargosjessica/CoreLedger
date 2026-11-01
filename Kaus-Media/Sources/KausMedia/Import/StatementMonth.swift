@@ -18,11 +18,13 @@ public enum StatementMonth {
     static func parse(_ filename: String) -> YearMonth? {
         let text = filename.lowercased().folding(options: .diacriticInsensitive, locale: nil)
         if let groups = firstMatch(namedPattern, in: text),
-           let index = names.firstIndex(of: groups[0]), let year = Int(groups[1]) {
+            let index = names.firstIndex(of: groups[0]), let year = Int(groups[1])
+        {
             return YearMonth(year: year, month: index + 1)
         }
         if let groups = firstMatch(numericPattern, in: text),
-           let year = Int(groups[0]), let month = Int(groups[1]) {
+            let year = Int(groups[0]), let month = Int(groups[1])
+        {
             return YearMonth(year: year, month: month)
         }
         return nil
@@ -31,7 +33,7 @@ public enum StatementMonth {
     /// Grupos de captura da primeira ocorrência do padrão.
     private static func firstMatch(_ pattern: String, in text: String) -> [String]? {
         guard let regex = try? NSRegularExpression(pattern: pattern),
-              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text))
+            let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text))
         else { return nil }
         return (1..<match.numberOfRanges).compactMap { index in
             Range(match.range(at: index), in: text).map { String(text[$0]) }

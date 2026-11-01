@@ -50,12 +50,13 @@ final class AccountsStore {
     func transactions(of accountID: UUID, in month: YearMonth) async -> [TransactionDTO] {
         var loaded: [TransactionDTO] = []
         await session.run {
-            loaded = try await session.api.transactions(TransactionQuery(
-                accountID: accountID,
-                from: month.startDate,
-                to: LedgerCalendar.addingDays(-1, to: month.adding(months: 1).startDate),
-                limit: 1000
-            ))
+            loaded = try await session.api.transactions(
+                TransactionQuery(
+                    accountID: accountID,
+                    from: month.startDate,
+                    to: LedgerCalendar.addingDays(-1, to: month.adding(months: 1).startDate),
+                    limit: 1000
+                ))
         }
         return loaded.sorted { $0.date > $1.date }
     }

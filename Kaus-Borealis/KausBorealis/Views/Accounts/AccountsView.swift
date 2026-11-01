@@ -73,7 +73,11 @@ struct AccountsView: View {
             .navigationTitle("Contas")
             .refreshable { await store.reload() }
             .toolbar {
-                Button { isAdding = true } label: { Label("Nova conta", systemImage: "plus") }
+                Button {
+                    isAdding = true
+                } label: {
+                    Label("Nova conta", systemImage: "plus")
+                }
             }
             .sheet(isPresented: $isAdding) {
                 NavigationStack { AccountForm(account: nil) }
@@ -149,7 +153,7 @@ struct AccountGroup: Identifiable {
 }
 
 #if DEBUG
-#Preview {
-    AccountsView().previewLedger()
-}
+    #Preview {
+        AccountsView().previewLedger()
+    }
 #endif

@@ -189,10 +189,12 @@ final class TransactionUseCaseTests: XCTestCase {
             accountID: checking,
             filename: "fatura.csv",
             confirmations: [
-                .init(transactionID: untouched.id!, date: projectedDate, amount: -100,
-                      confirmedDate: confirmedDate, confirmedAmount: -101),
-                .init(transactionID: edited.id!, date: projectedDate, amount: -100,
-                      confirmedDate: confirmedDate, confirmedAmount: -100),
+                .init(
+                    transactionID: untouched.id!, date: projectedDate, amount: -100,
+                    confirmedDate: confirmedDate, confirmedAmount: -101),
+                .init(
+                    transactionID: edited.id!, date: projectedDate, amount: -100,
+                    confirmedDate: confirmedDate, confirmedAmount: -100),
             ]
         )
 

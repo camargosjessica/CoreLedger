@@ -3,7 +3,8 @@ import XCTest
 
 final class StatementMonthTests: XCTestCase {
     func testMonthComesFromFilename() {
-        XCTAssertEqual(StatementMonth.guess(filename: "fatura-paga-final 3665-agosto2026.xlsx", latestDate: nil), YearMonth(year: 2026, month: 8))
+        XCTAssertEqual(
+            StatementMonth.guess(filename: "fatura-paga-final 3665-agosto2026.xlsx", latestDate: nil), YearMonth(year: 2026, month: 8))
         XCTAssertEqual(StatementMonth.guess(filename: "Fatura Março de 2027.csv", latestDate: nil), YearMonth(year: 2027, month: 3))
         XCTAssertEqual(StatementMonth.guess(filename: "fatura_2026-12.csv", latestDate: nil), YearMonth(year: 2026, month: 12))
     }
@@ -20,11 +21,13 @@ final class LabelSuggesterTests: XCTestCase {
 
     func testSamePurchaseCarriesCategoryTagsAndNote() {
         let history = [
-            LabeledTransaction(description: "shopee*shps tecnol", installment: Installment(number: 2, total: 10),
-                               category: "Casa", tags: ["obra"], note: "piso do banheiro"),
+            LabeledTransaction(
+                description: "shopee*shps tecnol", installment: Installment(number: 2, total: 10),
+                category: "Casa", tags: ["obra"], note: "piso do banheiro")
         ]
-        let row = ImportedTransaction(date: date, description: "shopee*shps tecnologia sao paulo bra", amount: -50,
-                                      installment: Installment(number: 3, total: 10))
+        let row = ImportedTransaction(
+            date: date, description: "shopee*shps tecnologia sao paulo bra", amount: -50,
+            installment: Installment(number: 3, total: 10))
 
         let suggestion = LabelSuggester.suggestion(for: row, in: history)
 
@@ -33,18 +36,20 @@ final class LabelSuggesterTests: XCTestCase {
 
     func testDifferentInstallmentTotalIsAnotherPurchase() {
         let history = [
-            LabeledTransaction(description: "shopee*shps tecnol", installment: Installment(number: 2, total: 10),
-                               category: "Casa", tags: ["obra"], note: nil),
+            LabeledTransaction(
+                description: "shopee*shps tecnol", installment: Installment(number: 2, total: 10),
+                category: "Casa", tags: ["obra"], note: nil)
         ]
-        let row = ImportedTransaction(date: date, description: "shopee*shps tecnol", amount: -50,
-                                      installment: Installment(number: 1, total: 3))
+        let row = ImportedTransaction(
+            date: date, description: "shopee*shps tecnol", amount: -50,
+            installment: Installment(number: 1, total: 3))
 
         XCTAssertNil(LabelSuggester.suggestion(for: row, in: history))
     }
 
     func testSameDescriptionCarriesOnlyTags() {
         let history = [
-            LabeledTransaction(description: "NETFLIX.COM", installment: nil, category: "Lazer", tags: ["assinatura"], note: "plano família"),
+            LabeledTransaction(description: "NETFLIX.COM", installment: nil, category: "Lazer", tags: ["assinatura"], note: "plano família")
         ]
         let row = ImportedTransaction(date: date, description: "netflix.com", amount: -55.9)
 
