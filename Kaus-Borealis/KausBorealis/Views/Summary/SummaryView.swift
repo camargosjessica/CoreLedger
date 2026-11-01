@@ -6,7 +6,7 @@ import KausMedia
 /// que se reorganizam conforme a largura da tela. Gráficos do ano e meses
 /// futuros ficam em `PlanView`.
 struct SummaryView: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
 
     private let columns = [GridItem(.adaptive(minimum: 320), spacing: 16, alignment: .top)]
 
@@ -65,7 +65,7 @@ struct SummaryView: View {
             .navigationTitle("Resumo")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    AccountFilter(store: store)
+                    AccountFilter()
                 }
             }
             .refreshable { await store.reload() }
@@ -85,3 +85,9 @@ struct SummaryView: View {
 }
 
 // MARK: - Posição
+
+#if DEBUG
+#Preview {
+    SummaryView().previewLedger()
+}
+#endif

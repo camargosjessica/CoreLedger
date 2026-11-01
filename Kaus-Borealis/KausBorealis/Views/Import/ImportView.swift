@@ -7,7 +7,7 @@ import KausMedia
 /// que o servidor usa. Planilhas `.xlsx` são convertidas para CSV antes do envio.
 /// Vários arquivos sobem um por vez, cada um como uma importação separada.
 struct ImportView: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
     /// Conta já escolhida quando a importação parte da tela de uma conta.
     var initialAccountID: UUID?
     @Environment(\.dismiss) private var dismiss

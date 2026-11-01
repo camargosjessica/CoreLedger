@@ -4,7 +4,7 @@ import KausMedia
 /// Tela própria de cada conta ou cartão, aberta pela barra lateral: saldo ou
 /// fatura, resumo do mês, maiores categorias e os lançamentos do mês.
 struct AccountDetailView: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
     let accountID: UUID
 
     @State private var month = YearMonth(date: Date())
@@ -80,13 +80,13 @@ struct AccountDetailView: View {
         }
         .refreshable { await store.reload() }
         .sheet(item: $editing) { transaction in
-            EditTransactionSheet(store: store, transaction: transaction)
+            EditTransactionSheet(transaction: transaction)
         }
         .sheet(isPresented: $isEditingAccount) {
-            NavigationStack { AccountForm(store: store, account: account) }
+            NavigationStack { AccountForm(account: account) }
         }
         .sheet(isPresented: $isImporting) {
-            ImportView(store: store, initialAccountID: accountID)
+            ImportView(initialAccountID: accountID)
         }
     }
 

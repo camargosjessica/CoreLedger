@@ -2,7 +2,7 @@ import SwiftUI
 import KausMedia
 
 struct RuleForm: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
     let rule: CategoryRule?
     var presetCategory = ""
     @Environment(\.dismiss) private var dismiss

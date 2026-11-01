@@ -2,7 +2,7 @@ import SwiftUI
 import KausMedia
 
 struct AccountsView: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
     @State private var isAdding = false
     @State private var pendingDelete: AccountDTO?
     @State private var editing: AccountDTO?
@@ -52,7 +52,7 @@ struct AccountsView: View {
                         ForEach(group.accounts) { account in
                             NavigationLink {
                                 if let id = account.id {
-                                    AccountDetailView(store: store, accountID: id)
+                                    AccountDetailView(accountID: id)
                                 }
                             } label: {
                                 AccountCard(account: account)
@@ -76,10 +76,10 @@ struct AccountsView: View {
                 Button { isAdding = true } label: { Label("Nova conta", systemImage: "plus") }
             }
             .sheet(isPresented: $isAdding) {
-                NavigationStack { AccountForm(store: store, account: nil) }
+                NavigationStack { AccountForm(account: nil) }
             }
             .sheet(item: $editing) { account in
-                NavigationStack { AccountForm(store: store, account: account) }
+                NavigationStack { AccountForm(account: account) }
             }
             .confirmationDialog(
                 pendingDelete.map { "Apagar a conta \($0.name)?" } ?? "",
@@ -147,3 +147,9 @@ struct AccountGroup: Identifiable {
 
     var id: String { kind.rawValue }
 }
+
+#if DEBUG
+#Preview {
+    AccountsView().previewLedger()
+}
+#endif

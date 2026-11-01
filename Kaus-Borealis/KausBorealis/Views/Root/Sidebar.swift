@@ -33,12 +33,12 @@ struct SidebarBrand: View {
 
 /// Patrimônio sempre à vista no rodapé da barra lateral.
 struct SidebarNetWorth: View {
-    let store: LedgerStore
+    let accounts: [AccountDTO]
 
-    private var total: Money { store.accounts.all.reduce(0) { $0 + ($1.balance ?? 0) } }
+    private var total: Money { accounts.compactMap(\.balance).sum() }
 
     var body: some View {
-        if !store.accounts.all.isEmpty {
+        if !accounts.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Patrimônio")
                     .font(.caption)

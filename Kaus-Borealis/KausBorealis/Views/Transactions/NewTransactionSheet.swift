@@ -4,7 +4,7 @@ import KausMedia
 /// Lançamento manual. Com mais de uma parcela (ex.: IPTU em 10 vezes), gera uma
 /// linha por mês, cada uma com data e valor editáveis antes de salvar.
 struct NewTransactionSheet: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State private var form = NewTransactionForm()

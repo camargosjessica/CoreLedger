@@ -5,7 +5,7 @@ import KausMedia
 /// essencial, o limite, as subcategorias e as regras.
 struct CategoryCard: View {
     let parent: String
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
     let isExpanded: Bool
     let onToggle: () -> Void
     let onRename: (String) -> Void
@@ -92,7 +92,7 @@ struct CategoryCard: View {
                 sectionTitle("Regras")
                 ForEach(rules) { rule in
                     NavigationLink {
-                        RuleForm(store: store, rule: rule, presetCategory: rule.category)
+                        RuleForm(rule: rule, presetCategory: rule.category)
                     } label: {
                         RuleRow(rule: rule, parent: parent)
                     }

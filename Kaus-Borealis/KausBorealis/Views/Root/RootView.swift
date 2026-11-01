@@ -2,7 +2,11 @@ import SwiftUI
 import KausMedia
 
 struct RootView: View {
-    @State private var store = LedgerStore()
+    @State private var store: LedgerStore
+
+    init(store: LedgerStore? = nil) {
+        _store = State(initialValue: store ?? LedgerStore())
+    }
     @State private var selection: SidebarItem = .summary
     @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .system
     @AppStorage(AppAccent.storageKey) private var accent: AppAccent = .amber
@@ -23,19 +27,19 @@ struct RootView: View {
         // tem a sua entrada na barra lateral; no iPhone elas ficam em Contas.
         TabView(selection: $selection) {
             Tab("Resumo", systemImage: "sparkles", value: SidebarItem.summary) {
-                SummaryView(store: store)
+                SummaryView()
             }
             TabSection("Dia a dia") {
                 Tab("Lançamentos", systemImage: "list.bullet.rectangle.portrait.fill", value: SidebarItem.transactions) {
-                    TransactionsView(store: store)
+                    TransactionsView()
                 }
             }
             TabSection("Planejar") {
                 Tab("Análise", systemImage: "chart.bar.xaxis", value: SidebarItem.analysis) {
-                    AnalysisView(store: store)
+                    AnalysisView()
                 }
                 Tab("Plano", systemImage: "calendar", value: SidebarItem.plan) {
-                    PlanView(store: store)
+                    PlanView()
                 }
             }
             accountSection("Bancos", banks)
@@ -43,19 +47,20 @@ struct RootView: View {
             accountSection("Caixinhas", savings)
             TabSection("Configurar") {
                 Tab("Contas", systemImage: "creditcard.fill", value: SidebarItem.accounts) {
-                    AccountsView(store: store)
+                    AccountsView()
                 }
                 Tab("Regras", systemImage: "slider.horizontal.3", value: SidebarItem.rules) {
-                    RulesView(store: store)
+                    RulesView()
                 }
                 Tab("Ajustes", systemImage: "gearshape.fill", value: SidebarItem.settings) {
-                    SettingsView(store: store)
+                    SettingsView()
                 }
             }
         }
         .tabViewStyle(.sidebarAdaptable)
+        .environment(store)
         .tabViewSidebarHeader { SidebarBrand() }
-        .tabViewSidebarFooter { SidebarNetWorth(store: store) }
+        .tabViewSidebarFooter { SidebarNetWorth(accounts: store.accounts.all) }
         .tint(accent.color)
         .preferredColorScheme(appearance.colorScheme)
         .task { await store.reload() }
@@ -82,7 +87,7 @@ struct RootView: View {
             ForEach(accounts) { item in
                 Tab(item.account.name, systemImage: item.account.kind.symbol, value: SidebarItem.account(item.id)) {
                     NavigationStack {
-                        AccountDetailView(store: store, accountID: item.id)
+                        AccountDetailView(accountID: item.id)
                     }
                 }
                 .badge(Text(item.account.balance?.brl ?? ""))
@@ -103,3 +108,9 @@ enum SidebarItem: Hashable {
     case settings
     case account(UUID)
 }
+
+#if DEBUG
+#Preview {
+    RootView(store: .preview())
+}
+#endif
