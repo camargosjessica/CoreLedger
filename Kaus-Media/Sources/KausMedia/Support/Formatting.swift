@@ -2,21 +2,13 @@ import Foundation
 
 /// Formatação pt-BR fixa: o extrato é em reais independentemente do locale do
 /// aparelho, e o servidor (Linux, locale C) precisa produzir o mesmo texto.
+///
+/// Única fonte da formatação de dinheiro para o app e o servidor; datas são
+/// apresentação e ficam no app.
 extension Money {
+    /// "R$ 1.234,56" / "-R$ 80,00".
     public var brl: String {
         Formatters.currency.string(from: NSDecimalNumber(decimal: decimalValue)) ?? "R$ 0,00"
-    }
-}
-
-extension Date {
-    /// "Janeiro 2025"
-    public var monthYear: String {
-        Formatters.monthYear.string(from: self).capitalized
-    }
-
-    /// "15/01/2025"
-    public var shortDay: String {
-        Formatters.shortDay.string(from: self)
     }
 }
 
@@ -33,22 +25,6 @@ enum Formatters {
         formatter.decimalSeparator = ","
         formatter.minimumFractionDigits = 2
         formatter.maximumFractionDigits = 2
-        return formatter
-    }()
-
-    static let monthYear: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = ptBR
-        formatter.timeZone = LedgerCalendar.timeZone
-        formatter.setLocalizedDateFormatFromTemplate("MMMM yyyy")
-        return formatter
-    }()
-
-    static let shortDay: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = ptBR
-        formatter.timeZone = LedgerCalendar.timeZone
-        formatter.dateFormat = "dd/MM/yyyy"
         return formatter
     }()
 }

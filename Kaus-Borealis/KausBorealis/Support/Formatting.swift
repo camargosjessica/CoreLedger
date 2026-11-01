@@ -1,19 +1,13 @@
 import Foundation
 import KausMedia
 
-extension Double {
-    /// Valor em reais. Despesas chegam negativas do servidor.
-    var brl: String {
-        Formatters.currency.string(from: NSNumber(value: self)) ?? String(format: "%.2f", self)
-    }
-}
-
+/// Datas da interface em pt-BR e em UTC: o servidor envia o mês como
+/// meia-noite UTC, então formatar no fuso do aparelho faria o dia 1º cair
+/// no mês anterior. Dinheiro usa `Money.brl`, do Kaus-Media.
 extension Date {
-    /// "setembro de 2025" — o servidor envia o mês como meia-noite UTC, então a
-    /// formatação também é feita em UTC para não cair no mês anterior.
-    /// "Abril de 2027": só a primeira letra em maiúscula.
+    /// "Setembro de 2025": só a primeira letra em maiúscula.
     var monthYear: String {
-        let text = Formatters.monthYear.string(from: self)
+        let text = formatted(DateStyles.monthYear)
         return text.prefix(1).uppercased() + text.dropFirst()
     }
 
@@ -21,33 +15,31 @@ extension Date {
     var numericDay: String { DateParser.format(self) }
 
     /// "25 de set."
-    var shortDay: String { Formatters.shortDay.string(from: self) }
+    var shortDay: String { formatted(DateStyles.shortDay) }
 
     /// "set." — rótulo curto dos eixos dos gráficos.
-    var shortMonth: String { Formatters.shortMonth.string(from: self) }
+    var shortMonth: String { formatted(DateStyles.shortMonth) }
 
     /// "set. 25" — para eixos que podem atravessar anos.
-    var shortMonthYear: String { Formatters.shortMonthYear.string(from: self) }
+    var shortMonthYear: String { formatted(DateStyles.shortMonthYear) }
 }
 
-private enum Formatters {
-    static let currency: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.locale = Locale(identifier: "pt_BR")
-        return formatter
+/// Formatos fixos (não dependem das preferências do aparelho). Os
+/// `FormatStyle` são valores leves e fazem o cache internamente.
+enum DateStyles {
+    static let locale = Locale(identifier: "pt_BR")
+    static let calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = LedgerCalendar.timeZone
+        return calendar
     }()
 
-    static let monthYear = dateFormatter("MMMM 'de' yyyy")
-    static let shortDay = dateFormatter("d 'de' MMM")
-    static let shortMonth = dateFormatter("MMM")
-    static let shortMonthYear = dateFormatter("MMM yy")
-
-    private static func dateFormatter(_ format: String) -> DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "pt_BR")
-        formatter.timeZone = LedgerCalendar.timeZone
-        formatter.dateFormat = format
-        return formatter
+    private static func style(_ format: Date.FormatString) -> Date.VerbatimFormatStyle {
+        Date.VerbatimFormatStyle(format: format, locale: locale, timeZone: LedgerCalendar.timeZone, calendar: calendar)
     }
+
+    static let monthYear = style("\(month: .wide) de \(year: .defaultDigits)")
+    static let shortDay = style("\(day: .defaultDigits) de \(month: .abbreviated)")
+    static let shortMonth = style("\(month: .abbreviated)")
+    static let shortMonthYear = style("\(month: .abbreviated) \(year: .twoDigits)")
 }

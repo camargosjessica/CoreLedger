@@ -133,10 +133,4 @@ final class FormattingTests: XCTestCase {
     func testCurrencyIsAlwaysBrazilian() {
         XCTAssertEqual(Money(-1234.56).brl.replacingOccurrences(of: "\u{00A0}", with: " "), "-R$ 1.234,56")
     }
-
-    func testMonthYearUsesUTC() {
-        let date = DateParser.parse("01/01/2025")!
-        XCTAssertTrue(date.monthYear.contains("2025"))
-        XCTAssertEqual(date.shortDay, "01/01/2025")
-    }
 }
