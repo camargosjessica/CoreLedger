@@ -28,6 +28,8 @@ final class LedgerStore {
     }
 
     private(set) var isLoading = false
+    /// Resultado da última carga completa, para o indicador de conexão.
+    private(set) var isReachable = true
     var errorMessage: String?
     private var searchTerm = ""
 
@@ -204,6 +206,7 @@ final class LedgerStore {
             self.knownTags = planResponse.knownTags
             self.categoryCatalog = try await catalog
         }
+        isReachable = errorMessage == nil
         dataGeneration += 1
     }
 
@@ -272,6 +275,20 @@ final class LedgerStore {
         guard let id = account.id else { return }
         await run { _ = try await self.client.updateAccount(id: id, account) }
         await reload()
+    }
+
+    /// Lançamentos de uma conta num mês, sem mexer nos filtros da aba Lançamentos.
+    func transactions(of accountID: UUID, in month: YearMonth) async -> [TransactionDTO] {
+        var loaded: [TransactionDTO] = []
+        await run {
+            loaded = try await self.client.transactions(
+                accountID: accountID,
+                from: month.startDate,
+                to: LedgerCalendar.addingDays(-1, to: month.adding(months: 1).startDate),
+                limit: 1000
+            )
+        }
+        return loaded.sorted { $0.date > $1.date }
     }
 
     func deleteAccount(_ account: AccountDTO) async {

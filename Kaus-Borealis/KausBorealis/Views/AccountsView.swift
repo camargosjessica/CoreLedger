@@ -5,6 +5,7 @@ struct AccountsView: View {
     @Bindable var store: LedgerStore
     @State private var isAdding = false
     @State private var pendingDelete: AccountDTO?
+    @State private var editing: AccountDTO?
 
     private let columns = [GridItem(.adaptive(minimum: 240), spacing: 12, alignment: .top)]
 
@@ -50,12 +51,17 @@ struct AccountsView: View {
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(group.accounts) { account in
                             NavigationLink {
-                                AccountForm(store: store, account: account)
+                                if let id = account.id {
+                                    AccountDetailView(store: store, accountID: id)
+                                }
                             } label: {
                                 AccountCard(account: account)
                             }
                             .buttonStyle(.plain)
                             .contextMenu {
+                                Button("Editar conta", systemImage: "pencil") {
+                                    editing = account
+                                }
                                 Button("Apagar conta", systemImage: "trash", role: .destructive) {
                                     pendingDelete = account
                                 }
@@ -71,6 +77,9 @@ struct AccountsView: View {
             }
             .sheet(isPresented: $isAdding) {
                 NavigationStack { AccountForm(store: store, account: nil) }
+            }
+            .sheet(item: $editing) { account in
+                NavigationStack { AccountForm(store: store, account: account) }
             }
             .confirmationDialog(
                 pendingDelete.map { "Apagar a conta \($0.name)?" } ?? "",
@@ -175,7 +184,7 @@ private struct AccountCard: View {
     }
 }
 
-private struct AccountForm: View {
+struct AccountForm: View {
     @Bindable var store: LedgerStore
     let account: AccountDTO?
     @Environment(\.dismiss) private var dismiss
