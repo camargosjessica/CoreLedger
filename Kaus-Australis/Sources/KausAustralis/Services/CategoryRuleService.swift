@@ -3,7 +3,7 @@ import Vapor
 import KausMedia
 
 /// Monta o categorizador a partir das regras cadastradas.
-struct CategoryRuleService {
+struct CategoryRuleService: Sendable {
     let database: any Database
 
     func rules() async throws -> [CategoryRule] {

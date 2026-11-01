@@ -37,7 +37,7 @@ struct LabelController: RouteCollection {
         }
 
         // Renomear a categoria-mãe leva junto as subcategorias.
-        let renamed: (String) -> String? = { category in
+        let renamed: @Sendable (String) -> String? = { category in
             guard CategoryPath.isWithin(category, current) else { return nil }
             return name + category.dropFirst(current.count)
         }
