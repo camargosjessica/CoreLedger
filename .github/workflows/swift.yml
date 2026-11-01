@@ -18,6 +18,25 @@ jobs:
       fail-fast: false
       matrix:
         package: [Kaus-Media, Kaus-Australis]
+    # Postgres para os testes de integração do backend (Kaus-Australis).
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: kaus_user
+          POSTGRES_PASSWORD: kaus_password
+          POSTGRES_DB: kaus_test
+        options: >-
+          --health-cmd "pg_isready -U kaus_user -d kaus_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_HOST: postgres
+      DATABASE_USERNAME: kaus_user
+      DATABASE_PASSWORD: kaus_password
+      DATABASE_TEST_NAME: kaus_test
+      KAUS_INTEGRATION_TESTS: ${{ matrix.package == 'Kaus-Australis' && '1' || '0' }}
     steps:
     - uses: actions/checkout@v4
     - name: Build
