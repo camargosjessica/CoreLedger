@@ -3,11 +3,12 @@ import Foundation
 import SwiftUI
 import KausMedia
 
-/// Backend em memória para os `#Preview`: dados de exemplo, sem servidor.
-final class PreviewLedgerAPI: LedgerAPI {
-    private var accountsList: [AccountDTO]
-    private var transactionsList: [TransactionDTO]
-    private var rules: [CategoryRule]
+/// Backend em memória com dados de exemplo, sem servidor. Usado pelos
+/// `#Preview` e, especializado, pelos testes.
+class InMemoryLedgerAPI: LedgerAPI {
+    var accountsList: [AccountDTO]
+    var transactionsList: [TransactionDTO]
+    var rules: [CategoryRule]
 
     init() {
         let checking = UUID(), card = UUID(), savings = UUID()
@@ -159,7 +160,7 @@ final class PreviewLedgerAPI: LedgerAPI {
 extension LedgerStore {
     /// Store com dados de exemplo para os `#Preview`.
     static func preview() -> LedgerStore {
-        let api = PreviewLedgerAPI()
+        let api = InMemoryLedgerAPI()
         return LedgerStore(configuration: APIConfiguration(baseURL: APIConfiguration.defaultBaseURL)) { _ in api }
     }
 }

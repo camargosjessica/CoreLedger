@@ -112,19 +112,21 @@ final class TransactionsStore {
     /// A lista filtrada e as próximas parcelas.
     func reloadList() async {
         listTask?.cancel()
-        let task = Task { await fetchList() }
+        let task = Task { [query] in await fetchList(query) }
         listTask = task
         await task.value
     }
 
+    /// O filtro é capturado agora: a consulta reflete o estado do momento da
+    /// mudança, e uma consulta já cancelada nem chega a sair.
     private func scheduleListReload() {
         listTask?.cancel()
-        listTask = Task { await fetchList() }
+        listTask = Task { [query] in await fetchList(query) }
     }
 
-    private func fetchList() async {
-        let query = query
-        let accountID = session.selectedAccountID
+    private func fetchList(_ query: TransactionQuery) async {
+        guard !Task.isCancelled else { return }
+        let accountID = query.accountID
         await session.run {
             let api = session.api
             let today = LedgerCalendar.startOfDay(Date())
