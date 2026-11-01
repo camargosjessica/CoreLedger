@@ -1,32 +1,6 @@
 import Foundation
 import KausMedia
 
-/// Endereço e credencial do backend. Ajustáveis na aba Ajustes para quando o
-/// Vapor roda noutra porta ou noutra máquina da rede local.
-struct APIConfiguration: Equatable, Sendable {
-    var baseURL: URL
-    var token: String?
-
-    static let defaultBaseURL = URL(string: "http://127.0.0.1:8080")!
-
-    private enum Keys {
-        static let baseURL = "api.baseURL"
-        static let token = "api.token"
-    }
-
-    static func load(from defaults: UserDefaults = .standard) -> APIConfiguration {
-        APIConfiguration(
-            baseURL: defaults.string(forKey: Keys.baseURL).flatMap(URL.init(string:)) ?? defaultBaseURL,
-            token: defaults.string(forKey: Keys.token).flatMap { $0.isEmpty ? nil : $0 }
-        )
-    }
-
-    func save(to defaults: UserDefaults = .standard) {
-        defaults.set(baseURL.absoluteString, forKey: Keys.baseURL)
-        defaults.set(token ?? "", forKey: Keys.token)
-    }
-}
-
 enum APIError: LocalizedError {
     case invalidURL
     case unauthorized
