@@ -5,14 +5,6 @@ public enum SpendingGrouping: String, Codable, Sendable, CaseIterable {
     case category
     case subcategory
     case tag
-
-    public var title: String {
-        switch self {
-        case .category: return "Categoria"
-        case .subcategory: return "Subcategoria"
-        case .tag: return "Tag"
-        }
-    }
 }
 
 /// Quanto foi gasto num grupo (categoria ou tag), sempre positivo.

@@ -10,14 +10,6 @@ public struct RecurringCommitment: Codable, Sendable, Hashable, Identifiable {
         case income
         /// Sai da conta mas continua sendo seu: aporte em caixinha, tesouro direto.
         case saving
-
-        public var displayName: String {
-            switch self {
-            case .expense: return "Despesa"
-            case .income: return "Receita"
-            case .saving: return "Guardar"
-            }
-        }
     }
 
     public var id: UUID?

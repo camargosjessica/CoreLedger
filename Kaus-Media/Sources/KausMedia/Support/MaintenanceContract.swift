@@ -11,14 +11,6 @@ public enum ResetScope: String, Codable, Sendable, CaseIterable, Identifiable {
     case everything
 
     public var id: String { rawValue }
-
-    public var title: String {
-        switch self {
-        case .transactions: return "Lançamentos e importações"
-        case .accounts: return "Lançamentos e contas"
-        case .everything: return "Tudo, inclusive regras"
-        }
-    }
 }
 
 public struct ResetRequest: Codable, Sendable {

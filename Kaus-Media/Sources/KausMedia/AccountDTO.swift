@@ -12,16 +12,6 @@ public enum AccountKind: String, Codable, Sendable, CaseIterable {
 
     /// Contas cujo saldo é dinheiro guardado, não disponível para o dia a dia.
     public var isSavings: Bool { self == .savings || self == .investment }
-
-    public var displayName: String {
-        switch self {
-        case .checking: return "Conta corrente"
-        case .savings: return "Caixinha ou poupança"
-        case .creditCard: return "Cartão de crédito"
-        case .cash: return "Dinheiro"
-        case .investment: return "Investimento"
-        }
-    }
 }
 
 public struct AccountDTO: Codable, Sendable, Hashable, Identifiable {

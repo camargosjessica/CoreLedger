@@ -24,14 +24,6 @@ public enum PositionStatus: String, Codable, Sendable {
     case positive
     case even
     case negative
-
-    public var title: String {
-        switch self {
-        case .positive: return "Positiva"
-        case .even: return "Empatada"
-        case .negative: return "Negativa"
-        }
-    }
 }
 
 /// Fotografia do patrimônio: quanto está guardado em caixinhas e investimentos,
