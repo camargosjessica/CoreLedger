@@ -2,7 +2,7 @@ import SwiftUI
 import KausMedia
 
 struct SettingsView: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
 
     @State private var address = ""
     @State private var token = ""
@@ -174,3 +174,9 @@ struct SettingsView: View {
         )
     }
 }
+
+#if DEBUG
+#Preview {
+    SettingsView().previewLedger()
+}
+#endif

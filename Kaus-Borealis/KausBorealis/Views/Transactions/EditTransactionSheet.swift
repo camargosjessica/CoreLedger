@@ -3,7 +3,7 @@ import KausMedia
 
 /// Correção de um lançamento já gravado: categoria, descrição, valor, data e conta.
 struct EditTransactionSheet: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
     let transaction: TransactionDTO
     @Environment(\.dismiss) private var dismiss
 
@@ -16,8 +16,7 @@ struct EditTransactionSheet: View {
     @State private var note: String
     @State private var transferAccountID: UUID?
 
-    init(store: LedgerStore, transaction: TransactionDTO) {
-        self.store = store
+    init(transaction: TransactionDTO) {
         self.transaction = transaction
         _description = State(initialValue: transaction.description)
         _amount = State(initialValue: transaction.amount.description)

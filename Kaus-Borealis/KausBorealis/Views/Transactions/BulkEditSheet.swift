@@ -4,7 +4,7 @@ import KausMedia
 
 /// Mesma categoria e tags em vários lançamentos de uma vez.
 struct BulkEditSheet: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
     let transactions: [TransactionDTO]
     let onSaved: () -> Void
     @Environment(\.dismiss) private var dismiss

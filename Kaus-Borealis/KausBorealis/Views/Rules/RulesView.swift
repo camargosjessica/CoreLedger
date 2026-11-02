@@ -3,7 +3,7 @@ import KausMedia
 
 /// Categorias com subcategorias, preferências e as regras que as preenchem.
 struct RulesView: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
     @State private var newRuleCategory: NewRule?
     @State private var expanded: Set<String> = []
     @State private var recategorizeResult: Int?
@@ -69,7 +69,6 @@ struct RulesView: View {
                     ForEach(parents, id: \.self) { parent in
                         CategoryCard(
                             parent: parent,
-                            store: store,
                             isExpanded: expanded.contains(parent),
                             onToggle: {
                                 if expanded.contains(parent) { expanded.remove(parent) } else { expanded.insert(parent) }
@@ -95,7 +94,7 @@ struct RulesView: View {
                 Button { newRuleCategory = NewRule(category: "") } label: { Label("Nova regra", systemImage: "plus") }
             }
             .sheet(item: $newRuleCategory) { target in
-                NavigationStack { RuleForm(store: store, rule: nil, presetCategory: target.category) }
+                NavigationStack { RuleForm(rule: nil, presetCategory: target.category) }
             }
             .confirmationDialog(
                 pendingDeletion.map { "Apagar \($0)?" } ?? "",
@@ -183,3 +182,9 @@ extension RulesView {
         }
     }
 }
+
+#if DEBUG
+#Preview {
+    RulesView().previewLedger()
+}
+#endif

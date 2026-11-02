@@ -5,7 +5,7 @@ import KausMedia
 /// ano escolhido, com os valores realizados do extrato e os meses à frente
 /// preenchidos pelos compromissos.
 struct PlanView: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
 
     @State private var editing: RecurringCommitment?
     @State private var isCreating = false
@@ -106,10 +106,10 @@ struct PlanView: View {
             }
             .refreshable { await store.plan.reloadGrid() }
             .sheet(isPresented: $isCreating) {
-                CommitmentSheet(store: store, commitment: nil)
+                CommitmentSheet(commitment: nil)
             }
             .sheet(item: $editing) { commitment in
-                CommitmentSheet(store: store, commitment: commitment)
+                CommitmentSheet(commitment: commitment)
             }
         }
     }
@@ -119,3 +119,9 @@ struct PlanView: View {
         return Array((current - 1)...(current + 2))
     }
 }
+
+#if DEBUG
+#Preview {
+    PlanView().previewLedger()
+}
+#endif

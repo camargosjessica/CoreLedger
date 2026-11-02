@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 import KausMedia
 
 struct TransactionsView: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
     @State private var search = ""
     @State private var isAdding = false
     @State private var isImporting = false
@@ -108,8 +108,8 @@ struct TransactionsView: View {
             .refreshable { await store.reload() }
             .toolbar { toolbarContent }
             .safeAreaInset(edge: .bottom) { selectionBar }
-            .sheet(isPresented: $isAdding) { NewTransactionSheet(store: store) }
-            .sheet(isPresented: $isImporting) { ImportView(store: store) }
+            .sheet(isPresented: $isAdding) { NewTransactionSheet() }
+            .sheet(isPresented: $isImporting) { ImportView() }
             .fileExporter(
                 isPresented: $isExporting,
                 document: exportDocument,
@@ -119,10 +119,10 @@ struct TransactionsView: View {
                 if case let .failure(error) = result { store.errorMessage = error.localizedDescription }
             }
             .sheet(isPresented: $isBulkEditing) {
-                BulkEditSheet(store: store, transactions: selectedTransactions) { endSelection() }
+                BulkEditSheet(transactions: selectedTransactions) { endSelection() }
             }
             .sheet(item: $editing) { transaction in
-                EditTransactionSheet(store: store, transaction: transaction)
+                EditTransactionSheet(transaction: transaction)
             }
             .confirmationDialog(
                 "Apagar \(selection.count) lançamento(s)?",
@@ -147,7 +147,7 @@ struct TransactionsView: View {
 
     private var filters: some View {
         VStack(alignment: .leading, spacing: 12) {
-            PeriodFilter(store: store)
+            PeriodFilter()
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     FilterChip(
@@ -155,7 +155,7 @@ struct TransactionsView: View {
                         symbol: "building.columns",
                         isActive: store.selectedAccountID != nil
                     ) {
-                        Picker("Conta", selection: $store.selectedAccountID) {
+                        Picker("Conta", selection: Bindable(store).selectedAccountID) {
                             Text("Todas as contas").tag(UUID?.none)
                             ForEach(store.accounts.all) { account in
                                 Text(account.name).tag(account.id)
@@ -168,7 +168,7 @@ struct TransactionsView: View {
                         symbol: "tag",
                         isActive: store.transactions.selectedCategory != nil
                     ) {
-                        CategoryFilter(store: store)
+                        CategoryFilter()
                             .pickerStyle(.inline)
                     }
                 }
@@ -361,3 +361,9 @@ extension TransactionDTO {
         id?.uuidString ?? "\(date.timeIntervalSince1970)|\(description)|\(amount)"
     }
 }
+
+#if DEBUG
+#Preview {
+    TransactionsView().previewLedger()
+}
+#endif

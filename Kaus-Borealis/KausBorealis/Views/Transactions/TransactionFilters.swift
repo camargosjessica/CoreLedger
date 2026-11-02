@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 import KausMedia
 
 struct PeriodFilter: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
 
     var body: some View {
         VStack(spacing: 8) {
@@ -23,7 +23,7 @@ struct PeriodFilter: View {
 }
 
 struct CategoryFilter: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
 
     var body: some View {
         Picker("Categoria", selection: Bindable(store.transactions).selectedCategory) {

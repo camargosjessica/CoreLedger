@@ -5,7 +5,7 @@ import KausMedia
 /// Para onde foi o dinheiro: gasto de cada mês dividido por categoria ou tag e
 /// o ranking do ano, para um cartão, todos os cartões ou todas as contas.
 struct AnalysisView: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
     @State private var year = YearMonth(date: Date()).year
     @State private var grouping: SpendingGrouping = .category
     @State private var scope: Scope = .cards

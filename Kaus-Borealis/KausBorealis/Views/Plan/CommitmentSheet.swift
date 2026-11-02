@@ -4,7 +4,7 @@ import KausMedia
 /// Cadastro de um compromisso, incluindo os valores combinados mês a mês — o
 /// equivalente a digitar um número diferente numa coluna da planilha.
 struct CommitmentSheet: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
     let commitment: RecurringCommitment?
     @Environment(\.dismiss) private var dismiss
 
@@ -28,8 +28,7 @@ struct CommitmentSheet: View {
     @State private var changeMonth: YearMonth
     @State private var changeValue = ""
 
-    init(store: LedgerStore, commitment: RecurringCommitment?) {
-        self.store = store
+    init(commitment: RecurringCommitment?) {
         self.commitment = commitment
         let current = YearMonth(date: Date())
         _name = State(initialValue: commitment?.name ?? "")

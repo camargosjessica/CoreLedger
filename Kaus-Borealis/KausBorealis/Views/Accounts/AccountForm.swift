@@ -2,7 +2,7 @@ import SwiftUI
 import KausMedia
 
 struct AccountForm: View {
-    @Bindable var store: LedgerStore
+    @Environment(LedgerStore.self) private var store
     let account: AccountDTO?
     @Environment(\.dismiss) private var dismiss
 
