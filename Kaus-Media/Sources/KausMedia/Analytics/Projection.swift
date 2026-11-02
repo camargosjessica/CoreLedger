@@ -11,11 +11,11 @@ import Foundation
 public enum Projection {
     public struct Input: Sendable {
         public var date: Date
-        public var amount: Double
+        public var amount: Money
         public var category: String
         public var isProjected: Bool
 
-        public init(date: Date, amount: Double, category: String, isProjected: Bool) {
+        public init(date: Date, amount: Money, category: String, isProjected: Bool) {
             self.date = date
             self.amount = amount
             self.category = category
@@ -45,9 +45,9 @@ public enum Projection {
 
         let forecast: [MonthlySummary] = (1...forecastMonths).map { offset in
             let month = LedgerCalendar.addingMonths(offset, to: currentMonth)
-            var byCategory: [String: Double] = [:]
-            var committedExpenses: Double = 0
-            var committedIncome: Double = 0
+            var byCategory: [String: Money] = [:]
+            var committedExpenses: Money = 0
+            var committedIncome: Money = 0
 
             for input in committedByMonth[month] ?? [] {
                 byCategory[input.category, default: 0] += input.amount
@@ -70,7 +70,7 @@ public enum Projection {
     static func summarize(_ inputs: [Input]) -> [MonthlySummary] {
         Dictionary(grouping: inputs) { LedgerCalendar.startOfMonth($0.date) }
             .map { month, items in
-                var byCategory: [String: Double] = [:]
+                var byCategory: [String: Money] = [:]
                 for item in items { byCategory[item.category, default: 0] += item.amount }
                 return MonthlySummary(
                     month: month,

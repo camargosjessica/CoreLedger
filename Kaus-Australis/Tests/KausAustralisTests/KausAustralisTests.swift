@@ -112,7 +112,7 @@ final class ImportPlannerTests: XCTestCase {
 
     private let accountID = UUID()
 
-    private func transaction(_ description: String, _ amount: Double, _ date: String, projected: Bool = false) -> ImportedTransaction {
+    private func transaction(_ description: String, _ amount: Money, _ date: String, projected: Bool = false) -> ImportedTransaction {
         ImportedTransaction(
             date: DateParser.parse(date)!,
             description: description,

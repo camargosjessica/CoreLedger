@@ -12,8 +12,13 @@ final class CategoryLimitModel: Model, @unchecked Sendable {
     @Field(key: "category")
     var category: String
 
-    @Field(key: "monthly_limit")
-    var monthlyLimit: Double
+    @Field(key: "monthly_limit_cents")
+    var monthlyLimitCents: Int
+
+    var monthlyLimit: Money {
+        get { Money(cents: monthlyLimitCents) }
+        set { monthlyLimitCents = newValue.cents }
+    }
 
     init() { }
 

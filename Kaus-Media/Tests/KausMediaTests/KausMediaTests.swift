@@ -7,7 +7,7 @@ final class TransactionDTOTests: XCTestCase {
         // Arrange
         let expectedId = UUID()
         let expectedDescription = "Compra Mercado"
-        let expectedAmount = -150.50
+        let expectedAmount: Money = -150.50
         let expectedDate = Date()
         
         // Act

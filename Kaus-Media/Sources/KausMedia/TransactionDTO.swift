@@ -3,7 +3,7 @@ import Foundation
 public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID?
     public var description: String
-    public var amount: Double
+    public var amount: Money
     public var date: Date
     public var category: String?
     /// Conta à qual o lançamento pertence. `nil` mantém compatibilidade com os
@@ -29,7 +29,7 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
     public init(
         id: UUID? = nil,
         description: String,
-        amount: Double,
+        amount: Money,
         date: Date,
         category: String? = nil,
         accountID: UUID? = nil,
@@ -61,7 +61,7 @@ public struct TransactionDTO: Codable, Sendable, Hashable, Identifiable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(UUID.self, forKey: .id)
         description = try container.decode(String.self, forKey: .description)
-        amount = try container.decode(Double.self, forKey: .amount)
+        amount = try container.decode(Money.self, forKey: .amount)
         date = try container.decode(Date.self, forKey: .date)
         category = try container.decodeIfPresent(String.self, forKey: .category)
         accountID = try container.decodeIfPresent(UUID.self, forKey: .accountID)

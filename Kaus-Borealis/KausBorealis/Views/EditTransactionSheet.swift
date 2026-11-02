@@ -20,7 +20,7 @@ struct EditTransactionSheet: View {
         self.store = store
         self.transaction = transaction
         _description = State(initialValue: transaction.description)
-        _amount = State(initialValue: String(format: "%.2f", transaction.amount))
+        _amount = State(initialValue: transaction.amount.description)
         _date = State(initialValue: transaction.date)
         _accountID = State(initialValue: transaction.accountID)
         _category = State(initialValue: transaction.category ?? "")

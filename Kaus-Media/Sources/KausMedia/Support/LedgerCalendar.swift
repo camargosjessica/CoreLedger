@@ -48,9 +48,3 @@ public enum LedgerCalendar {
     }()
 }
 
-extension Double {
-    /// Valor em centavos, para comparações exatas (chave de deduplicação, somas de parcelas).
-    public var centsValue: Int {
-        Int((self * 100).rounded())
-    }
-}

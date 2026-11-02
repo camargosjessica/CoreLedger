@@ -19,8 +19,13 @@ final class RecurringCommitmentModel: Model, @unchecked Sendable {
     @Field(key: "kind")
     var kind: String
 
-    @Field(key: "amount")
-    var amount: Double
+    @Field(key: "amount_cents")
+    var amountCents: Int
+
+    var amount: Money {
+        get { Money(cents: amountCents) }
+        set { amountCents = newValue.cents }
+    }
 
     @Field(key: "day_of_month")
     var dayOfMonth: Int
@@ -41,11 +46,11 @@ final class RecurringCommitmentModel: Model, @unchecked Sendable {
 
     /// Valores que divergem do padrão, por mês (`YYYY-MM` -> valor).
     @Field(key: "overrides")
-    var overrides: [String: Double]
+    var overrides: [String: Money]
 
     /// Reajustes permanentes, por mês de início (`YYYY-MM` -> valor).
     @Field(key: "price_changes")
-    var priceChanges: [String: Double]
+    var priceChanges: [String: Money]
 
     @OptionalParent(key: "account_id")
     var account: AccountModel?

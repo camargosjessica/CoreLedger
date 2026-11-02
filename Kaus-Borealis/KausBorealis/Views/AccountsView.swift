@@ -16,7 +16,7 @@ struct AccountsView: View {
         }
     }
 
-    private func total(_ kind: AccountGroup.Kind) -> Double {
+    private func total(_ kind: AccountGroup.Kind) -> Money {
         store.accounts.filter { kind.contains($0.kind) }.reduce(0) { $0 + ($1.balance ?? 0) }
     }
 

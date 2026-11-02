@@ -14,12 +14,12 @@ final class ImportBatchModel: Model, @unchecked Sendable {
     struct ConfirmationSnapshot: Codable, Sendable {
         var transactionID: UUID
         var date: Date
-        var amount: Double
+        var amount: Money
         var externalID: String?
         /// Lote que havia criado a projeção; ao desfazer, ela volta a pertencer a ele.
         var previousBatchID: UUID?
         var confirmedDate: Date?
-        var confirmedAmount: Double?
+        var confirmedAmount: Money?
     }
 
     @ID(key: .id)

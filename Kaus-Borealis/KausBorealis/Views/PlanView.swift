@@ -195,7 +195,7 @@ private struct PlanGrid: View {
         }
     }
 
-    private func totalsRow(_ title: String, values: [Double]) -> some View {
+    private func totalsRow(_ title: String, values: [Money]) -> some View {
         HStack(spacing: 0) {
             Text(title)
                 .frame(width: labelWidth, alignment: .leading)
@@ -279,8 +279,8 @@ private struct CommitmentSheet: View {
     @State private var end: YearMonth
     @State private var tags: [String]
     @State private var isEnabled: Bool
-    @State private var overrides: [String: Double]
-    @State private var priceChanges: [String: Double]
+    @State private var overrides: [String: Money]
+    @State private var priceChanges: [String: Money]
     @State private var accountID: UUID?
     @State private var notes: String
 
@@ -296,7 +296,7 @@ private struct CommitmentSheet: View {
         _name = State(initialValue: commitment?.name ?? "")
         _category = State(initialValue: commitment?.category ?? "")
         _kind = State(initialValue: commitment?.kind ?? .expense)
-        _amount = State(initialValue: commitment.map { String(format: "%.2f", $0.amount) } ?? "")
+        _amount = State(initialValue: commitment.map { $0.amount.description } ?? "")
         _dayOfMonth = State(initialValue: commitment?.dayOfMonth ?? 1)
         _start = State(initialValue: commitment?.start ?? current)
         _hasEnd = State(initialValue: commitment?.end != nil)
@@ -421,11 +421,11 @@ private struct CommitmentSheet: View {
         }
     }
 
-    private var sortedPriceChanges: [(key: String, value: Double)] {
+    private var sortedPriceChanges: [(key: String, value: Money)] {
         priceChanges.sorted { $0.key < $1.key }.map { (key: $0.key, value: $0.value) }
     }
 
-    private var sortedOverrides: [(key: String, value: Double)] {
+    private var sortedOverrides: [(key: String, value: Money)] {
         overrides.sorted { $0.key < $1.key }.map { (key: $0.key, value: $0.value) }
     }
 

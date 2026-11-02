@@ -11,12 +11,12 @@ public enum DedupKey {
         accountID: UUID?,
         date: Date,
         description: String,
-        amount: Double,
+        amount: Money,
         installment: Installment? = nil,
         externalID: String? = nil
     ) -> String {
         let account = accountID?.uuidString.lowercased() ?? "-"
-        let cents = amount.centsValue
+        let cents = amount.cents
 
         // Parcela: a chave ignora o dia, porque a mesma parcela pode ser projetada
         // para o dia 10 e cair de fato no dia 12. Mês, valor e posição da parcela

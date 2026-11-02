@@ -81,7 +81,7 @@ struct RulesView: View {
                             onDelete: { pendingDeletion = $0 },
                             onSetLimit: { category in
                                 limitText = store.limit(for: category)
-                                    .map { String(format: "%.2f", $0).replacingOccurrences(of: ".", with: ",") } ?? ""
+                                    .map { $0.description.replacingOccurrences(of: ".", with: ",") } ?? ""
                                 limitTarget = category
                             },
                             onNewRule: { newRuleCategory = NewRule(category: parent) }
@@ -146,7 +146,7 @@ extension RulesView {
         Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })
     }
 
-    private func saveLimit(_ value: Double?) {
+    private func saveLimit(_ value: Money?) {
         guard let category = limitTarget else { return }
         limitTarget = nil
         Task { await store.setLimit(value, for: category) }

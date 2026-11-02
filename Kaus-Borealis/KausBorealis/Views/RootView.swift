@@ -138,7 +138,7 @@ private struct SidebarBrand: View {
 private struct SidebarNetWorth: View {
     let store: LedgerStore
 
-    private var total: Double { store.accounts.reduce(0) { $0 + ($1.balance ?? 0) } }
+    private var total: Money { store.accounts.reduce(0) { $0 + ($1.balance ?? 0) } }
 
     var body: some View {
         if !store.accounts.isEmpty {

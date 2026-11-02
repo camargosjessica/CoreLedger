@@ -12,7 +12,7 @@ public enum TransactionCSV {
                 transaction.description,
                 transaction.category ?? "",
                 transaction.tags.joined(separator: ", "),
-                String(format: "%.2f", transaction.amount).replacingOccurrences(of: ".", with: ","),
+                transaction.amount.description.replacingOccurrences(of: ".", with: ","),
                 transaction.isProjected ? "Previsto" : "Realizado",
                 transaction.note ?? "",
             ]

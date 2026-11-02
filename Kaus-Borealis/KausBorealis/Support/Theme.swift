@@ -258,7 +258,7 @@ struct DeltaPill: View {
     }
 }
 
-extension Double {
+extension Money {
     /// Valor com sinal explícito, para variações.
     var signedBRL: String { self > 0 ? "+\(brl)" : brl }
 }
@@ -359,7 +359,7 @@ struct CardScreen<Content: View>: View {
 /// e uma nota opcional embaixo.
 struct MetricTile: View {
     let title: String
-    let value: Double
+    let value: Money
     let symbol: String
     let color: Color
     var valueColor: Color = .primary

@@ -6,11 +6,11 @@ public struct AccountPosition: Codable, Sendable, Hashable, Identifiable {
     public var name: String
     public var kind: AccountKind
     /// Saldo realizado: parcelas projetadas não entram.
-    public var balance: Double
+    public var balance: Money
 
     public var id: String { accountID?.uuidString ?? name }
 
-    public init(accountID: UUID?, name: String, kind: AccountKind, balance: Double) {
+    public init(accountID: UUID?, name: String, kind: AccountKind, balance: Money) {
         self.accountID = accountID
         self.name = name
         self.kind = kind
@@ -38,18 +38,18 @@ public enum PositionStatus: String, Codable, Sendable {
 /// quanto está disponível em conta e quanto ainda se deve no cartão.
 public struct FinancialPosition: Codable, Sendable, Hashable {
     /// Contas correntes e dinheiro.
-    public var available: Double
+    public var available: Money
     /// Poupanças (caixinhas) e investimentos.
-    public var saved: Double
+    public var saved: Money
     /// Dívida do cartão em aberto, sempre positiva.
-    public var creditCardDebt: Double
+    public var creditCardDebt: Money
     /// Parcelas futuras já contratadas e ainda não confirmadas pela fatura,
     /// sempre positiva. Fica fora do líquido: ainda não é dívida realizada.
-    public var upcomingInstallments: Double
+    public var upcomingInstallments: Money
     public var accounts: [AccountPosition]
 
     /// Disponível + guardado − cartão.
-    public var net: Double { available + saved - creditCardDebt }
+    public var net: Money { available + saved - creditCardDebt }
 
     /// Empatada quando a diferença é menor que um centavo, para que ruído de
     /// ponto flutuante não vire "negativa por R$ 0,001".
@@ -60,10 +60,10 @@ public struct FinancialPosition: Codable, Sendable, Hashable {
     }
 
     public init(
-        available: Double = 0,
-        saved: Double = 0,
-        creditCardDebt: Double = 0,
-        upcomingInstallments: Double = 0,
+        available: Money = 0,
+        saved: Money = 0,
+        creditCardDebt: Money = 0,
+        upcomingInstallments: Money = 0,
         accounts: [AccountPosition] = []
     ) {
         self.available = available
@@ -77,11 +77,11 @@ public struct FinancialPosition: Codable, Sendable, Hashable {
     /// as parcelas projetadas não compõem o saldo de nenhuma conta.
     public static func make(
         accounts: [AccountPosition],
-        upcomingInstallments: Double = 0
+        upcomingInstallments: Money = 0
     ) -> FinancialPosition {
-        var available: Double = 0
-        var saved: Double = 0
-        var debt: Double = 0
+        var available: Money = 0
+        var saved: Money = 0
+        var debt: Money = 0
 
         for account in accounts {
             switch account.kind {
@@ -101,7 +101,7 @@ public struct FinancialPosition: Codable, Sendable, Hashable {
             available: available,
             saved: saved,
             creditCardDebt: debt,
-            upcomingInstallments: abs(upcomingInstallments),
+            upcomingInstallments: upcomingInstallments.magnitude,
             accounts: accounts.sorted { $0.name < $1.name }
         )
     }

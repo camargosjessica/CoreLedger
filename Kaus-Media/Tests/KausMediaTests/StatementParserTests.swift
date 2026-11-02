@@ -20,8 +20,8 @@ final class StatementParserTests: XCTestCase {
         XCTAssertEqual(result.transactions.count, 2)
         XCTAssertEqual(result.transactions[0].date, day("15/01/2025"))
         XCTAssertEqual(result.transactions[0].description, "SUPERMERCADO BOM PRECO")
-        XCTAssertEqual(result.transactions[0].amount, -1234.56, accuracy: 0.001)
-        XCTAssertEqual(result.transactions[1].amount, 4200, accuracy: 0.001)
+        XCTAssertEqual(result.transactions[0].amount, -1234.56)
+        XCTAssertEqual(result.transactions[1].amount, 4200)
     }
 
     func testCSVQuotedFieldWithSeparatorAndEmbeddedNewline() {
@@ -32,7 +32,7 @@ final class StatementParserTests: XCTestCase {
 
         XCTAssertEqual(result.transactions.count, 1)
         XCTAssertEqual(result.transactions[0].description, "PADARIA; FILIAL\nCENTRO")
-        XCTAssertEqual(result.transactions[0].amount, -18.90, accuracy: 0.001)
+        XCTAssertEqual(result.transactions[0].amount, -18.90)
     }
 
     func testCSVEscapedQuotes() {
@@ -53,8 +53,8 @@ final class StatementParserTests: XCTestCase {
         let result = StatementParser.parse(content: csv)
 
         XCTAssertEqual(result.transactions.count, 2)
-        XCTAssertEqual(result.transactions[0].amount, -80, accuracy: 0.001)
-        XCTAssertEqual(result.transactions[1].amount, 500, accuracy: 0.001)
+        XCTAssertEqual(result.transactions[0].amount, -80)
+        XCTAssertEqual(result.transactions[1].amount, 500)
     }
 
     func testCSVWithoutHeader_FallsBackToPositionalColumns() {
@@ -109,7 +109,7 @@ final class StatementParserTests: XCTestCase {
         XCTAssertTrue(result.failures.isEmpty)
         XCTAssertEqual(result.transactions.count, 2)
         XCTAssertEqual(result.transactions[0].externalID, "202501150001")
-        XCTAssertEqual(result.transactions[0].amount, -1234.56, accuracy: 0.001)
+        XCTAssertEqual(result.transactions[0].amount, -1234.56)
         XCTAssertEqual(result.transactions[0].date, day("15/01/2025"))
         XCTAssertEqual(result.transactions[1].description, "SALARIO")
     }
@@ -140,7 +140,7 @@ final class StatementParserTests: XCTestCase {
         XCTAssertEqual(result.transactions.count, 2)
         XCTAssertEqual(result.transactions[0].description, "PAGAMENTO ALUGUEL")
         XCTAssertEqual(result.transactions[1].externalID, "202501160002")
-        XCTAssertEqual(result.transactions[1].amount, 4200, accuracy: 0.001)
+        XCTAssertEqual(result.transactions[1].amount, 4200)
     }
 
     /// Sem o `format`, um OFX com nome de arquivo enganoso seria lido como CSV.
@@ -166,7 +166,7 @@ final class StatementParserTests: XCTestCase {
         XCTAssertTrue(result.failures.isEmpty)
         XCTAssertEqual(result.transactions.count, 2)
         XCTAssertEqual(result.transactions[0].description, "MERCADO, PADARIA, ACOUGUE, FEIRA")
-        XCTAssertEqual(result.transactions[0].amount, -250, accuracy: 0.001)
+        XCTAssertEqual(result.transactions[0].amount, -250)
     }
 
     func testFormatDetectionWithoutFilename() {
@@ -185,13 +185,13 @@ final class StatementParserTests: XCTestCase {
 
 final class ValueParserTests: XCTestCase {
     func testBrazilianAndEnglishFormats() {
-        XCTAssertEqual(ValueParser.parse("1.234,56")!, 1234.56, accuracy: 0.001)
-        XCTAssertEqual(ValueParser.parse("1,234.56")!, 1234.56, accuracy: 0.001)
-        XCTAssertEqual(ValueParser.parse("R$ -80,00")!, -80, accuracy: 0.001)
-        XCTAssertEqual(ValueParser.parse("(80,00)")!, -80, accuracy: 0.001)
-        XCTAssertEqual(ValueParser.parse("80,00 D")!, -80, accuracy: 0.001)
-        XCTAssertEqual(ValueParser.parse("80,00 C")!, 80, accuracy: 0.001)
-        XCTAssertEqual(ValueParser.parse("-0.5")!, -0.5, accuracy: 0.001)
+        XCTAssertEqual(ValueParser.parse("1.234,56")!, 1234.56)
+        XCTAssertEqual(ValueParser.parse("1,234.56")!, 1234.56)
+        XCTAssertEqual(ValueParser.parse("R$ -80,00")!, -80)
+        XCTAssertEqual(ValueParser.parse("(80,00)")!, -80)
+        XCTAssertEqual(ValueParser.parse("80,00 D")!, -80)
+        XCTAssertEqual(ValueParser.parse("80,00 C")!, 80)
+        XCTAssertEqual(ValueParser.parse("-0.5")!, -0.5)
     }
 
     func testRejectsNonNumericText() {

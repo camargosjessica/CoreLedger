@@ -246,12 +246,12 @@ final class LedgerStore {
 
     // MARK: Limites
 
-    func limit(for category: String) -> Double? {
+    func limit(for category: String) -> Money? {
         limits.first { $0.category == category }?.monthlyLimit
     }
 
     /// Valor `nil` ou zero remove o limite da categoria.
-    func setLimit(_ monthlyLimit: Double?, for category: String) async {
+    func setLimit(_ monthlyLimit: Money?, for category: String) async {
         await run {
             if let monthlyLimit, monthlyLimit > 0 {
                 _ = try await self.client.saveLimit(CategoryLimit(category: category, monthlyLimit: monthlyLimit))
@@ -511,7 +511,7 @@ final class LedgerStore {
         return response
     }
 
-    func preview(description: String, amount: Double, rule: CategoryRule?) async -> CategoryPreviewResponse? {
+    func preview(description: String, amount: Money, rule: CategoryRule?) async -> CategoryPreviewResponse? {
         var response: CategoryPreviewResponse?
         await run {
             response = try await self.client.preview(

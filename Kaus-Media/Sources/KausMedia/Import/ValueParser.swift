@@ -5,7 +5,7 @@ import Foundation
 /// Cobre `1.234,56` (Brasil), `1,234.56` (inglês), `R$ -80,00`, `(80,00)`,
 /// `80,00 D` / `80,00 C` e `-80.00`.
 public enum ValueParser {
-    public static func parse(_ raw: String) -> Double? {
+    public static func parse(_ raw: String) -> Money? {
         var text = raw.trimmed().uppercased()
         guard !text.isEmpty else { return nil }
 
@@ -40,7 +40,7 @@ public enum ValueParser {
         guard text.allSatisfy({ $0.isNumber || $0 == "." || $0 == "," }) else { return nil }
 
         let normalized = normalizeSeparators(text)
-        guard let value = Double(normalized) else { return nil }
+        guard let value = Money(decimalString: normalized) else { return nil }
         return isNegative ? -value : value
     }
 

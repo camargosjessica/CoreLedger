@@ -21,14 +21,14 @@ struct AccountDetailView: View {
     private var isCard: Bool { account?.kind == .creditCard }
 
     private var effective: [TransactionDTO] { transactions.filter { !$0.isProjected } }
-    private var income: Double { effective.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount } }
-    private var expenses: Double { effective.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount } }
-    private var invoice: Double { -transactions.reduce(0) { $0 + $1.amount } }
-    private var installments: Double {
+    private var income: Money { effective.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount } }
+    private var expenses: Money { effective.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount } }
+    private var invoice: Money { -transactions.reduce(0) { $0 + $1.amount } }
+    private var installments: Money {
         -transactions.filter { $0.installment != nil }.reduce(0) { $0 + $1.amount }
     }
 
-    private var topCategories: [(category: String, total: Double)] {
+    private var topCategories: [(category: String, total: Money)] {
         Dictionary(grouping: transactions.filter { $0.amount < 0 && $0.transferAccountID == nil }) {
             CategoryPath.parent(of: $0.category ?? CategoryRule.uncategorizedDebit)
         }
@@ -234,7 +234,7 @@ private struct AccountHero: View {
     let account: AccountDTO
 
     private var tint: Color { account.kind.tint }
-    private var balance: Double { account.balance ?? 0 }
+    private var balance: Money { account.balance ?? 0 }
 
     var body: some View {
         ZStack(alignment: .topLeading) {

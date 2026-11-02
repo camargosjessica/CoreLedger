@@ -24,7 +24,7 @@ final class CategoryPathTests: XCTestCase {
             limits: [CategoryLimit(category: "Moradia", monthlyLimit: 1000)],
             totalsByCategory: ["Moradia › Energia": -300, "Moradia › Condomínio": -600, "Lazer": -50]
         )
-        XCTAssertEqual(statuses[0].spent, 900, accuracy: 0.001)
+        XCTAssertEqual(statuses[0].spent, 900)
     }
 
     func testSpendingGroupsByParentOrSubcategory() {
@@ -53,7 +53,7 @@ final class CategoryPathTests: XCTestCase {
             essentialCategories: ["Moradia"],
             reference: reference
         )
-        XCTAssertEqual(plan.totals[2].essentialExpenses, -150, accuracy: 0.001)
+        XCTAssertEqual(plan.totals[2].essentialExpenses, -150)
         XCTAssertTrue(plan.expenseRows.first { $0.category == "Moradia › Energia" }?.isEssential ?? false)
         XCTAssertFalse(plan.expenseRows.first { $0.category == "Lazer" }?.isEssential ?? true)
     }

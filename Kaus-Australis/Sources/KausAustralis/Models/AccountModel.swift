@@ -34,7 +34,7 @@ extension AccountModel {
         AccountKind(rawValue: kind) ?? .checking
     }
 
-    func toDTO(transactionCount: Int? = nil, balance: Double? = nil) -> AccountDTO {
+    func toDTO(transactionCount: Int? = nil, balance: Money? = nil) -> AccountDTO {
         AccountDTO(
             id: id,
             name: name,

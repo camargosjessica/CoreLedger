@@ -112,7 +112,7 @@ struct PlanController: RouteCollection {
         guard !commitment.category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw Abort(.badRequest, reason: "A categoria é obrigatória")
         }
-        guard commitment.amount.isFinite, commitment.amount >= 0 else {
+        guard commitment.amount >= 0 else {
             throw Abort(.badRequest, reason: "Valor inválido")
         }
         if let end = commitment.end, end < commitment.start {
@@ -122,7 +122,7 @@ struct PlanController: RouteCollection {
             guard YearMonth(month) != nil else {
                 throw Abort(.badRequest, reason: "Mês inválido em valores por mês: \(month)")
             }
-            guard value.isFinite, value >= 0 else {
+            guard value >= 0 else {
                 throw Abort(.badRequest, reason: "Valor inválido para \(month)")
             }
         }
@@ -130,7 +130,7 @@ struct PlanController: RouteCollection {
             guard YearMonth(month) != nil else {
                 throw Abort(.badRequest, reason: "Mês inválido em reajustes: \(month)")
             }
-            guard value.isFinite, value >= 0 else {
+            guard value >= 0 else {
                 throw Abort(.badRequest, reason: "Valor inválido para o reajuste de \(month)")
             }
         }
@@ -156,5 +156,5 @@ struct PlanQuery: Content {
     var from: String?
     var to: String?
     /// Saldo de partida do acumulado — por padrão a grade começa do zero.
-    var openingBalance: Double?
+    var openingBalance: Money?
 }
