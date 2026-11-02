@@ -7,7 +7,7 @@ final class CategoryLimitTests: XCTestCase {
             limits: [
                 CategoryLimit(category: "Mercado", monthlyLimit: 1000),
                 CategoryLimit(category: "Lazer", monthlyLimit: 200),
-                CategoryLimit(category: "Saúde", monthlyLimit: 500)
+                CategoryLimit(category: "Saúde", monthlyLimit: 500),
             ],
             totalsByCategory: ["Mercado": -850, "Lazer": -250, "Saúde": -100]
         )
@@ -23,7 +23,7 @@ final class CategoryLimitTests: XCTestCase {
         let statuses = CategoryLimitStatus.evaluate(
             limits: [
                 CategoryLimit(category: "Compras", monthlyLimit: 300),
-                CategoryLimit(category: "Viagem", monthlyLimit: 300)
+                CategoryLimit(category: "Viagem", monthlyLimit: 300),
             ],
             totalsByCategory: ["Compras": -120, "Viagem": 80]
         )
@@ -36,7 +36,7 @@ final class CategoryLimitTests: XCTestCase {
         let statuses = CategoryLimitStatus.evaluate(
             limits: [
                 CategoryLimit(category: "Pets", monthlyLimit: 150),
-                CategoryLimit(category: "Nada", monthlyLimit: 0)
+                CategoryLimit(category: "Nada", monthlyLimit: 0),
             ],
             totalsByCategory: [:]
         )

@@ -58,9 +58,11 @@ public struct CategoryLimitStatus: Sendable, Hashable, Identifiable {
                 CategoryLimitStatus(
                     category: limit.category,
                     limit: limit.monthlyLimit,
-                    spent: max(0, -totalsByCategory.reduce(0) { sum, entry in
-                        CategoryPath.isWithin(entry.key, limit.category) ? sum + entry.value : sum
-                    })
+                    spent: max(
+                        0,
+                        -totalsByCategory.reduce(0) { sum, entry in
+                            CategoryPath.isWithin(entry.key, limit.category) ? sum + entry.value : sum
+                        })
                 )
             }
             .sorted { lhs, rhs in

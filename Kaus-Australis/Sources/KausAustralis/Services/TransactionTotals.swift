@@ -44,7 +44,8 @@ struct TransactionTotals {
     }
 
     func byAccount() async throws -> [UUID?: AccountTotals] {
-        let rows = try await sql.raw("""
+        let rows = try await sql.raw(
+            """
             SELECT account_id,
                    is_projected,
                    amount_cents < 0 AS is_negative,
@@ -52,7 +53,8 @@ struct TransactionTotals {
                    COALESCE(SUM(amount_cents), 0)::bigint AS total
             FROM transactions
             GROUP BY account_id, is_projected, amount_cents < 0
-            """).all(decoding: AccountRow.self)
+            """
+        ).all(decoding: AccountRow.self)
 
         var result: [UUID?: AccountTotals] = [:]
         for row in rows {
@@ -85,7 +87,8 @@ struct TransactionTotals {
     /// projeção, que classifica cada lançamento como receita ou despesa
     /// pelo sinal antes de somar.
     func monthlyInputs(accountID: UUID?, excludingCounterparts: Bool) async throws -> [Projection.Input] {
-        let rows = try await sql.raw("""
+        let rows = try await sql.raw(
+            """
             SELECT (date_trunc('month', date AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS month,
                    category,
                    is_projected,
@@ -94,7 +97,8 @@ struct TransactionTotals {
             WHERE (\(bind: accountID)::uuid IS NULL OR account_id = \(bind: accountID)::uuid)
               AND (NOT \(bind: excludingCounterparts) OR transfer_source_id IS NULL)
             GROUP BY 1, category, is_projected, amount_cents > 0
-            """).all(decoding: MonthlyRow.self)
+            """
+        ).all(decoding: MonthlyRow.self)
 
         return rows.map {
             Projection.Input(
@@ -116,12 +120,14 @@ struct TransactionTotals {
     /// Quantidade de lançamentos de cada importação, numa única consulta.
     func countByBatch(_ batchIDs: [UUID]) async throws -> [UUID: Int] {
         guard !batchIDs.isEmpty else { return [:] }
-        let rows = try await sql.raw("""
+        let rows = try await sql.raw(
+            """
             SELECT import_batch_id, COUNT(*)::bigint AS count
             FROM transactions
             WHERE import_batch_id = ANY(\(bind: batchIDs))
             GROUP BY import_batch_id
-            """).all(decoding: BatchRow.self)
+            """
+        ).all(decoding: BatchRow.self)
         return Dictionary(uniqueKeysWithValues: rows.map { ($0.import_batch_id, $0.count) })
     }
 }

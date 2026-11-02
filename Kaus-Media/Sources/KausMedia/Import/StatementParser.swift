@@ -43,7 +43,9 @@ public enum StatementParser {
         let content = content.components(separatedBy: .newlines).joined(separator: "\n")
         let blocks = transactionBlocks(in: content)
         if blocks.isEmpty {
-            return ParsedStatement(failures: [ImportFailure(line: 0, content: "", reason: "Nenhuma transação (<STMTTRN>) encontrada no arquivo OFX")])
+            return ParsedStatement(failures: [
+                ImportFailure(line: 0, content: "", reason: "Nenhuma transação (<STMTTRN>) encontrada no arquivo OFX")
+            ])
         }
 
         for (index, block) in blocks.enumerated() {
@@ -101,8 +103,8 @@ public enum StatementParser {
     private static func tag(_ name: String, in block: String) -> String? {
         let pattern = "<\(name)>([^<\r\n]*)"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
-              let match = regex.firstMatch(in: block, range: NSRange(block.startIndex..., in: block)),
-              let range = Range(match.range(at: 1), in: block)
+            let match = regex.firstMatch(in: block, range: NSRange(block.startIndex..., in: block)),
+            let range = Range(match.range(at: 1), in: block)
         else { return nil }
         let value = String(block[range]).trimmed()
         return value.isEmpty ? nil : value

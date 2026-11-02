@@ -82,7 +82,9 @@ struct ThemeTile: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(isSelected ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Palette.hairline), lineWidth: isSelected ? 2 : 1)
+                            .strokeBorder(
+                                isSelected ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Palette.hairline),
+                                lineWidth: isSelected ? 2 : 1)
                     )
                 HStack(spacing: 4) {
                     if isSelected {

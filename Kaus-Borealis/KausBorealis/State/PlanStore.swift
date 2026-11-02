@@ -53,7 +53,8 @@ final class PlanStore {
     }
 
     private func fetchGrid() async {
-        let start = start, end = end
+        let start = start
+        let end = end
         await session.run {
             let response = try await session.api.plan(from: start, to: end, openingBalance: nil)
             try Task.checkCancellation()

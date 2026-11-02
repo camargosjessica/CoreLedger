@@ -25,7 +25,7 @@ struct CategoryStyle {
         (["roupa", "vestu", "compras", "shopping", "shopee"], "bag.fill", .pink),
         (["pet", "veterin"], "pawprint.fill", .orange),
         (["imposto", "taxa", "tarifa", "iof"], "building.columns.fill", .gray),
-        (["pix", "transfer", "ted"], "arrow.left.arrow.right", .gray)
+        (["pix", "transfer", "ted"], "arrow.left.arrow.right", .gray),
     ]
 
     private static let palette: [Color] = [.orange, .green, .blue, .purple, .pink, .teal, .indigo, .mint, .cyan, .red]
@@ -67,13 +67,15 @@ extension Color {
     /// Cor que troca sozinha entre o modo claro e o escuro.
     static func adaptive(light: Color, dark: Color) -> Color {
         #if os(macOS)
-        Color(nsColor: NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(dark) : NSColor(light)
-        })
+            Color(
+                nsColor: NSColor(name: nil) { appearance in
+                    appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(dark) : NSColor(light)
+                })
         #else
-        Color(uiColor: UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)
-        })
+            Color(
+                uiColor: UIColor { traits in
+                    traits.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)
+                })
         #endif
     }
 

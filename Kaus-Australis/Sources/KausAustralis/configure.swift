@@ -5,13 +5,15 @@ import Vapor
 
 func configure(_ app: Application) async throws {
     let hostname: String = Environment.get("DATABASE_HOST") ?? "localhost"
-    let port: Int = Environment.get("DATABASE_PORT").flatMap(Int.init)
+    let port: Int =
+        Environment.get("DATABASE_PORT").flatMap(Int.init)
         ?? SQLPostgresConfiguration.ianaPortNumber
     let username: String = Environment.get("DATABASE_USERNAME") ?? "kaus_user"
     let password: String = Environment.get("DATABASE_PASSWORD") ?? "kaus_password"
     let databaseName: String = Environment.get("DATABASE_NAME") ?? "kaus_db"
     let requiresTLS: Bool = Environment.get("DATABASE_TLS").map { $0.lowercased() != "disable" } ?? false
-    let tls: PostgresConnection.Configuration.TLS = requiresTLS
+    let tls: PostgresConnection.Configuration.TLS =
+        requiresTLS
         ? .require(try NIOSSLContext(configuration: .makeClientConfiguration()))
         : .disable
 

@@ -20,7 +20,7 @@ final class AccountModel: Model, @unchecked Sendable {
     @Children(for: \.$account)
     var transactions: [TransactionModel]
 
-    init() { }
+    init() {}
 
     init(id: UUID? = nil, name: String, kind: AccountKind) {
         self.id = id

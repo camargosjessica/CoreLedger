@@ -19,19 +19,22 @@ struct EndpointTests {
     @Test func transactionQueryOnlySendsWhatIsSet() throws {
         let account = UUID()
         let from = try #require(DateParser.parse("01/01/2026"))
-        let request = try request(.transactions(TransactionQuery(
-            accountID: account, search: "", includeProjected: false, from: from, category: "Mercado"
-        )))
+        let request = try request(
+            .transactions(
+                TransactionQuery(
+                    accountID: account, search: "", includeProjected: false, from: from, category: "Mercado"
+                )))
 
         #expect(request.httpMethod == "GET")
         #expect(request.url?.path == "/api/transactions")
-        #expect(query(request) == [
-            "limit": "500",
-            "accountID": account.uuidString,
-            "from": "2026-01-01T00:00:00Z",
-            "includeProjected": "false",
-            "category": "Mercado",
-        ])
+        #expect(
+            query(request) == [
+                "limit": "500",
+                "accountID": account.uuidString,
+                "from": "2026-01-01T00:00:00Z",
+                "includeProjected": "false",
+                "category": "Mercado",
+            ])
     }
 
     @Test func bodyIsJSONAndTokenGoesInTheHeader() throws {

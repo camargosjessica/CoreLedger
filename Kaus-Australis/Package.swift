@@ -4,13 +4,13 @@ import PackageDescription
 let package = Package(
     name: "KausAustralis",
     platforms: [
-       .macOS(.v13)
+        .macOS(.v13)
     ],
     dependencies: [
         .package(url: "https://github.com/vapor/vapor.git", from: "4.89.0"),
         .package(url: "https://github.com/vapor/fluent.git", from: "4.0.0"),
         .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.0.0"),
-        .package(path: "../Kaus-Media")
+        .package(path: "../Kaus-Media"),
     ],
     targets: [
         .executableTarget(
@@ -19,7 +19,7 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "Fluent", package: "fluent"),
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
-                .product(name: "KausMedia", package: "Kaus-Media")
+                .product(name: "KausMedia", package: "Kaus-Media"),
             ]
         ),
         .testTarget(
@@ -27,9 +27,9 @@ let package = Package(
             dependencies: [
                 .target(name: "KausAustralis"),
                 .product(name: "KausMedia", package: "Kaus-Media"),
-                .product(name: "VaporTesting", package: "vapor")
+                .product(name: "VaporTesting", package: "vapor"),
             ]
-        )
+        ),
     ],
     swiftLanguageModes: [.v6]
 )

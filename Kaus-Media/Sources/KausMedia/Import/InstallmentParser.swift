@@ -30,10 +30,10 @@ public enum InstallmentParser {
         for regex in [explicitPattern, barePattern].compactMap({ $0 }) {
             let range = NSRange(normalized.startIndex..., in: normalized)
             guard let match = regex.firstMatch(in: normalized, range: range),
-                  let numberRange = Range(match.range(at: 1), in: normalized),
-                  let totalRange = Range(match.range(at: 2), in: normalized),
-                  let number = Int(normalized[numberRange]),
-                  let total = Int(normalized[totalRange])
+                let numberRange = Range(match.range(at: 1), in: normalized),
+                let totalRange = Range(match.range(at: 2), in: normalized),
+                let number = Int(normalized[numberRange]),
+                let total = Int(normalized[totalRange])
             else { continue }
 
             guard total >= 2, total <= maxInstallments, number >= 1, number <= total else { continue }

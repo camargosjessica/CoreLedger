@@ -20,7 +20,7 @@ final class CategoryLimitModel: Model, @unchecked Sendable {
         set { monthlyLimitCents = newValue.cents }
     }
 
-    init() { }
+    init() {}
 
     init(limit: CategoryLimit) {
         self.category = limit.category

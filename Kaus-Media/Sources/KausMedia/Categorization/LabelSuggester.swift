@@ -35,16 +35,20 @@ public enum LabelSuggester {
                 candidate.installment == installment
                     && InstallmentDescription.matches(candidate.description, transaction.description)
             }
-            let samePurchase = sameInstallment ?? history.first { candidate in
-                candidate.installment?.total == installment.total
-                    && InstallmentDescription.matches(candidate.description, transaction.description)
-            }
+            let samePurchase =
+                sameInstallment
+                ?? history.first { candidate in
+                    candidate.installment?.total == installment.total
+                        && InstallmentDescription.matches(candidate.description, transaction.description)
+                }
             guard let match = samePurchase else { return nil }
             return Suggestion(category: match.category, tags: match.tags, note: match.note)
         }
 
         let description = TextNormalizer.normalize(transaction.description)
-        if let match = history.first(where: { $0.installment == nil && !$0.tags.isEmpty && TextNormalizer.normalize($0.description) == description }) {
+        if let match = history.first(where: {
+            $0.installment == nil && !$0.tags.isEmpty && TextNormalizer.normalize($0.description) == description
+        }) {
             return Suggestion(category: nil, tags: match.tags, note: nil)
         }
         return nil

@@ -109,14 +109,16 @@ enum ImportPlanner {
             if let alias = aliases[key] { return alias }
 
             let month = LedgerCalendar.startOfMonth(transaction.date)
-            guard let match = stored.first(where: { candidate in
-                !batchKeys.contains(candidate.key)
-                    && !claimed.contains(candidate.key)
-                    && candidate.installment == installment
-                    && LedgerCalendar.startOfMonth(candidate.date) == month
-                    && abs(candidate.amount - transaction.amount) <= Money(cents: 5)
-                    && InstallmentDescription.matches(candidate.description, transaction.description)
-            }) else { return key }
+            guard
+                let match = stored.first(where: { candidate in
+                    !batchKeys.contains(candidate.key)
+                        && !claimed.contains(candidate.key)
+                        && candidate.installment == installment
+                        && LedgerCalendar.startOfMonth(candidate.date) == month
+                        && abs(candidate.amount - transaction.amount) <= Money(cents: 5)
+                        && InstallmentDescription.matches(candidate.description, transaction.description)
+                })
+            else { return key }
 
             claimed.insert(match.key)
             aliases[key] = match.key

@@ -7,7 +7,8 @@ extension TransactionModel {
     /// cliente não informa, quem decide é o categorizador com as regras do banco.
     convenience init(newFrom dto: TransactionDTO, categorizer: Categorizer? = nil) {
         let date = LedgerCalendar.startOfDay(dto.date)
-        let category = dto.category
+        let category =
+            dto.category
             ?? categorizer?.category(for: dto.description, amount: dto.amount)
             ?? CategoryRule.uncategorizedDebit
         // Tags enviadas pelo cliente mandam; sem elas, valem as da categoria

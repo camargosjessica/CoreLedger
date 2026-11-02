@@ -176,7 +176,7 @@ final class AnnualPlanTests: XCTestCase {
                     tags: [TagSet.essential]
                 ),
                 RecurringCommitment(name: "Netflix", category: "Assinaturas", amount: 50, start: month),
-                RecurringCommitment(name: "Cofrinho", category: "Guardado", kind: .saving, amount: 1_000, start: month)
+                RecurringCommitment(name: "Cofrinho", category: "Guardado", kind: .saving, amount: 1_000, start: month),
             ],
             reference: reference
         )
@@ -216,7 +216,7 @@ final class AnnualPlanTests: XCTestCase {
             transactions: [
                 transaction("Pagamento fatura", -900, month, category: "Cartão de crédito"),
                 transaction("Aplicação caixinha", -300, month, category: "Guardado"),
-                transaction("Mercado", -200, month, category: "Mercado")
+                transaction("Mercado", -200, month, category: "Mercado"),
             ],
             commitments: [],
             transferCategories: ["Cartão de crédito", "Guardado"],
@@ -254,7 +254,7 @@ final class AnnualPlanTests: XCTestCase {
             transactions: [transaction("PIX JOAO", -1_000, month, category: "Moradia")],
             commitments: [
                 RecurringCommitment(name: "Aluguel", category: "Moradia", amount: 1_000, start: month),
-                RecurringCommitment(name: "Copel", category: "Moradia", amount: 200, start: month)
+                RecurringCommitment(name: "Copel", category: "Moradia", amount: 200, start: month),
             ],
             reference: reference
         )
@@ -269,7 +269,7 @@ final class AnnualPlanTests: XCTestCase {
             to: month,
             transactions: [
                 transaction("Copel", -100, month, category: "Moradia"),
-                transaction("Estorno Copel", 100, month, category: "Moradia")
+                transaction("Estorno Copel", 100, month, category: "Moradia"),
             ],
             commitments: [RecurringCommitment(name: "Copel", category: "Moradia", amount: 100, start: month)],
             reference: reference

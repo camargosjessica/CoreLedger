@@ -1,6 +1,6 @@
 import Foundation
 #if canImport(FoundationXML)
-import FoundationXML
+    import FoundationXML
 #endif
 import ZIPFoundation
 
@@ -12,7 +12,8 @@ public enum SpreadsheetError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .notXLSX:
-            return "O arquivo não é uma planilha .xlsx. Se for um .xls antigo, abra no Excel, Numbers ou Google Planilhas e salve como .xlsx ou .csv."
+            return
+                "O arquivo não é uma planilha .xlsx. Se for um .xls antigo, abra no Excel, Numbers ou Google Planilhas e salve como .xlsx ou .csv."
         case .missingSheet:
             return "A planilha não tem nenhuma aba com dados."
         case .tooLarge:
@@ -70,7 +71,8 @@ public enum SpreadsheetReader {
         if tooLarge { throw SpreadsheetError.tooLarge }
         guard let sheetData else { throw SpreadsheetError.missingSheet }
 
-        let date1904 = workbook
+        let date1904 =
+            workbook
             .flatMap { XMLAttributes.first(element: "workbookPr", attribute: "date1904", in: $0) }
             .map { $0 == "1" || $0.lowercased() == "true" } ?? false
 
@@ -85,9 +87,9 @@ public enum SpreadsheetReader {
     private static func firstSheetPath(workbook: Data?, read: (String) -> Data?) -> String {
         let fallback = "xl/worksheets/sheet1.xml"
         guard let workbook,
-              let relationID = XMLAttributes.first(element: "sheet", attribute: "r:id", in: workbook),
-              let relations = read("xl/_rels/workbook.xml.rels"),
-              let target = XMLAttributes.target(ofRelationship: relationID, in: relations)
+            let relationID = XMLAttributes.first(element: "sheet", attribute: "r:id", in: workbook),
+            let relations = read("xl/_rels/workbook.xml.rels"),
+            let target = XMLAttributes.target(ofRelationship: relationID, in: relations)
         else { return fallback }
         if target.hasPrefix("/") { return String(target.dropFirst()) }
         return "xl/" + target
@@ -96,7 +98,8 @@ public enum SpreadsheetReader {
     /// Datas no Excel são dias desde 30/12/1899 (sistema 1900, o padrão) ou
     /// desde 01/01/1904 quando a pasta usa o sistema 1904 (`date1904`).
     static func dateString(fromSerial serial: Double, date1904: Bool = false) -> String {
-        let epochParts = date1904
+        let epochParts =
+            date1904
             ? DateComponents(calendar: LedgerCalendar.calendar, year: 1904, month: 1, day: 1)
             : DateComponents(calendar: LedgerCalendar.calendar, year: 1899, month: 12, day: 30)
         let epoch = epochParts.date ?? Date()
@@ -140,8 +143,10 @@ private final class XMLAttributes: NSObject, XMLParserDelegate {
         return delegate.result
     }
 
-    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?,
-                qualifiedName: String?, attributes: [String: String] = [:]) {
+    func parser(
+        _ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?,
+        qualifiedName: String?, attributes: [String: String] = [:]
+    ) {
         guard result == nil, elementName == element, let value = match(attributes) else { return }
         result = value
         parser.abortParsing()
@@ -164,8 +169,10 @@ private final class SharedStringsParser: NSObject, XMLParserDelegate {
         return delegate.strings
     }
 
-    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?,
-                qualifiedName: String?, attributes: [String: String] = [:]) {
+    func parser(
+        _ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?,
+        qualifiedName: String?, attributes: [String: String] = [:]
+    ) {
         switch elementName {
         case "si": current = ""
         case "rPh": phoneticDepth += 1
@@ -224,12 +231,15 @@ private final class StylesParser: NSObject, XMLParserDelegate {
         return false
     }
 
-    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?,
-                qualifiedName: String?, attributes: [String: String] = [:]) {
+    func parser(
+        _ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?,
+        qualifiedName: String?, attributes: [String: String] = [:]
+    ) {
         switch elementName {
         case "numFmt":
             if let id = attributes["numFmtId"].flatMap(Int.init), let code = attributes["formatCode"],
-               Self.isDateFormat(code) {
+                Self.isDateFormat(code)
+            {
                 customDateFormats.insert(id)
             }
         case "cellXfs":
@@ -283,8 +293,10 @@ private final class SheetParser: NSObject, XMLParserDelegate {
         return letters.unicodeScalars.reduce(0) { $0 * 26 + Int($1.value) - 64 } - 1
     }
 
-    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?,
-                qualifiedName: String?, attributes: [String: String] = [:]) {
+    func parser(
+        _ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?,
+        qualifiedName: String?, attributes: [String: String] = [:]
+    ) {
         switch elementName {
         case "row":
             row = []

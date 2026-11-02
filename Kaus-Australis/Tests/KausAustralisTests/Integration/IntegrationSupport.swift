@@ -43,12 +43,13 @@ enum Integration {
             for key in environment.keys { unsetenv(key) }
         }
 
-        try await VaporTesting.withApp(configure: { app in
-            if let clock { app.ledgerClock = clock }
-            try await configure(app)
-            try await truncate(app.db)
-            try routes(app)
-        }, test)
+        try await VaporTesting.withApp(
+            configure: { app in
+                if let clock { app.ledgerClock = clock }
+                try await configure(app)
+                try await truncate(app.db)
+                try routes(app)
+            }, test)
     }
 
     private static func truncate(_ database: any Database) async throws {

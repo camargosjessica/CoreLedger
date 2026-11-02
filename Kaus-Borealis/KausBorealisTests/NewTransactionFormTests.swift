@@ -43,9 +43,10 @@ struct NewTransactionFormTests {
     @Test func futureDatesBecomeProjected() throws {
         let transactions = try #require(form(count: 3).transactions(today: firstDay))
         #expect(transactions.map(\.isProjected) == [false, true, true])
-        #expect(transactions.map(\.installment) == [
-            Installment(number: 1, total: 3), Installment(number: 2, total: 3), Installment(number: 3, total: 3),
-        ])
+        #expect(
+            transactions.map(\.installment) == [
+                Installment(number: 1, total: 3), Installment(number: 2, total: 3), Installment(number: 3, total: 3),
+            ])
         #expect(transactions.allSatisfy { $0.amount == -100 })
     }
 

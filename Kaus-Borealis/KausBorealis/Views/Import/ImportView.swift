@@ -39,9 +39,11 @@ struct ImportView: View {
                         }
                     }
                     if selectedAccount?.kind == .creditCard {
-                        Text("Fatura de cartão: escolha o mês de cada fatura. Reenviar a fatura do mesmo mês substitui a anterior, mantendo tags e comentários das compras que continuam nela.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        Text(
+                            "Fatura de cartão: escolha o mês de cada fatura. Reenviar a fatura do mesmo mês substitui a anterior, mantendo tags e comentários das compras que continuam nela."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                 }
 
@@ -287,7 +289,8 @@ struct ImportView: View {
 
     private func send() {
         guard let accountID else { return }
-        let queue = files.isEmpty
+        let queue =
+            files.isEmpty
             ? [StatementFile(source: nil, name: "Conteúdo colado", content: content, format: format, latestDate: nil, isPasted: true)]
             : files
         isSending = true

@@ -15,7 +15,7 @@ final class CategorySettingModel: Model, @unchecked Sendable {
     @Field(key: "is_essential")
     var isEssential: Bool
 
-    init() { }
+    init() {}
 
     init(setting: CategorySetting) {
         self.category = setting.category

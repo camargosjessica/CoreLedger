@@ -14,7 +14,8 @@ public enum TextNormalizer {
             options: [.diacriticInsensitive, .caseInsensitive, .widthInsensitive],
             locale: fixedLocale
         )
-        return folded
+        return
+            folded
             .split(whereSeparator: { $0.isWhitespace })
             .joined(separator: " ")
     }

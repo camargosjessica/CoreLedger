@@ -44,7 +44,7 @@ final class CategorizerTests: XCTestCase {
     func testPriorityDecidesBetweenOverlappingRules() {
         let rules = [
             CategoryRule(term: "pix", category: "Transferências", matchKind: .word, priority: 90),
-            CategoryRule(term: "pix mercado", category: "Mercado", matchKind: .contains, priority: 10)
+            CategoryRule(term: "pix mercado", category: "Mercado", matchKind: .contains, priority: 10),
         ]
 
         XCTAssertEqual(Categorizer(rules: rules).category(for: "PIX MERCADO CENTRAL", amount: -80), "Mercado")
@@ -54,7 +54,7 @@ final class CategorizerTests: XCTestCase {
     func testAmountScopeSeparatesCreditFromDebit() {
         let rules = [
             CategoryRule(term: "transf", category: "Salário", matchKind: .contains, amountScope: .credit, priority: 10),
-            CategoryRule(term: "transf", category: "Transferências", matchKind: .contains, amountScope: .debit, priority: 10)
+            CategoryRule(term: "transf", category: "Transferências", matchKind: .contains, amountScope: .debit, priority: 10),
         ]
         let sut = Categorizer(rules: rules)
 
@@ -96,7 +96,7 @@ final class CategorizerTests: XCTestCase {
     func testTagsForChosenCategoryIgnoreDescriptionMatch() {
         let sut = Categorizer(rules: [
             CategoryRule(term: "netflix", category: "Assinaturas", tags: ["variável"]),
-            CategoryRule(term: "aluguel", category: "Moradia", tags: ["casa"])
+            CategoryRule(term: "aluguel", category: "Moradia", tags: ["casa"]),
         ])
 
         XCTAssertEqual(sut.tags(forCategory: "Moradia"), ["casa"])

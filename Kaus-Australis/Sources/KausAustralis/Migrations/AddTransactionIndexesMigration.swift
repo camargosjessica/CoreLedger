@@ -15,9 +15,11 @@ struct AddTransactionIndexesMigration: AsyncMigration {
     func prepare(on database: any Database) async throws {
         guard let sql = database as? any SQLDatabase else { return }
         for index in indexes {
-            try await sql.raw("""
+            try await sql.raw(
+                """
                 CREATE INDEX IF NOT EXISTS \(ident: index.name) ON transactions (\(unsafeRaw: index.columns))
-                """).run()
+                """
+            ).run()
         }
     }
 

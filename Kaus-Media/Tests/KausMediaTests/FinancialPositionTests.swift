@@ -12,7 +12,7 @@ final class FinancialPositionTests: XCTestCase {
             account("Caixinha viagem", .savings, 2_000),
             account("Tesouro", .investment, 5_000),
             account("Carteira", .cash, 100),
-            account("Cartão", .creditCard, -1_500)
+            account("Cartão", .creditCard, -1_500),
         ])
 
         XCTAssertEqual(position.available, 1_300)
@@ -34,7 +34,7 @@ final class FinancialPositionTests: XCTestCase {
     func testStatusIsEvenWithinACent() {
         let position = FinancialPosition.make(accounts: [
             account("Conta", .checking, 1_000),
-            account("Cartão", .creditCard, -1_000.001)
+            account("Cartão", .creditCard, -1_000.001),
         ])
 
         XCTAssertEqual(position.status, .even)
@@ -44,7 +44,7 @@ final class FinancialPositionTests: XCTestCase {
         let position = FinancialPosition.make(accounts: [
             account("Conta", .checking, 300),
             account("Caixinha", .savings, 200),
-            account("Cartão", .creditCard, -900)
+            account("Cartão", .creditCard, -900),
         ])
 
         XCTAssertEqual(position.status, .negative)

@@ -200,7 +200,9 @@ struct TransactionsView: View {
             if isSelecting {
                 Button(allSelected ? "Desmarcar todos" : "Selecionar todos") { toggleSelectAll() }
                     .disabled(store.transactions.items.isEmpty)
-                Button { isBulkEditing = true } label: {
+                Button {
+                    isBulkEditing = true
+                } label: {
                     Label("Editar selecionados", systemImage: "square.and.pencil")
                 }
                 .disabled(selectedTransactions.isEmpty)
@@ -212,17 +214,25 @@ struct TransactionsView: View {
                 .disabled(selection.isEmpty)
                 Button("Concluir") { endSelection() }
             } else {
-                Button { isSelecting = true } label: {
+                Button {
+                    isSelecting = true
+                } label: {
                     Label("Selecionar", systemImage: "checklist")
                 }
-                Button { isImporting = true } label: {
+                Button {
+                    isImporting = true
+                } label: {
                     Label("Importar", systemImage: "square.and.arrow.down")
                 }
-                Button { export() } label: {
+                Button {
+                    export()
+                } label: {
                     Label("Exportar CSV", systemImage: "square.and.arrow.up")
                 }
                 .disabled(store.transactions.items.isEmpty)
-                Button { isAdding = true } label: {
+                Button {
+                    isAdding = true
+                } label: {
                     Label("Novo", systemImage: "plus")
                 }
             }
@@ -363,7 +373,7 @@ extension TransactionDTO {
 }
 
 #if DEBUG
-#Preview {
-    TransactionsView().previewLedger()
-}
+    #Preview {
+        TransactionsView().previewLedger()
+    }
 #endif

@@ -87,7 +87,7 @@ struct SummaryView: View {
 // MARK: - Posição
 
 #if DEBUG
-#Preview {
-    SummaryView().previewLedger()
-}
+    #Preview {
+        SummaryView().previewLedger()
+    }
 #endif

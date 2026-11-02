@@ -31,7 +31,7 @@ final class CategoryPathTests: XCTestCase {
         let date = YearMonth(year: 2026, month: 3).date(day: 5)
         let inputs = [
             SpendingAnalysis.Input(date: date, amount: -100, category: "Moradia › Energia"),
-            SpendingAnalysis.Input(date: date, amount: -200, category: "Moradia › IPTU")
+            SpendingAnalysis.Input(date: date, amount: -200, category: "Moradia › IPTU"),
         ]
         let byParent = SpendingAnalysis.make(inputs, year: 2026, grouping: .category)
         XCTAssertEqual(byParent.totals.map(\.group), ["Moradia"])
@@ -42,8 +42,9 @@ final class CategoryPathTests: XCTestCase {
     func testPlanUsesCategorySwitchForEssentials() {
         let reference = YearMonth(year: 2026, month: 6).date(day: 15)
         let transactions = [
-            TransactionDTO(description: "Luz", amount: -150, date: YearMonth(year: 2026, month: 3).date(day: 5), category: "Moradia › Energia"),
-            TransactionDTO(description: "Cinema", amount: -40, date: YearMonth(year: 2026, month: 3).date(day: 6), category: "Lazer")
+            TransactionDTO(
+                description: "Luz", amount: -150, date: YearMonth(year: 2026, month: 3).date(day: 5), category: "Moradia › Energia"),
+            TransactionDTO(description: "Cinema", amount: -40, date: YearMonth(year: 2026, month: 3).date(day: 6), category: "Lazer"),
         ]
         let plan = AnnualPlan.build(
             from: YearMonth(year: 2026, month: 1),

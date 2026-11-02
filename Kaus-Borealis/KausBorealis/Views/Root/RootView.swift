@@ -111,7 +111,7 @@ enum SidebarItem: Hashable {
 }
 
 #if DEBUG
-#Preview {
-    RootView(store: .preview())
-}
+    #Preview {
+        RootView(store: .preview())
+    }
 #endif

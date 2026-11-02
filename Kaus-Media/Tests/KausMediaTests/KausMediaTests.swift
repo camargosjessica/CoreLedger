@@ -2,14 +2,14 @@ import XCTest
 @testable import KausMedia
 
 final class TransactionDTOTests: XCTestCase {
-    
+
     func testTransactionDTO_Initialization() {
         // Arrange
         let expectedId = UUID()
         let expectedDescription = "Compra Mercado"
         let expectedAmount: Money = -150.50
         let expectedDate = Date()
-        
+
         // Act
         let sut = TransactionDTO(
             id: expectedId,
@@ -17,7 +17,7 @@ final class TransactionDTOTests: XCTestCase {
             amount: expectedAmount,
             date: expectedDate
         )
-        
+
         // Assert
         XCTAssertEqual(sut.id, expectedId)
         XCTAssertEqual(sut.description, expectedDescription)

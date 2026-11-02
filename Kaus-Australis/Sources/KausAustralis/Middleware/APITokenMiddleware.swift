@@ -10,7 +10,7 @@ struct APITokenMiddleware: AsyncMiddleware {
 
     func respond(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
         guard let provided = request.headers.bearerAuthorization?.token,
-              constantTimeEquals(provided, token)
+            constantTimeEquals(provided, token)
         else {
             throw Abort(.unauthorized)
         }

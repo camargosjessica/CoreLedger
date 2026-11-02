@@ -79,7 +79,8 @@ struct RulesView: View {
                             },
                             onDelete: { pendingDeletion = $0 },
                             onSetLimit: { category in
-                                limitText = store.plan.limit(for: category)
+                                limitText =
+                                    store.plan.limit(for: category)
                                     .map { $0.description.replacingOccurrences(of: ".", with: ",") } ?? ""
                                 limitTarget = category
                             },
@@ -91,7 +92,11 @@ struct RulesView: View {
             .navigationTitle("Regras")
             .refreshable { await store.reload() }
             .toolbar {
-                Button { newRuleCategory = NewRule(category: "") } label: { Label("Nova regra", systemImage: "plus") }
+                Button {
+                    newRuleCategory = NewRule(category: "")
+                } label: {
+                    Label("Nova regra", systemImage: "plus")
+                }
             }
             .sheet(item: $newRuleCategory) { target in
                 NavigationStack { RuleForm(rule: nil, presetCategory: target.category) }
@@ -121,7 +126,9 @@ struct RulesView: View {
                 }
                 Button("Cancelar", role: .cancel) { limitTarget = nil }
             } message: {
-                Text("O Resumo avisa quando o gasto do mês passa de 80% do limite e quando estoura. O limite de uma categoria inclui as subcategorias.")
+                Text(
+                    "O Resumo avisa quando o gasto do mês passa de 80% do limite e quando estoura. O limite de uma categoria inclui as subcategorias."
+                )
             }
         }
     }
@@ -156,13 +163,15 @@ extension RulesView {
         renaming = nil
         let typed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !typed.isEmpty else { return }
-        let name = CategoryPath.child(of: current) == nil
+        let name =
+            CategoryPath.child(of: current) == nil
             ? typed
             : CategoryPath.join(CategoryPath.parent(of: current), typed)
         guard name != current else { return }
         Task {
             guard let response = await store.rules.renameCategory(current, to: name) else { return }
-            resultMessage = "\(response.transactions) lançamento(s), \(response.rules) regra(s) e \(response.commitments) conta(s) fixa(s) atualizado(s)."
+            resultMessage =
+                "\(response.transactions) lançamento(s), \(response.rules) regra(s) e \(response.commitments) conta(s) fixa(s) atualizado(s)."
         }
     }
 
@@ -184,7 +193,7 @@ extension RulesView {
 }
 
 #if DEBUG
-#Preview {
-    RulesView().previewLedger()
-}
+    #Preview {
+        RulesView().previewLedger()
+    }
 #endif

@@ -20,7 +20,8 @@ struct UpdateTransaction: Sendable {
 
         return try await unitOfWork.transaction { work in
             if let counterpart = try await work.transactions.counterpart(of: id),
-               counterpart.$account.id == dto.accountID {
+                counterpart.$account.id == dto.accountID
+            {
                 throw LedgerError.transferAlreadyTargetsAccount
             }
             try await work.transactions.update(model)
@@ -38,13 +39,15 @@ struct UpdateTransaction: Sendable {
     static func apply(_ dto: TransactionDTO, to model: TransactionModel, categorizer: Categorizer) {
         let date = LedgerCalendar.startOfDay(dto.date)
         let category = dto.category?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let keyWasCanonical = model.dedupKey == DedupKey.make(
-            accountID: model.$account.id,
-            date: model.date,
-            description: model.description,
-            amount: model.amount,
-            installment: model.installment
-        )
+        let keyWasCanonical =
+            model.dedupKey
+            == DedupKey.make(
+                accountID: model.$account.id,
+                date: model.date,
+                description: model.description,
+                amount: model.amount,
+                installment: model.installment
+            )
 
         model.description = dto.description
         model.amount = dto.amount

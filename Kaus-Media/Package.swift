@@ -10,10 +10,10 @@ let package = Package(
         .library(
             name: "KausMedia",
             targets: ["KausMedia"]
-        ),
+        )
     ],
     dependencies: [
-        .package(url: "https://github.com/weichsel/ZIPFoundation.git", exact: "0.9.20"),
+        .package(url: "https://github.com/weichsel/ZIPFoundation.git", exact: "0.9.20")
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.

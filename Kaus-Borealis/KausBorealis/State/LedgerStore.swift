@@ -118,8 +118,11 @@ final class LedgerStore {
     /// Catálogo do servidor somado ao que já está na tela, para incluir o que
     /// acabou de ser criado antes do próximo `reload`.
     var categories: [String] {
-        Array(Set(rules.catalog + rules.all.map(\.category) + plan.commitments.map(\.category)
-            + transactions.items.compactMap(\.category))).sorted()
+        Array(
+            Set(
+                rules.catalog + rules.all.map(\.category) + plan.commitments.map(\.category)
+                    + transactions.items.compactMap(\.category))
+        ).sorted()
     }
 
     /// Categorias-mãe, para filtros e para a tela de Regras.

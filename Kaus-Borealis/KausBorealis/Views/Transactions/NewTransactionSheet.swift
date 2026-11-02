@@ -45,7 +45,9 @@ struct NewTransactionSheet: View {
                     } header: {
                         Text("Parcelas")
                     } footer: {
-                        Text("Total: \(form.installmentTotal.brl). Ajuste a data ou o valor de qualquer parcela antes de salvar. Parcelas com data futura não entram no saldo até o dia chegar.")
+                        Text(
+                            "Total: \(form.installmentTotal.brl). Ajuste a data ou o valor de qualquer parcela antes de salvar. Parcelas com data futura não entram no saldo até o dia chegar."
+                        )
                     }
                 }
 

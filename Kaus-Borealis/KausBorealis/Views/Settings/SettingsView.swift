@@ -68,9 +68,13 @@ struct SettingsView: View {
                 SettingsCard(title: "Seus dados", symbol: "externaldrive.fill", color: .teal) {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 10)], spacing: 10) {
                         StatTile(title: "Contas", value: store.accounts.all.count, symbol: "creditcard.fill", color: .purple)
-                        StatTile(title: "Lançamentos", value: store.transactions.items.count, symbol: "list.bullet.rectangle.portrait.fill", color: .blue)
+                        StatTile(
+                            title: "Lançamentos", value: store.transactions.items.count, symbol: "list.bullet.rectangle.portrait.fill",
+                            color: .blue)
                         StatTile(title: "Regras", value: store.rules.all.count, symbol: "slider.horizontal.3", color: .orange)
-                        StatTile(title: "Importações", value: store.transactions.batches.count, symbol: "square.and.arrow.down.fill", color: .teal)
+                        StatTile(
+                            title: "Importações", value: store.transactions.batches.count, symbol: "square.and.arrow.down.fill",
+                            color: .teal)
                     }
                     Button("Recarregar tudo", systemImage: "arrow.clockwise") {
                         Task { await store.reload() }
@@ -117,7 +121,7 @@ struct SettingsView: View {
                 titleVisibility: .visible
             ) {
                 Button("Apagar tudo", role: .destructive) { reset() }
-                Button("Cancelar", role: .cancel) { }
+                Button("Cancelar", role: .cancel) {}
             } message: {
                 Text("Esta ação apaga os dados no servidor e não pode ser desfeita.")
             }
@@ -176,7 +180,7 @@ struct SettingsView: View {
 }
 
 #if DEBUG
-#Preview {
-    SettingsView().previewLedger()
-}
+    #Preview {
+        SettingsView().previewLedger()
+    }
 #endif

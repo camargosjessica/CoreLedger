@@ -23,36 +23,52 @@ struct ConvertAmountsToCentsMigration: AsyncMigration {
     func prepare(on database: any Database) async throws {
         guard let sql = database as? any SQLDatabase else { return }
         for column in columns {
-            try await sql.raw("""
+            try await sql.raw(
+                """
                 ALTER TABLE \(ident: column.table) ADD COLUMN \(ident: column.to) bigint
-                """).run()
-            try await sql.raw("""
+                """
+            ).run()
+            try await sql.raw(
+                """
                 UPDATE \(ident: column.table) SET \(ident: column.to) = round(\(ident: column.from)::numeric * 100)::bigint
-                """).run()
-            try await sql.raw("""
+                """
+            ).run()
+            try await sql.raw(
+                """
                 ALTER TABLE \(ident: column.table) ALTER COLUMN \(ident: column.to) SET NOT NULL
-                """).run()
-            try await sql.raw("""
+                """
+            ).run()
+            try await sql.raw(
+                """
                 ALTER TABLE \(ident: column.table) DROP COLUMN \(ident: column.from)
-                """).run()
+                """
+            ).run()
         }
     }
 
     func revert(on database: any Database) async throws {
         guard let sql = database as? any SQLDatabase else { return }
         for column in columns {
-            try await sql.raw("""
+            try await sql.raw(
+                """
                 ALTER TABLE \(ident: column.table) ADD COLUMN \(ident: column.from) double precision
-                """).run()
-            try await sql.raw("""
+                """
+            ).run()
+            try await sql.raw(
+                """
                 UPDATE \(ident: column.table) SET \(ident: column.from) = \(ident: column.to)::double precision / 100
-                """).run()
-            try await sql.raw("""
+                """
+            ).run()
+            try await sql.raw(
+                """
                 ALTER TABLE \(ident: column.table) ALTER COLUMN \(ident: column.from) SET NOT NULL
-                """).run()
-            try await sql.raw("""
+                """
+            ).run()
+            try await sql.raw(
+                """
                 ALTER TABLE \(ident: column.table) DROP COLUMN \(ident: column.to)
-                """).run()
+                """
+            ).run()
         }
     }
 }

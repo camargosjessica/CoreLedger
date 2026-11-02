@@ -105,6 +105,16 @@ KAUS_INTEGRATION_TESTS=1 swift test
 
 O banco usado é `DATABASE_TEST_NAME` (padrão `kaus_test`); host, porta, usuário e senha são as mesmas variáveis `DATABASE_*` da execução normal. No CI, um serviço Postgres sobe junto com o job.
 
+### Formatação
+
+O estilo é verificado com o `swift format` que já vem no toolchain (configuração em `.swift-format`), e o CI falha se algo estiver fora do padrão:
+
+```zsh
+swift format format --in-place --recursive --configuration .swift-format \
+  Kaus-Media/Sources Kaus-Media/Tests Kaus-Australis/Sources Kaus-Australis/Tests \
+  Kaus-Borealis/KausBorealis Kaus-Borealis/KausBorealisTests
+```
+
 ### 5. Executar o Frontend (`Kaus-Borealis`)
 Abra `Kaus-Borealis/KausBorealis.xcodeproj` no Xcode e execute no simulador de iOS ou no macOS. O app tem sete abas — Resumo, Lançamentos, Análise, Plano, Contas, Regras e Ajustes — e consome a API em `http://127.0.0.1:8080` por padrão.
 

@@ -4,20 +4,20 @@ import KausMedia
 
 final class TransactionModel: Model, @unchecked Sendable {
     static let schema = "transactions"
-    
+
     @ID(key: .id)
     var id: UUID?
-    
+
     @Field(key: "description")
     var description: String
-    
+
     /// Valor em centavos: `Double` acumularia erro nas somas.
     @Field(key: "amount_cents")
     var amountCents: Int
-    
+
     @Field(key: "category")
     var category: String
-    
+
     @Field(key: "date")
     var date: Date
 
@@ -59,8 +59,8 @@ final class TransactionModel: Model, @unchecked Sendable {
     @OptionalParent(key: "transfer_source_id")
     var transferSource: TransactionModel?
 
-    init() { }
-    
+    init() {}
+
     init(
         id: UUID? = nil,
         description: String,

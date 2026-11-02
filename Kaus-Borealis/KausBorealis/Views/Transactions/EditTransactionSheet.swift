@@ -93,9 +93,11 @@ struct EditTransactionSheet: View {
     private var transferSection: some View {
         Section("Transferência") {
             if isCounterpart {
-                Text("Este lançamento é a contrapartida de uma transferência. O valor e a data acompanham o lançamento original; para mudar ou desfazer, edite o original.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Este lançamento é a contrapartida de uma transferência. O valor e a data acompanham o lançamento original; para mudar ou desfazer, edite o original."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             } else {
                 Picker("Para a conta", selection: $transferAccountID) {
                     Text("Nenhuma").tag(UUID?.none)
@@ -112,7 +114,8 @@ struct EditTransactionSheet: View {
 
     private var transferHint: String {
         let value = ValueParser.parse(amount) ?? transaction.amount
-        let effect = value < 0
+        let effect =
+            value < 0
             ? "Cria uma entrada de \(abs(value).brl) na conta escolhida, como guardar na caixinha."
             : "Cria uma saída de \(abs(value).brl) na conta escolhida, como o resgate de uma caixinha."
         return effect + " Use só em contas sem extrato importado, senão o valor aparece duas vezes."

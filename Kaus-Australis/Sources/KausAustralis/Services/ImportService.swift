@@ -22,7 +22,8 @@ struct ImportService {
             filename: request.filename,
             format: request.format
         )
-        let lines = account.accountKind == .creditCard
+        let lines =
+            account.accountKind == .creditCard
             ? CardStatement.normalizeSigns(parsed.transactions)
             : parsed.transactions
         let transactions = InstallmentExpander.label(lines, datedByPurchase: parsed.installmentsDatedByPurchase)
@@ -35,7 +36,9 @@ struct ImportService {
         let replacedIDs = Set(replaced.compactMap { $0.id })
         let replacedKeys = Set(replaced.compactMap { $0.dedupKey })
 
-        let history = replaced.map(Self.labeled) + (try await recentHistory(accountID: accountID))
+        let history =
+            replaced.map(Self.labeled)
+            + (try await recentHistory(accountID: accountID))
             .filter { model in model.id.map { !replacedIDs.contains($0) } ?? true }
             .map(Self.labeled)
 
@@ -71,7 +74,8 @@ struct ImportService {
 
             for (insert, suggestion) in zip(plan.inserts, suggestions) {
                 let line = insert.transaction
-                let category = suggestion?.category
+                let category =
+                    suggestion?.category
                     ?? categorizer.category(for: line.description, amount: line.amount)
                 let ruleTags = categorizer.tags(for: line.description, amount: line.amount)
                 let model = TransactionModel(
@@ -88,9 +92,10 @@ struct ImportService {
 
             // Parcelas previstas por importações antigas viram lançamento desta fatura.
             for confirmation in plan.confirmations {
-                guard let model = try await TransactionModel.query(on: db)
-                    .filter(\.$dedupKey == confirmation.key)
-                    .first()
+                guard
+                    let model = try await TransactionModel.query(on: db)
+                        .filter(\.$dedupKey == confirmation.key)
+                        .first()
                 else { continue }
                 model.isProjected = false
                 model.date = confirmation.transaction.date

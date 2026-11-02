@@ -17,7 +17,7 @@ struct AccountFilter: View {
 }
 
 #if DEBUG
-#Preview {
-    AccountFilter().previewLedger()
-}
+    #Preview {
+        AccountFilter().previewLedger()
+    }
 #endif

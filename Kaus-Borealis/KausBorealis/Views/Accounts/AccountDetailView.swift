@@ -66,10 +66,14 @@ struct AccountDetailView: View {
         .navigationTitle(account?.name ?? "Conta")
         .toolbar {
             if account != nil {
-                Button { isImporting = true } label: {
+                Button {
+                    isImporting = true
+                } label: {
                     Label(isCard ? "Importar fatura" : "Importar extrato", systemImage: "square.and.arrow.down")
                 }
-                Button { isEditingAccount = true } label: {
+                Button {
+                    isEditingAccount = true
+                } label: {
                     Label("Editar conta", systemImage: "pencil")
                 }
             }
@@ -212,7 +216,9 @@ struct AccountDetailView: View {
                         .textCase(.uppercase)
                         .padding(.top, 4)
                     ForEach(group.items) { transaction in
-                        Button { editing = transaction } label: {
+                        Button {
+                            editing = transaction
+                        } label: {
                             TransactionRow(transaction: transaction)
                                 .contentShape(Rectangle())
                         }

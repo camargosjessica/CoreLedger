@@ -37,7 +37,8 @@ struct ConvertTagsToSubcategoriesMigration: AsyncMigration {
         }
 
         for category in essentials {
-            let exists = try await CategorySettingModel.query(on: database)
+            let exists =
+                try await CategorySettingModel.query(on: database)
                 .filter(\.$category == category)
                 .count() > 0
             guard !exists else { continue }
@@ -46,7 +47,7 @@ struct ConvertTagsToSubcategoriesMigration: AsyncMigration {
         }
     }
 
-    func revert(on database: Database) async throws { }
+    func revert(on database: Database) async throws {}
 
     private func convert(_ category: String, tags: [String], essentials: inout Set<String>) -> String {
         let normalized = TagSet.normalize(tags)
@@ -55,7 +56,8 @@ struct ConvertTagsToSubcategoriesMigration: AsyncMigration {
             essentials.insert(CategoryPath.parent(of: category))
         }
         guard CategoryPath.child(of: category) == nil,
-              let tag = normalized.first(where: { !Self.automaticTags.contains($0) }) else { return category }
+            let tag = normalized.first(where: { !Self.automaticTags.contains($0) })
+        else { return category }
         return CategoryPath.join(category, tag.prefix(1).uppercased() + tag.dropFirst())
     }
 }

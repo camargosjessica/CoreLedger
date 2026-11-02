@@ -7,8 +7,10 @@ final class SpreadsheetReaderTests: XCTestCase {
     /// Monta um `.xlsx` mínimo em memória no formato exportado pelos bancos:
     /// cabeçalho do banco antes da tabela, data com formato personalizado e
     /// parcela numa coluna própria.
-    private func makeXLSX(sheetRows: String, sharedStrings: [String], sheetPath: String = "worksheets/sheet1.xml",
-                          workbookProperties: String = "") throws -> Data {
+    private func makeXLSX(
+        sheetRows: String, sharedStrings: [String], sheetPath: String = "worksheets/sheet1.xml",
+        workbookProperties: String = ""
+    ) throws -> Data {
         let strings = sharedStrings.map { "<si><t>\($0)</t></si>" }.joined()
         let files: [String: String] = [
             "[Content_Types].xml": "<?xml version=\"1.0\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"/>",
@@ -27,7 +29,8 @@ final class SpreadsheetReaderTests: XCTestCase {
             <numFmt numFmtId="101" formatCode="dd/mm/yyyy"/></numFmts>\
             <cellXfs count="4"><xf numFmtId="0"/><xf numFmtId="101"/><xf numFmtId="100"/><xf numFmtId="14"/></cellXfs></styleSheet>
             """,
-            "xl/sharedStrings.xml": "<?xml version=\"1.0\"?><sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">\(strings)</sst>",
+            "xl/sharedStrings.xml":
+                "<?xml version=\"1.0\"?><sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">\(strings)</sst>",
             "xl/\(sheetPath)": """
             <?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">\
             <sheetData>\(sheetRows)</sheetData></worksheet>
@@ -37,7 +40,8 @@ final class SpreadsheetReaderTests: XCTestCase {
         let archive = try Archive(data: Data(), accessMode: .create)
         for (path, content) in files.sorted(by: { $0.key < $1.key }) {
             let data = Data(content.utf8)
-            try archive.addEntry(with: path, type: .file, uncompressedSize: Int64(data.count), compressionMethod: .deflate) { position, size in
+            try archive.addEntry(with: path, type: .file, uncompressedSize: Int64(data.count), compressionMethod: .deflate) {
+                position, size in
                 data.subdata(in: Int(position)..<Int(position) + size)
             }
         }
@@ -48,19 +52,21 @@ final class SpreadsheetReaderTests: XCTestCase {
     private func n(_ ref: String, _ value: String, style: Int = 0) -> String { "<c r=\"\(ref)\" s=\"\(style)\"><v>\(value)</v></c>" }
 
     private func invoiceXLSX() throws -> Data {
-        let strings = ["Nome", "Fulana", "Data", "Lançamento", "Parcelamento", "Valor",
-                       "Pagamento Efetuado", "IFD*RESTAURANTE", "Shopee*loja", "Parcela 2 de 12",
-                       "Subtotal", "Importante saber", "Aviso; com \"aspas\""]
+        let strings = [
+            "Nome", "Fulana", "Data", "Lançamento", "Parcelamento", "Valor",
+            "Pagamento Efetuado", "IFD*RESTAURANTE", "Shopee*loja", "Parcela 2 de 12",
+            "Subtotal", "Importante saber", "Aviso; com \"aspas\"",
+        ]
         let rows = """
-        <row r="1">\(s("B1", 0))\(s("C1", 1))</row>
-        <row r="4">\(s("B4", 2))\(s("C4", 3))\(s("D4", 4))\(s("E4", 5))</row>
-        <row r="5">\(n("B5", "46204", style: 1))\(s("C5", 6))\(n("E5", "-6873.37", style: 2))</row>
-        <row r="6">\(n("B6", "46226", style: 1))\(s("C6", 7))\(n("E6", "44.32", style: 2))</row>
-        <row r="7">\(n("B7", "46192", style: 3))\(s("C7", 8))\(s("D7", 9))\(n("E7", "115.14", style: 2))</row>
-        <row r="9">\(s("D9", 10))<c r="E9" s="2"><f>SUBTOTAL(9,E5:E7)</f></c></row>
-        <row r="11">\(s("B11", 11))</row>
-        <row r="12">\(s("B12", 12))</row>
-        """
+            <row r="1">\(s("B1", 0))\(s("C1", 1))</row>
+            <row r="4">\(s("B4", 2))\(s("C4", 3))\(s("D4", 4))\(s("E4", 5))</row>
+            <row r="5">\(n("B5", "46204", style: 1))\(s("C5", 6))\(n("E5", "-6873.37", style: 2))</row>
+            <row r="6">\(n("B6", "46226", style: 1))\(s("C6", 7))\(n("E6", "44.32", style: 2))</row>
+            <row r="7">\(n("B7", "46192", style: 3))\(s("C7", 8))\(s("D7", 9))\(n("E7", "115.14", style: 2))</row>
+            <row r="9">\(s("D9", 10))<c r="E9" s="2"><f>SUBTOTAL(9,E5:E7)</f></c></row>
+            <row r="11">\(s("B11", 11))</row>
+            <row r="12">\(s("B12", 12))</row>
+            """
         return try makeXLSX(sheetRows: rows, sharedStrings: strings)
     }
 
@@ -80,8 +86,9 @@ final class SpreadsheetReaderTests: XCTestCase {
     }
 
     func testReadsDatesFromWorkbooksUsingThe1904System() throws {
-        let data = try makeXLSX(sheetRows: "<row r=\"1\">\(n("A1", "44742", style: 1))</row>", sharedStrings: [],
-                                workbookProperties: "<workbookPr date1904=\"1\"/>")
+        let data = try makeXLSX(
+            sheetRows: "<row r=\"1\">\(n("A1", "44742", style: 1))</row>", sharedStrings: [],
+            workbookProperties: "<workbookPr date1904=\"1\"/>")
 
         XCTAssertEqual(try SpreadsheetReader.rows(fromXLSX: data), [["01/07/2026"]])
     }
@@ -98,9 +105,11 @@ final class SpreadsheetReaderTests: XCTestCase {
 
         XCTAssertTrue(parsed.failures.isEmpty, "Cabeçalho do banco, subtotal e rodapé não viram erro: \(parsed.failures)")
         XCTAssertTrue(parsed.installmentsDatedByPurchase)
-        XCTAssertEqual(parsed.transactions.map(\.description), [
-            "Pagamento Efetuado", "IFD*RESTAURANTE", "Shopee*loja Parcela 2 de 12",
-        ])
+        XCTAssertEqual(
+            parsed.transactions.map(\.description),
+            [
+                "Pagamento Efetuado", "IFD*RESTAURANTE", "Shopee*loja Parcela 2 de 12",
+            ])
         XCTAssertEqual(parsed.transactions[0].amount, -6873.37)
         XCTAssertEqual(parsed.transactions[1].amount, 44.32)
     }
@@ -148,21 +157,21 @@ final class PurchaseDatedInstallmentTests: XCTestCase {
 
     func testInstallmentsDatedByPostingAreNotShifted() {
         let csv = """
-        Data;Descrição;Parcela;Valor
-        02/02/2026;MERCADO;;-50,00
-        15/02/2026;LOJA;Parcela 2 de 6;-100,00
-        """
+            Data;Descrição;Parcela;Valor
+            02/02/2026;MERCADO;;-50,00
+            15/02/2026;LOJA;Parcela 2 de 6;-100,00
+            """
 
         XCTAssertFalse(StatementParser.parse(content: csv, format: .csv).installmentsDatedByPurchase)
     }
 
     func testRowWithAmountButNoDateIsReportedAndTotalsAreSkipped() {
         let csv = """
-        Data;Descrição;Valor
-        02/02/2026;MERCADO;-50,00
-        ;PADARIA;-35,00
-        ;Total;-85,00
-        """
+            Data;Descrição;Valor
+            02/02/2026;MERCADO;-50,00
+            ;PADARIA;-35,00
+            ;Total;-85,00
+            """
 
         let parsed = StatementParser.parse(content: csv, format: .csv)
 

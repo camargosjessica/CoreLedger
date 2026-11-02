@@ -144,12 +144,13 @@ final class TransactionsStore {
             let api = session.api
             let today = session.clock.today()
             async let list = api.transactions(query)
-            async let upcoming = api.transactions(TransactionQuery(
-                accountID: accountID,
-                from: today,
-                to: LedgerCalendar.addingDays(Self.upcomingWindowDays, to: today),
-                limit: 1000
-            ))
+            async let upcoming = api.transactions(
+                TransactionQuery(
+                    accountID: accountID,
+                    from: today,
+                    to: LedgerCalendar.addingDays(Self.upcomingWindowDays, to: today),
+                    limit: 1000
+                ))
             let loaded = try await list
             let next = try await upcoming
             try Task.checkCancellation()
