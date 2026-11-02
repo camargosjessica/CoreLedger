@@ -2,11 +2,7 @@ import SwiftUI
 import KausMedia
 
 struct RootView: View {
-    @State private var store: LedgerStore
-
-    init(store: LedgerStore? = nil) {
-        _store = State(initialValue: store ?? LedgerStore())
-    }
+    @Environment(LedgerStore.self) private var store
     @State private var selection: SidebarItem = .summary
     @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .system
     @AppStorage(AppAccent.storageKey) private var accent: AppAccent = .amber
@@ -58,8 +54,6 @@ struct RootView: View {
             }
         }
         .tabViewStyle(.sidebarAdaptable)
-        .environment(store)
-        .environment(\.ledgerClock, store.clock)
         .tabViewSidebarHeader { SidebarBrand() }
         .tabViewSidebarFooter { SidebarNetWorth(accounts: store.accounts.all) }
         .tint(accent.color)
@@ -112,6 +106,6 @@ enum SidebarItem: Hashable {
 
 #if DEBUG
     #Preview {
-        RootView(store: .preview())
+        RootView().previewLedger()
     }
 #endif
