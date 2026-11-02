@@ -8,3 +8,5 @@ xcuserdata/
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 .netrc
 .env
+*.xcresult
+.swiftpm/xcode/xcuserdata/

@@ -24,11 +24,34 @@ O repositório está estruturado em três módulos principais:
 *   **`Kaus-Australis`**: O backend do sistema, construído com o framework **Vapor**, utilizando o ORM *Fluent* e **PostgreSQL** para persistência robusta de dados.
 *   **`Kaus-Borealis`**: O frontend nativo desenvolvido em **SwiftUI** para ecossistemas Apple (iOS / macOS), consumindo diretamente a API REST do backend.
 
+### Camadas
+
+```
+Kaus-Media (domínio puro, sem framework)
+  Money, LedgerClock, DTOs, categorização, parsers, projeção, plano
+
+Kaus-Australis (Vapor)
+  Controllers/     HTTP: decode → caso de uso → encode; LedgerError → status
+  UseCases/        regras de aplicação (criar/editar lançamento, transferência, desfazer importação…)
+  Domain/          LedgerError e validação de entradas
+  Repositories/    protocolos + implementação Fluent (UnitOfWork para transações)
+  Services/        importação e somas em SQL (TransactionTotals)
+  Migrations/      Migrations.all define a ordem
+
+Kaus-Borealis (SwiftUI)
+  Networking/      LedgerAPI (protocolo), APIClient, Endpoint<Response>, APIConfiguration
+  State/           LedgerStore (coordenador) + AccountsStore, TransactionsStore, PlanStore, RulesStore
+  Views/<Feature>/ telas por feature; Views/Components/ compartilhados
+  Support/         formatação, tema, Keychain, InMemoryLedgerAPI (previews/testes)
+```
+
+Dinheiro trafega como número decimal no JSON e vira centavos (`Money`) na borda; no Postgres fica em `bigint` (`amount_cents`).
+
 ---
 
 ## 🚀 Tecnologias Utilizadas
 
-*   **Linguagem:** Swift 6 (o `Kaus-Media` declara `swift-tools-version: 6.0`, portanto é preciso Xcode 16 ou toolchain Swift 6.0+)
+*   **Linguagem:** Swift 6 (`Kaus-Media` e `Kaus-Australis` declaram `swift-tools-version: 6.0` com o modo de linguagem Swift 6, portanto é preciso Xcode 16 ou toolchain Swift 6.0+)
 *   **Backend:** Vapor, Fluent ORM, PostgreSQL (via Docker)
 *   **Frontend:** SwiftUI, Concorrência Nativa (`async/await`)
 *   **Infraestrutura:** Docker Desktop, Git & GitHub
