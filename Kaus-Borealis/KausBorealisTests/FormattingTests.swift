@@ -33,4 +33,10 @@ struct FormattingTests {
     @Test func moneyIsAlwaysBrazilianReais() {
         #expect(Money(-1234.56).brl.replacingOccurrences(of: "\u{00A0}", with: " ") == "-R$ 1.234,56")
     }
+
+    @Test func queryDatesKeepTheISO8601TheServerExpects() throws {
+        let date = try #require(DateParser.parse("15/01/2026"))
+        #expect(date.ISO8601Format() == ISO8601DateFormatter().string(from: date))
+        #expect(date.ISO8601Format() == "2026-01-15T00:00:00Z")
+    }
 }

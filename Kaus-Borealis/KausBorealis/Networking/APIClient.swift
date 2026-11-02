@@ -60,10 +60,10 @@ struct APIClient: Sendable {
             items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))
         }
         if let from = query.from {
-            items.append(URLQueryItem(name: "from", value: ISO8601DateFormatter().string(from: from)))
+            items.append(URLQueryItem(name: "from", value: from.ISO8601Format()))
         }
         if let to = query.to {
-            items.append(URLQueryItem(name: "to", value: ISO8601DateFormatter().string(from: to)))
+            items.append(URLQueryItem(name: "to", value: to.ISO8601Format()))
         }
         if let search = query.search, !search.isEmpty {
             items.append(URLQueryItem(name: "search", value: search))
