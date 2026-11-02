@@ -98,7 +98,7 @@ struct ImportService {
                 model.externalID = confirmation.transaction.externalID ?? model.externalID
                 model.$importBatch.id = batch.id
                 try await model.update(on: db)
-                try await model.syncCounterpart(on: db)
+                try await FluentTransactionRepository(database: db).syncCounterpart(of: model)
             }
         }
 

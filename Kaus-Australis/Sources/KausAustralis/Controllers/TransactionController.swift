@@ -1,5 +1,4 @@
 import Fluent
-import FluentSQL
 import Vapor
 import KausMedia
 
@@ -22,275 +21,44 @@ struct TransactionController: RouteCollection {
 
     func index(req: Request) async throws -> [TransactionDTO] {
         let query = try req.query.decode(TransactionQuery.self)
-
-        var builder = TransactionModel.query(on: req.db).sort(\.$date, .descending)
-        if let accountID = query.accountID {
-            builder = builder.filter(\.$account.$id == accountID)
-        }
-        if let from = query.from {
-            builder = builder.filter(\.$date >= LedgerCalendar.startOfDay(from))
-        }
-        if let to = query.to {
-            // O filtro é por dia: `to` na meia-noite ainda inclui o dia inteiro.
-            builder = builder.filter(\.$date < LedgerCalendar.addingDays(1, to: LedgerCalendar.startOfDay(to)))
-        }
-        if query.includeProjected == false {
-            builder = builder.filter(\.$isProjected == false)
-        }
-        if let category = query.category {
-            let subcategories = category + CategoryPath.separator
-            builder = builder.group(.or) { group in
-                group.filter(\.$category == category)
-                    .filter(\.$category =~ subcategories)
-            }
-        }
-        if let tag = query.tag.flatMap({ TagSet.normalize([$0]).first }) {
-            builder = builder.filter(.sql(embed: "\(ident: "tags") @> ARRAY[\(bind: tag)]::text[]"))
-        }
-        if let search = query.search?.trimmingCharacters(in: .whitespacesAndNewlines), !search.isEmpty {
-            let pattern = TextSearch.pattern(for: search)
-            builder = builder.group(.or) { group in
-                for column in ["description", "category", "note"] {
-                    group.filter(TextSearch.matches(column: column, pattern: pattern))
-                }
-            }
-        }
-
-        let limit = min(max(query.limit ?? 500, 1), 1000)
-        let models = try await builder
-            .range(lower: query.offset ?? 0, upper: (query.offset ?? 0) + limit - 1)
-            .all()
-        return try await Self.withTransferAccounts(models, on: req.db)
+        let repository = req.unitOfWork.transactions
+        let models = try await repository.list(query.filter)
+        return try await repository.dtos(for: models)
     }
 
-    /// `toDTO()` com `transferAccountID`, que mora na contrapartida e não na origem.
-    static func withTransferAccounts(
-        _ models: [TransactionModel],
-        on db: any Database
-    ) async throws -> [TransactionDTO] {
-        let ids = models.compactMap(\.id)
-        guard !ids.isEmpty else { return [] }
-        let counterparts = try await TransactionModel.query(on: db)
-            .filter(\.$transferSource.$id ~~ ids.map { Optional($0) })
-            .all()
-        var accountBySource: [UUID: UUID] = [:]
-        for counterpart in counterparts {
-            if let source = counterpart.$transferSource.id, let account = counterpart.$account.id {
-                accountBySource[source] = account
-            }
-        }
-        return models.map { model in
-            var dto = model.toDTO()
-            dto.transferAccountID = model.id.flatMap { accountBySource[$0] }
-            return dto
-        }
-    }
-
-    /// Liga, troca ou desfaz a contrapartida de uma transferência: uma saída
-    /// da conta corrente vira entrada na caixinha escolhida, e vice-versa.
     func setTransfer(req: Request) async throws -> TransactionDTO {
-        guard let id = req.parameters.get("transactionID", as: UUID.self) else {
-            throw Abort(.badRequest, reason: "Identificador inválido")
-        }
-        guard let model = try await TransactionModel.find(id, on: req.db) else {
-            throw Abort(.notFound, reason: "Lançamento não encontrado")
-        }
-        guard model.$transferSource.id == nil else {
-            throw Abort(.badRequest, reason: "Este lançamento é a contrapartida de outro: edite o original")
-        }
         let request = try req.content.decode(TransferLinkRequest.self)
-        if let accountID = request.accountID {
-            guard accountID != model.$account.id else {
-                throw Abort(.badRequest, reason: "Escolha uma conta diferente da conta do lançamento")
-            }
-            guard try await AccountModel.find(accountID, on: req.db) != nil else {
-                throw Abort(.notFound, reason: "Conta não encontrada")
-            }
-        }
-
-        return try await req.db.transaction { db in
-            let existing = try await TransactionModel.query(on: db)
-                .filter(\.$transferSource.$id == id)
-                .first()
-            switch (existing, request.accountID) {
-            case (nil, nil):
-                break
-            case (let counterpart?, nil):
-                try await counterpart.delete(on: db)
-            case (let counterpart?, let accountID?):
-                counterpart.mirror(model)
-                counterpart.$account.id = accountID
-                try await counterpart.update(on: db)
-            case (nil, let accountID?):
-                let counterpart = TransactionModel()
-                counterpart.mirror(model)
-                counterpart.$account.id = accountID
-                do {
-                    try await counterpart.create(on: db)
-                } catch let error as any DatabaseError where error.isConstraintFailure {
-                    throw Abort(.conflict, reason: "Este lançamento já tem uma contrapartida")
-                }
-            }
-            return try await Self.withTransferAccounts([model], on: db)[0]
-        }
+        return try await LinkTransfer(unitOfWork: req.unitOfWork)(
+            id: try req.parameters.uuid("transactionID"),
+            to: request.accountID
+        )
     }
 
-    /// Criação manual. Idempotente: reenviar o mesmo lançamento devolve o existente
-    /// em vez de duplicar.
     func create(req: Request) async throws -> Response {
         let dto = try req.content.decode(TransactionDTO.self)
-        guard !dto.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw Abort(.badRequest, reason: "A descrição é obrigatória")
-        }
-        if let accountID = dto.accountID, try await AccountModel.find(accountID, on: req.db) == nil {
-            throw Abort(.notFound, reason: "Conta não encontrada")
-        }
-
-        let model = TransactionModel(newFrom: dto, categorizer: try await req.categoryRules.categorizer())
-
-        if let key = model.dedupKey,
-           let existing = try await TransactionModel.query(on: req.db).filter(\.$dedupKey == key).first() {
-            return try await existing.toDTO().encodeResponse(status: .ok, for: req)
-        }
-
-        try await model.create(on: req.db)
-        return try await model.toDTO().encodeResponse(status: .created, for: req)
+        let result = try await CreateTransaction(unitOfWork: req.unitOfWork)(dto)
+        return try await result.transaction.encodeResponse(status: result.wasCreated ? .created : .ok, for: req)
     }
 
-    /// Edição manual. A chave de dedup só é recalculada quando era derivada dos
-    /// próprios campos editados: chaves de FITID ou numeradas por ocorrência
-    /// identificam a linha do arquivo, não o conteúdo, e recalculá-las duplicaria
-    /// a próxima importação ou colidiria com a ocorrência anterior.
     func update(req: Request) async throws -> TransactionDTO {
-        guard let id = req.parameters.get("transactionID", as: UUID.self) else {
-            throw Abort(.badRequest, reason: "Identificador inválido")
-        }
-        guard let model = try await TransactionModel.find(id, on: req.db) else {
-            throw Abort(.notFound, reason: "Lançamento não encontrado")
-        }
-        guard model.$transferSource.id == nil else {
-            throw Abort(.badRequest, reason: "Este lançamento é a contrapartida de uma transferência: edite o original")
-        }
+        let id = try req.parameters.uuid("transactionID")
         let dto = try req.content.decode(TransactionDTO.self)
-        guard !dto.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw Abort(.badRequest, reason: "A descrição é obrigatória")
-        }
-        if let accountID = dto.accountID, try await AccountModel.find(accountID, on: req.db) == nil {
-            throw Abort(.notFound, reason: "Conta não encontrada")
-        }
-
-        let date = LedgerCalendar.startOfDay(dto.date)
-        let category = dto.category?.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        let previousCanonicalKey = DedupKey.make(
-            accountID: model.$account.id,
-            date: model.date,
-            description: model.description,
-            amount: model.amount,
-            installment: model.installmentNumber.flatMap { number in
-                model.installmentTotal.map { Installment(number: number, total: $0) }
-            }
-        )
-        let keyWasCanonical = model.dedupKey == previousCanonicalKey
-
-        model.description = dto.description
-        model.amount = dto.amount
-        model.date = date
-        model.$account.id = dto.accountID
-        model.isProjected = dto.isProjected
-        model.installmentNumber = dto.installment?.number
-        model.installmentTotal = dto.installment?.total
-        if let category, !category.isEmpty {
-            model.category = category
-        } else {
-            model.category = try await req.categoryRules.categorizer()
-                .category(for: dto.description, amount: dto.amount)
-        }
-        // As tags do corpo são o estado final: mandar lista vazia apaga todas.
-        model.tags = TagSet.normalize(dto.tags)
-        model.note = dto.note
-        if keyWasCanonical {
-            model.dedupKey = DedupKey.make(
-                accountID: dto.accountID,
-                date: date,
-                description: dto.description,
-                amount: dto.amount,
-                installment: dto.installment
-            )
-        }
-
-        return try await req.db.transaction { db in
-            let counterpart = try await TransactionModel.query(on: db)
-                .filter(\.$transferSource.$id == id)
-                .first()
-            if let counterpart, counterpart.$account.id == dto.accountID {
-                throw Abort(.badRequest, reason: "A transferência já vai para essa conta: escolha outra conta ou desfaça a transferência")
-            }
-            do {
-                try await model.update(on: db)
-            } catch let error as any DatabaseError where error.isConstraintFailure {
-                throw Abort(.conflict, reason: "Já existe um lançamento igual nessa data e conta")
-            }
-            try await model.syncCounterpart(on: db)
-            return try await Self.withTransferAccounts([model], on: db)[0]
-        }
+        return try await UpdateTransaction(unitOfWork: req.unitOfWork)(id: id, with: dto)
     }
 
     func delete(req: Request) async throws -> HTTPStatus {
-        guard let id = req.parameters.get("transactionID", as: UUID.self) else {
-            throw Abort(.badRequest, reason: "Identificador inválido")
-        }
-        guard let model = try await TransactionModel.find(id, on: req.db) else {
-            throw Abort(.notFound, reason: "Lançamento não encontrado")
-        }
-        try await model.delete(on: req.db)
+        try await DeleteTransaction(unitOfWork: req.unitOfWork)(
+            id: try req.parameters.uuid("transactionID")
+        )
         return .noContent
     }
 
-    /// Remoção em lote a partir da seleção na lista.
     func deleteBatch(req: Request) async throws -> BulkDeleteResponse {
-        let request = try req.content.decode(BulkDeleteRequest.self)
-        guard !request.ids.isEmpty else { return BulkDeleteResponse(deleted: 0) }
-        guard request.ids.count <= 1000 else {
-            throw Abort(.badRequest, reason: "No máximo 1000 lançamentos por vez")
-        }
-
-        let deleted = try await req.db.transaction { db -> Int in
-            let models = try await TransactionModel.query(on: db)
-                .filter(\.$id ~~ request.ids)
-                .all()
-            for model in models {
-                try await model.delete(on: db)
-            }
-            return models.count
-        }
-        return BulkDeleteResponse(deleted: deleted)
+        try await DeleteTransactions(unitOfWork: req.unitOfWork)(req.content.decode(BulkDeleteRequest.self))
     }
 
-    /// Edição em lote a partir da seleção na lista: categoria e tags.
-    /// Contrapartidas ficam de fora e acompanham o original.
     func updateBatch(req: Request) async throws -> BulkUpdateResponse {
-        let request = try req.content.decode(BulkUpdateRequest.self)
-        guard !request.ids.isEmpty else { return BulkUpdateResponse(updated: 0) }
-        guard request.ids.count <= 1000 else {
-            throw Abort(.badRequest, reason: "No máximo 1000 lançamentos por vez")
-        }
-        let category = request.normalizedCategory
-
-        let updated = try await req.db.transaction { db -> Int in
-            let models = try await TransactionModel.query(on: db)
-                .filter(\.$id ~~ request.ids)
-                .filter(\.$transferSource.$id == nil)
-                .all()
-            for model in models {
-                if let category { model.category = category }
-                model.tags = request.applyTags(to: model.tags)
-                try await model.update(on: db)
-                try await model.syncCounterpart(on: db)
-            }
-            return models.count
-        }
-        return BulkUpdateResponse(updated: updated)
+        try await UpdateTransactions(unitOfWork: req.unitOfWork)(req.content.decode(BulkUpdateRequest.self))
     }
 
     func batches(req: Request) async throws -> [ImportBatchDTO] {
@@ -306,55 +74,10 @@ struct TransactionController: RouteCollection {
         }
     }
 
-    /// Desfaz uma importação: apaga o que ela criou e devolve as projeções que
-    /// ela confirmou ao estado anterior.
     func undoImport(req: Request) async throws -> BulkDeleteResponse {
-        guard let id = req.parameters.get("batchID", as: UUID.self) else {
-            throw Abort(.badRequest, reason: "Identificador inválido")
-        }
-        guard let batch = try await ImportBatchModel.find(id, on: req.db) else {
-            throw Abort(.notFound, reason: "Importação não encontrada")
-        }
-
-        return try await req.db.transaction { db -> BulkDeleteResponse in
-            // As projeções confirmadas também pertencem ao lote, mas não foram
-            // criadas por ele: são revertidas, não apagadas.
-            let confirmed = Set(batch.confirmations.map(\.transactionID))
-            let created = try await TransactionModel.query(on: db)
-                .filter(\.$importBatch.$id == id)
-                .all()
-                .filter { model in model.id.map { !confirmed.contains($0) } ?? true }
-            for model in created {
-                try await model.delete(on: db)
-            }
-
-            var restored = 0
-            for snapshot in batch.confirmations {
-                guard let model = try await TransactionModel.find(snapshot.transactionID, on: db) else { continue }
-                // Editado depois da confirmação: a correção do usuário vale mais
-                // do que o estado que esta importação deixou.
-                if let confirmedDate = snapshot.confirmedDate, let confirmedAmount = snapshot.confirmedAmount {
-                    guard model.date == confirmedDate, model.amount == confirmedAmount, !model.isProjected else { continue }
-                }
-                model.isProjected = true
-                model.date = snapshot.date
-                model.amount = snapshot.amount
-                model.externalID = snapshot.externalID
-                // O lote que projetou a parcela pode já ter sido desfeito: nesse
-                // caso a projeção fica órfã em vez de apontar para um lote morto.
-                if let previousBatchID = snapshot.previousBatchID {
-                    model.$importBatch.id = try await ImportBatchModel.find(previousBatchID, on: db)?.id
-                } else {
-                    model.$importBatch.id = nil
-                }
-                try await model.update(on: db)
-                try await model.syncCounterpart(on: db)
-                restored += 1
-            }
-
-            try await batch.delete(on: db)
-            return BulkDeleteResponse(deleted: created.count, restored: restored)
-        }
+        try await UndoImport(unitOfWork: req.unitOfWork)(
+            batchID: try req.parameters.uuid("batchID")
+        )
     }
 
     /// Importa um extrato ou fatura. A fatura de cartão com mês substitui a anterior do mesmo mês.
@@ -400,29 +123,24 @@ struct TransactionQuery: Content {
     var offset: Int?
 }
 
+extension TransactionQuery {
+    var filter: TransactionFilter {
+        TransactionFilter(
+            accountID: accountID,
+            from: from,
+            to: to,
+            search: search,
+            includeProjected: includeProjected ?? true,
+            category: category,
+            tag: tag,
+            limit: min(max(limit ?? 500, 1), 1000),
+            offset: max(offset ?? 0, 0)
+        )
+    }
+}
+
 struct SummaryQuery: Content {
     var accountID: UUID?
     var forecastMonths: Int?
     var includeTransfers: Bool?
-}
-
-/// Busca que ignora maiúsculas e acentos ("farmacia" acha "FARMÁCIA").
-enum TextSearch {
-    private static let accented = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ"
-    private static let plain = "aaaaaeeeeiiiiooooouuuucnaaaaaeeeeiiiiooooouuuucn"
-
-    /// Padrão `LIKE` já sem acentos, em minúsculas e com curingas escapados.
-    static func pattern(for search: String) -> String {
-        let folded = search
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
-            .lowercased()
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "%", with: "\\%")
-            .replacingOccurrences(of: "_", with: "\\_")
-        return "%\(folded)%"
-    }
-
-    static func matches(column: String, pattern: String) -> DatabaseQuery.Filter {
-        .sql(embed: "lower(translate(\(ident: column), \(bind: accented), \(bind: plain))) LIKE \(bind: pattern)")
-    }
 }
