@@ -5,7 +5,6 @@ import KausMedia
 /// CRUD das regras de categorização: é o que torna a categorização configurável
 /// em vez de uma lista fixa no código.
 struct CategoryRuleController: RouteCollection {
-    private static let regexLengthLimit = 200
 
     func boot(routes: any RoutesBuilder) throws {
         let rules = routes.grouped("api", "category-rules")
@@ -100,9 +99,7 @@ struct CategoryRuleController: RouteCollection {
     /// a usavam passam pelas regras restantes, em vez de ficarem com o nome de
     /// uma categoria que não existe mais.
     func deleteCategory(req: Request) async throws -> DeleteCategoryResponse {
-        guard let name = req.parameters.get("category"), !name.isEmpty else {
-            throw Abort(.badRequest, reason: "Categoria inválida")
-        }
+        let name = try req.parameters.label("category", invalid: .invalidCategory)
 
         return try await req.db.transaction { db in
             try await CategoryLimitModel.query(on: db)
@@ -134,32 +131,11 @@ struct CategoryRuleController: RouteCollection {
     }
 
     private func validate(_ rule: CategoryRule) throws {
-        guard !rule.term.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw Abort(.badRequest, reason: "O termo da regra é obrigatório")
-        }
-        guard !rule.category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw Abort(.badRequest, reason: "A categoria da regra é obrigatória")
-        }
-        if rule.matchKind == .regex {
-            // A regra é aplicada a cada lançamento em importações e recategorizações
-            // em massa: um padrão longo e ambíguo custa caro multiplicado por milhares.
-            guard rule.term.count <= Self.regexLengthLimit else {
-                throw Abort(.badRequest, reason: "Expressão regular longa demais (máximo \(Self.regexLengthLimit) caracteres)")
-            }
-            guard (try? NSRegularExpression(pattern: rule.term)) != nil else {
-                throw Abort(.badRequest, reason: "Expressão regular inválida: \(rule.term)")
-            }
-        }
+        try Validation.rule(rule)
     }
 
     private func find(_ req: Request) async throws -> CategoryRuleModel {
-        guard let id = req.parameters.get("ruleID", as: UUID.self) else {
-            throw Abort(.badRequest, reason: "Identificador de regra inválido")
-        }
-        guard let model = try await CategoryRuleModel.find(id, on: req.db) else {
-            throw Abort(.notFound, reason: "Regra não encontrada")
-        }
-        return model
+        try await CategoryRuleModel.find(req.parameters.uuid("ruleID"), on: req.db, or: .ruleNotFound)
     }
 }
 

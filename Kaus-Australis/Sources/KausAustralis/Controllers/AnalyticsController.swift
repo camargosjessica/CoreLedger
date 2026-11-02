@@ -10,10 +10,7 @@ struct AnalyticsController: RouteCollection {
 
     func spending(req: Request) async throws -> SpendingReport {
         let query = try req.query.decode(SpendingQuery.self)
-        let year = query.year ?? YearMonth(date: Date()).year
-        guard (1...9998).contains(year) else {
-            throw Abort(.badRequest, reason: "Ano inválido")
-        }
+        let year = try Validation.year(query.year ?? YearMonth(date: Date()).year)
         let grouping = query.groupBy ?? .category
 
         var builder = TransactionModel.query(on: req.db)

@@ -83,12 +83,8 @@ struct TransactionController: RouteCollection {
     /// Importa um extrato ou fatura. A fatura de cartão com mês substitui a anterior do mesmo mês.
     func importStatement(req: Request) async throws -> ImportReportDTO {
         let request = try req.content.decode(ImportRequestDTO.self)
-        guard let account = try await AccountModel.find(request.accountID, on: req.db) else {
-            throw Abort(.notFound, reason: "Conta não encontrada")
-        }
-        guard !request.content.isEmpty else {
-            throw Abort(.badRequest, reason: "Arquivo vazio")
-        }
+        let account = try await AccountModel.find(request.accountID, on: req.db, or: .accountNotFound)
+        guard !request.content.isEmpty else { throw LedgerError.emptyFile }
         return try await ImportService(database: req.db).run(request, account: account)
     }
 

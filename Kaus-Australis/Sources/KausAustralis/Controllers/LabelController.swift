@@ -28,17 +28,12 @@ struct LabelController: RouteCollection {
     /// transferência com uma categoria comum: a análise ignora categorias de
     /// transferência inteiras, e os gastos sumiriam dela.
     func renameCategory(req: Request) async throws -> LabelChangeResponse {
-        guard let current = req.parameters.get("category"), !current.isEmpty else {
-            throw Abort(.badRequest, reason: "Categoria inválida")
-        }
+        let current = try req.parameters.label("category", invalid: .invalidCategory)
         let name = try newName(req)
         let transfers = try await req.categoryRules.categorizer().transferCategories
         if transfers.contains(name) != transfers.contains(current),
            try await Self.categories(on: req.db).contains(name) {
-            throw Abort(
-                .conflict,
-                reason: "\(name) e \(current) não podem ser juntadas: só uma delas é transferência."
-            )
+            throw LedgerError.incompatibleCategoryMerge(name: name, current: current)
         }
 
         // Renomear a categoria-mãe leva junto as subcategorias.
@@ -100,9 +95,7 @@ struct LabelController: RouteCollection {
     }
 
     private func replaceTag(_ req: Request, with replacement: String?) async throws -> LabelChangeResponse {
-        guard let tag = req.parameters.get("tag"), !tag.isEmpty else {
-            throw Abort(.badRequest, reason: "Tag inválida")
-        }
+        let tag = try req.parameters.label("tag", invalid: .invalidTag)
 
         return try await req.db.transaction { db in
             var response = LabelChangeResponse()
@@ -129,11 +122,6 @@ struct LabelController: RouteCollection {
     }
 
     private func newName(_ req: Request) throws -> String {
-        let name = try req.content.decode(RenameLabelRequest.self).name
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else {
-            throw Abort(.badRequest, reason: "O novo nome é obrigatório")
-        }
-        return name
+        try Validation.required(req.content.decode(RenameLabelRequest.self).name, or: .newNameRequired)
     }
 }
