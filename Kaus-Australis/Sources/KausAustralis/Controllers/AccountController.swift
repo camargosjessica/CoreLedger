@@ -19,54 +19,36 @@ struct AccountController: RouteCollection {
     /// disponível em conta e quanto ainda se deve no cartão.
     func position(req: Request) async throws -> FinancialPosition {
         let accounts = try await AccountModel.query(on: req.db).sort(\.$name).all()
-        let transactions = try await TransactionModel.query(on: req.db).all()
-        let grouped = Dictionary(grouping: transactions) { $0.$account.id }
+        let totals = try await req.transactionTotals.byAccount()
 
         var positions = accounts.map { account in
             AccountPosition(
                 accountID: account.id,
                 name: account.name,
                 kind: account.accountKind,
-                balance: (grouped[account.id] ?? [])
-                    .filter { !$0.isProjected }
-                    .reduce(0) { $0 + $1.amount }
+                balance: totals[account.id]?.balance ?? .zero
             )
         }
 
         // Lançamentos anteriores à introdução de contas continuam compondo o
         // que está disponível, senão a posição ignoraria parte do dinheiro.
-        let orphans = (grouped[nil] ?? []).filter { !$0.isProjected }
-        if !orphans.isEmpty {
+        if let orphans = totals[nil], orphans.realizedCount > 0 {
             positions.append(
-                AccountPosition(
-                    accountID: nil,
-                    name: "Sem conta",
-                    kind: .checking,
-                    balance: orphans.reduce(0) { $0 + $1.amount }
-                )
+                AccountPosition(accountID: nil, name: "Sem conta", kind: .checking, balance: orphans.balance)
             )
         }
 
-        let upcoming = transactions
-            .filter { $0.isProjected && $0.amount < 0 }
-            .reduce(0) { $0 + $1.amount }
-
+        let upcoming = totals.values.map(\.upcomingExpenses).sum()
         return FinancialPosition.make(accounts: positions, upcomingInstallments: upcoming)
     }
 
     /// Lista as contas já com saldo e quantidade de lançamentos, agregados em SQL.
     func index(req: Request) async throws -> [AccountDTO] {
         let accounts = try await AccountModel.query(on: req.db).sort(\.$name).all()
-        let transactions = try await TransactionModel.query(on: req.db).all()
-
-        let grouped = Dictionary(grouping: transactions) { $0.$account.id }
+        let totals = try await req.transactionTotals.byAccount()
         return accounts.map { account in
-            let own = grouped[account.id] ?? []
-            // Parcelas futuras são previsão: entram na projeção, não no saldo.
-            return account.toDTO(
-                transactionCount: own.count,
-                balance: own.filter { !$0.isProjected }.reduce(0) { $0 + $1.amount }
-            )
+            let own = totals[account.id] ?? .init()
+            return account.toDTO(transactionCount: own.transactionCount, balance: own.balance)
         }
     }
 

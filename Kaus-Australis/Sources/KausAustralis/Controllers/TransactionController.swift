@@ -300,16 +300,10 @@ struct TransactionController: RouteCollection {
             builder = builder.filter(\.$account.$id == accountID)
         }
         let batches = try await builder.limit(50).all()
-
-        var result: [ImportBatchDTO] = []
-        for batch in batches {
-            guard let id = batch.id else { continue }
-            let count = try await TransactionModel.query(on: req.db)
-                .filter(\.$importBatch.$id == id)
-                .count()
-            result.append(batch.toDTO(transactionCount: count))
+        let counts = try await req.transactionTotals.countByBatch(batches.compactMap(\.id))
+        return batches.map { batch in
+            batch.toDTO(transactionCount: batch.id.flatMap { counts[$0] } ?? 0)
         }
-        return result
     }
 
     /// Desfaz uma importação: apaga o que ela criou e devolve as projeções que
@@ -379,25 +373,15 @@ struct TransactionController: RouteCollection {
     func summary(req: Request) async throws -> LedgerProjection {
         let query = try req.query.decode(SummaryQuery.self)
 
-        var builder = TransactionModel.query(on: req.db)
-        if let accountID = query.accountID {
-            builder = builder.filter(\.$account.$id == accountID)
-        } else {
-            // Somando todas as contas, a contrapartida anularia a origem.
-            builder = builder.filter(\.$transferSource.$id == nil)
-        }
-        let transactions = try await builder.all()
+        // Somando todas as contas, a contrapartida anularia a origem.
+        let inputs = try await req.transactionTotals.monthlyInputs(
+            accountID: query.accountID,
+            excludingCounterparts: query.accountID == nil
+        )
 
         let transferCategories = try await req.categoryRules.categorizer().transferCategories
         return Projection.project(
-            transactions.map {
-                Projection.Input(
-                    date: $0.date,
-                    amount: $0.amount,
-                    category: $0.category,
-                    isProjected: $0.isProjected
-                )
-            },
+            inputs,
             transferCategories: query.includeTransfers == true ? [] : transferCategories,
             forecastMonths: min(max(query.forecastMonths ?? 6, 0), 24)
         )
