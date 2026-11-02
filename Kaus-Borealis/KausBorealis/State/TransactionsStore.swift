@@ -29,7 +29,7 @@ final class TransactionsStore {
     }
 
     /// Mês do período `.month`. Aceita meses futuros, para ver as parcelas previstas.
-    var selectedMonth = YearMonth(date: Date()) {
+    var selectedMonth: YearMonth {
         didSet { if period == .month, selectedMonth != oldValue { scheduleListReload() } }
     }
 
@@ -43,6 +43,7 @@ final class TransactionsStore {
 
     init(session: LedgerSession) {
         self.session = session
+        self.selectedMonth = session.clock.currentMonth()
     }
 
     enum Period: String, CaseIterable, Identifiable {
@@ -65,8 +66,7 @@ final class TransactionsStore {
         }
 
         /// Primeiro dia do intervalo; `nil` quando não há limite inferior.
-        var start: Date? {
-            let now = Date()
+        func start(now: Date) -> Date? {
             switch self {
             case .all, .month: return nil
             case .thisMonth: return LedgerCalendar.startOfMonth(now)
@@ -77,19 +77,21 @@ final class TransactionsStore {
 
         /// Último dia do intervalo. Sem ele, um lançamento datado no futuro
         /// (ou uma parcela projetada) entraria no total do período escolhido.
-        var end: Date? {
+        func end(now: Date) -> Date? {
             guard self != .all, self != .month else { return nil }
-            let nextMonth = LedgerCalendar.addingMonths(1, to: LedgerCalendar.startOfMonth(Date()))
+            let nextMonth = LedgerCalendar.addingMonths(1, to: LedgerCalendar.startOfMonth(now))
             return LedgerCalendar.addingDays(-1, to: nextMonth)
         }
     }
 
     private var periodStart: Date? {
-        period == .month ? selectedMonth.startDate : period.start
+        period == .month ? selectedMonth.startDate : period.start(now: session.clock.now())
     }
 
     private var periodEnd: Date? {
-        period == .month ? LedgerCalendar.addingDays(-1, to: selectedMonth.adding(months: 1).startDate) : period.end
+        period == .month
+            ? LedgerCalendar.addingDays(-1, to: selectedMonth.adding(months: 1).startDate)
+            : period.end(now: session.clock.now())
     }
 
     /// Consulta com os filtros atuais.
@@ -140,7 +142,7 @@ final class TransactionsStore {
         let accountID = query.accountID
         await session.run {
             let api = session.api
-            let today = LedgerCalendar.startOfDay(Date())
+            let today = session.clock.today()
             async let list = api.transactions(query)
             async let upcoming = api.transactions(TransactionQuery(
                 accountID: accountID,

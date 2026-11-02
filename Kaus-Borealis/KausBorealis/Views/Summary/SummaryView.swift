@@ -11,7 +11,7 @@ struct SummaryView: View {
     private let columns = [GridItem(.adaptive(minimum: 320), spacing: 16, alignment: .top)]
 
     private var currentPlan: PlanMonthTotals? {
-        store.plan.annual?.totals.first { $0.month == YearMonth(date: Date()) }
+        store.plan.annual?.totals.first { $0.month == store.clock.currentMonth() }
     }
 
     private var history: [MonthlySummary] { store.transactions.projection?.history ?? [] }
@@ -20,7 +20,7 @@ struct SummaryView: View {
     private var upcoming: [TransactionDTO] { Array(store.transactions.upcoming.prefix(5)) }
 
     private var limitStatuses: [CategoryLimitStatus] {
-        let month = LedgerCalendar.startOfMonth(Date())
+        let month = store.clock.currentMonth().startDate
         let totals = history.first { $0.month == month }?.byCategory ?? [:]
         return CategoryLimitStatus.evaluate(limits: store.plan.limits, totalsByCategory: totals)
     }

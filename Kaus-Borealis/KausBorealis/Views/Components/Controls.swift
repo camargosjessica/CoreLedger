@@ -46,8 +46,9 @@ struct RowDivider: View {
 /// ‹ mês › com atalho para o mês atual, usado no topo das telas por período.
 struct MonthStepper: View {
     @Binding var month: YearMonth
+    @Environment(\.ledgerClock) private var clock
 
-    private var isCurrent: Bool { month == YearMonth(date: Date()) }
+    private var isCurrent: Bool { month == clock.currentMonth() }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -60,7 +61,7 @@ struct MonthStepper: View {
                 .background(Palette.raised, in: Capsule())
             stepButton("chevron.right", by: 1)
             if !isCurrent {
-                Button("Hoje") { month = YearMonth(date: Date()) }
+                Button("Hoje") { month = clock.currentMonth() }
                     .font(.subheadline)
                     .buttonStyle(.borderless)
             }

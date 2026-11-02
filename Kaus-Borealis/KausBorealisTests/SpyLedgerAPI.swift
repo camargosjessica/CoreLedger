@@ -24,7 +24,10 @@ final class SpyLedgerAPI: InMemoryLedgerAPI {
 }
 
 @MainActor
-func makeStore(_ api: SpyLedgerAPI = SpyLedgerAPI()) -> (LedgerStore, SpyLedgerAPI) {
-    let store = LedgerStore(configuration: APIConfiguration(baseURL: APIConfiguration.defaultBaseURL)) { _ in api }
+func makeStore(_ api: SpyLedgerAPI = SpyLedgerAPI(), clock: LedgerClock = .system) -> (LedgerStore, SpyLedgerAPI) {
+    let store = LedgerStore(
+        configuration: APIConfiguration(baseURL: APIConfiguration.defaultBaseURL),
+        clock: clock
+    ) { _ in api }
     return (store, api)
 }

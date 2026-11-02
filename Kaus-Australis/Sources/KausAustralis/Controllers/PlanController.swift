@@ -51,7 +51,7 @@ struct PlanController: RouteCollection {
     /// real quando o extrato já trouxe e o planejado quando o mês é futuro.
     func plan(req: Request) async throws -> PlanResponse {
         let query = try req.query.decode(PlanQuery.self)
-        let reference = Date()
+        let reference = req.ledgerClock.now()
         let start = try Validation.month(query.from, field: "from") ?? YearMonth(date: reference).adding(months: -2)
         let requestedEnd = try Validation.month(query.to, field: "to") ?? start.adding(months: 11)
         let end = min(requestedEnd, start.adding(months: Self.maxPlanMonths - 1))

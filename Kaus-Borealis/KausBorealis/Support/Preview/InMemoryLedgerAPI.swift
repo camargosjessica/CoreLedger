@@ -106,7 +106,8 @@ class InMemoryLedgerAPI: LedgerAPI {
             transactionsList
                 .filter { accountID == nil || $0.accountID == accountID }
                 .map(Projection.Input.init(transaction:)),
-            forecastMonths: forecastMonths
+            forecastMonths: forecastMonths,
+            reference: Date()
         )
     }
 

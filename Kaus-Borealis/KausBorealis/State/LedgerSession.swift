@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import KausMedia
 
 /// Estado compartilhado pelas stores de feature: conexão, conta em foco e o
 /// resultado das operações (erro, carregando, alcançável).
@@ -7,6 +8,8 @@ import Observation
 @Observable
 final class LedgerSession {
     var configuration: APIConfiguration
+    /// Fonte do "agora" para o mês corrente, o período da lista e as parcelas a vencer.
+    let clock: LedgerClock
     /// Conta selecionada nos filtros; `nil` significa todas.
     var selectedAccountID: UUID?
 
@@ -27,8 +30,13 @@ final class LedgerSession {
     /// é dono da sessão.
     @ObservationIgnored weak var coordinator: LedgerStore?
 
-    init(configuration: APIConfiguration, makeAPI: @escaping (APIConfiguration) -> any LedgerAPI) {
+    init(
+        configuration: APIConfiguration,
+        clock: LedgerClock = .system,
+        makeAPI: @escaping (APIConfiguration) -> any LedgerAPI
+    ) {
         self.configuration = configuration
+        self.clock = clock
         self.makeAPI = makeAPI
     }
 

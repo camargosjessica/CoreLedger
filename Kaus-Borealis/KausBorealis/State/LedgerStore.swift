@@ -20,9 +20,10 @@ final class LedgerStore {
 
     init(
         configuration: APIConfiguration = .load(),
+        clock: LedgerClock = .system,
         makeAPI: @escaping (APIConfiguration) -> any LedgerAPI = { APIClient(configuration: $0) }
     ) {
-        let session = LedgerSession(configuration: configuration, makeAPI: makeAPI)
+        let session = LedgerSession(configuration: configuration, clock: clock, makeAPI: makeAPI)
         let transactions = TransactionsStore(session: session)
         self.session = session
         self.accounts = AccountsStore(session: session)
@@ -110,6 +111,7 @@ final class LedgerStore {
     var isLoading: Bool { session.isLoading }
     var isReachable: Bool { session.isReachable }
     var dataGeneration: Int { session.dataGeneration }
+    var clock: LedgerClock { session.clock }
 
     // MARK: Catálogo de categorias
 

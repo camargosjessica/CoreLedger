@@ -106,16 +106,16 @@ struct PlanView: View {
             }
             .refreshable { await store.plan.reloadGrid() }
             .sheet(isPresented: $isCreating) {
-                CommitmentSheet(commitment: nil)
+                CommitmentSheet(commitment: nil, currentMonth: store.clock.currentMonth())
             }
             .sheet(item: $editing) { commitment in
-                CommitmentSheet(commitment: commitment)
+                CommitmentSheet(commitment: commitment, currentMonth: store.clock.currentMonth())
             }
         }
     }
 
     private var years: [Int] {
-        let current = YearMonth(date: Date()).year
+        let current = store.clock.currentMonth().year
         return Array((current - 1)...(current + 2))
     }
 }

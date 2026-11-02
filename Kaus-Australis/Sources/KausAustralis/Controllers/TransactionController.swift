@@ -102,7 +102,8 @@ struct TransactionController: RouteCollection {
         return Projection.project(
             inputs,
             transferCategories: query.includeTransfers == true ? [] : transferCategories,
-            forecastMonths: min(max(query.forecastMonths ?? 6, 0), 24)
+            forecastMonths: min(max(query.forecastMonths ?? 6, 0), 24),
+            reference: req.ledgerClock.now()
         )
     }
 }

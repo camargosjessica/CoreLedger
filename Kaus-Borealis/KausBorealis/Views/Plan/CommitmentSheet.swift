@@ -28,9 +28,10 @@ struct CommitmentSheet: View {
     @State private var changeMonth: YearMonth
     @State private var changeValue = ""
 
-    init(commitment: RecurringCommitment?) {
+    /// - Parameter currentMonth: início padrão de um compromisso novo.
+    init(commitment: RecurringCommitment?, currentMonth: YearMonth) {
         self.commitment = commitment
-        let current = YearMonth(date: Date())
+        let current = currentMonth
         _name = State(initialValue: commitment?.name ?? "")
         _category = State(initialValue: commitment?.category ?? "")
         _kind = State(initialValue: commitment?.kind ?? .expense)

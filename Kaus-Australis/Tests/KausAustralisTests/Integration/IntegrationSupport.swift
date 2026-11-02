@@ -27,6 +27,7 @@ enum Integration {
     /// App configurado contra o banco de teste, com as tabelas vazias.
     static func withApp(
         environment: [String: String?] = [:],
+        clock: LedgerClock? = nil,
         _ test: (Application) async throws -> Void
     ) async throws {
         let name = databaseName
@@ -43,6 +44,7 @@ enum Integration {
         }
 
         try await VaporTesting.withApp(configure: { app in
+            if let clock { app.ledgerClock = clock }
             try await configure(app)
             try await truncate(app.db)
             try routes(app)

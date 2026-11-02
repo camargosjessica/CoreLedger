@@ -13,7 +13,7 @@ final class PlanStore {
     private(set) var categorySettings: [CategorySetting] = []
 
     /// Ano exibido na grade anual, no formato da planilha (janeiro a dezembro).
-    var year: Int = YearMonth(date: Date()).year {
+    var year: Int {
         didSet { if year != oldValue { scheduleGridReload() } }
     }
 
@@ -22,6 +22,7 @@ final class PlanStore {
 
     init(session: LedgerSession) {
         self.session = session
+        self.year = session.clock.currentMonth().year
     }
 
     private var start: YearMonth { YearMonth(year: year, month: 1) }

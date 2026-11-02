@@ -10,7 +10,7 @@ struct AnalyticsController: RouteCollection {
 
     func spending(req: Request) async throws -> SpendingReport {
         let query = try req.query.decode(SpendingQuery.self)
-        let year = try Validation.year(query.year ?? YearMonth(date: Date()).year)
+        let year = try Validation.year(query.year ?? req.ledgerClock.currentMonth().year)
         let grouping = query.groupBy ?? .category
 
         var builder = TransactionModel.query(on: req.db)
