@@ -110,21 +110,34 @@ final class TransactionsStore {
     private static let upcomingWindowDays = 92
 
     /// A lista filtrada e as próximas parcelas.
+    ///
+    /// Só retorna quando a consulta mais recente terminou: se outra mudança
+    /// substituir esta no meio do caminho, espera a substituta.
     func reloadList() async {
-        listTask?.cancel()
-        let task = Task { await fetchList() }
-        listTask = task
-        await task.value
+        scheduleListReload()
+        await Self.awaitLatest { self.listTask }
+    }
+
+    /// O filtro é capturado agora: a consulta reflete o estado do momento da
+    /// mudança, e uma consulta já cancelada nem chega a sair.
+    /// Espera a tarefa atual e, se ela tiver sido trocada por outra enquanto
+    /// isso, espera a nova — até não haver substituição.
+    static func awaitLatest(_ current: () -> Task<Void, Never>?) async {
+        var waited: Task<Void, Never>?
+        while let task = current(), task != waited {
+            await task.value
+            waited = task
+        }
     }
 
     private func scheduleListReload() {
         listTask?.cancel()
-        listTask = Task { await fetchList() }
+        listTask = Task { [query] in await fetchList(query) }
     }
 
-    private func fetchList() async {
-        let query = query
-        let accountID = session.selectedAccountID
+    private func fetchList(_ query: TransactionQuery) async {
+        guard !Task.isCancelled else { return }
+        let accountID = query.accountID
         await session.run {
             let api = session.api
             let today = LedgerCalendar.startOfDay(Date())

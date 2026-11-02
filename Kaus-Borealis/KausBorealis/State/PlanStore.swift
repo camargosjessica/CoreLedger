@@ -40,11 +40,10 @@ final class PlanStore {
     }
 
     /// Só a grade anual (e os compromissos que vêm com ela).
+    /// Só retorna quando a consulta mais recente terminou.
     func reloadGrid() async {
-        gridTask?.cancel()
-        let task = Task { await fetchGrid() }
-        gridTask = task
-        await task.value
+        scheduleGridReload()
+        await TransactionsStore.awaitLatest { self.gridTask }
     }
 
     private func scheduleGridReload() {
