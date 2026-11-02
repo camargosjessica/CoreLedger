@@ -71,6 +71,17 @@ swift run
 ```
 As migrations são aplicadas automaticamente na inicialização. O servidor fica disponível em `http://127.0.0.1:8080`.
 
+### Testes do backend
+
+`swift test` em `Kaus-Australis` roda os testes unitários. Os testes de integração (rotas + Postgres) ficam desligados por padrão; para rodá-los, crie um banco só para eles — o nome precisa conter `test`, porque as tabelas são esvaziadas a cada teste:
+
+```zsh
+docker exec kaus-australis-db-1 createdb -U kaus_user kaus_test
+KAUS_INTEGRATION_TESTS=1 swift test
+```
+
+O banco usado é `DATABASE_TEST_NAME` (padrão `kaus_test`); host, porta, usuário e senha são as mesmas variáveis `DATABASE_*` da execução normal. No CI, um serviço Postgres sobe junto com o job.
+
 ### 5. Executar o Frontend (`Kaus-Borealis`)
 Abra `Kaus-Borealis/KausBorealis.xcodeproj` no Xcode e execute no simulador de iOS ou no macOS. O app tem sete abas — Resumo, Lançamentos, Análise, Plano, Contas, Regras e Ajustes — e consome a API em `http://127.0.0.1:8080` por padrão.
 

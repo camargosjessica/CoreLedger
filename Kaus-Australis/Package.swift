@@ -26,7 +26,8 @@ let package = Package(
             name: "KausAustralisTests",
             dependencies: [
                 .target(name: "KausAustralis"),
-                .product(name: "KausMedia", package: "Kaus-Media")
+                .product(name: "KausMedia", package: "Kaus-Media"),
+                .product(name: "VaporTesting", package: "vapor")
             ]
         )
     ]
