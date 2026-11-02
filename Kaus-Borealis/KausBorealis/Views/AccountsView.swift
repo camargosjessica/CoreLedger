@@ -11,19 +11,19 @@ struct AccountsView: View {
 
     private var groups: [AccountGroup] {
         AccountGroup.Kind.allCases.compactMap { kind in
-            let accounts = store.accounts.filter { kind.contains($0.kind) }
+            let accounts = store.accounts.all.filter { kind.contains($0.kind) }
             return accounts.isEmpty ? nil : AccountGroup(kind: kind, accounts: accounts)
         }
     }
 
     private func total(_ kind: AccountGroup.Kind) -> Money {
-        store.accounts.filter { kind.contains($0.kind) }.reduce(0) { $0 + ($1.balance ?? 0) }
+        store.accounts.all.filter { kind.contains($0.kind) }.reduce(0) { $0 + ($1.balance ?? 0) }
     }
 
     var body: some View {
         NavigationStack {
             CardScreen {
-                if store.accounts.isEmpty && !store.isLoading {
+                if store.accounts.all.isEmpty && !store.isLoading {
                     EmptyState(
                         symbol: "creditcard",
                         title: "Nenhuma conta",
@@ -92,7 +92,7 @@ struct AccountsView: View {
                 Button("Apagar", role: .destructive) {
                     guard let account = pendingDelete else { return }
                     pendingDelete = nil
-                    Task { await store.deleteAccount(account) }
+                    Task { await store.accounts.delete(account) }
                 }
                 Button("Cancelar", role: .cancel) { pendingDelete = nil }
             }
@@ -234,9 +234,9 @@ struct AccountForm: View {
             if var existing = account {
                 existing.name = name
                 existing.kind = kind
-                await store.updateAccount(existing)
+                await store.accounts.update(existing)
             } else {
-                await store.addAccount(name: name, kind: kind)
+                await store.accounts.add(name: name, kind: kind)
             }
             dismiss()
         }

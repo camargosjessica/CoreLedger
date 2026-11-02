@@ -15,7 +15,7 @@ struct RulesView: View {
     @State private var limitText = ""
 
     private var parents: [String] {
-        Array(Set(store.parentCategories + store.rules.map { CategoryPath.parent(of: $0.category) })).sorted()
+        Array(Set(store.parentCategories + store.rules.all.map { CategoryPath.parent(of: $0.category) })).sorted()
     }
 
     private let columns = [GridItem(.adaptive(minimum: 360), spacing: 16, alignment: .top)]
@@ -27,7 +27,7 @@ struct RulesView: View {
                     HStack(spacing: 12) {
                         IconBadge(symbol: "wand.and.stars", color: .indigo, size: 36)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("\(parents.count) categorias · \(store.rules.count) regras")
+                            Text("\(parents.count) categorias · \(store.rules.all.count) regras")
                                 .font(.headline)
                             Text("Toque numa categoria para ver subcategorias, limite e regras.")
                                 .font(.caption)
@@ -35,7 +35,7 @@ struct RulesView: View {
                         }
                         Spacer()
                         Button {
-                            Task { recategorizeResult = await store.recategorize(onlyUncategorized: false) }
+                            Task { recategorizeResult = await store.rules.recategorize(onlyUncategorized: false) }
                         } label: {
                             Label("Reaplicar ao histórico", systemImage: "arrow.triangle.2.circlepath")
                         }
@@ -80,7 +80,7 @@ struct RulesView: View {
                             },
                             onDelete: { pendingDeletion = $0 },
                             onSetLimit: { category in
-                                limitText = store.limit(for: category)
+                                limitText = store.plan.limit(for: category)
                                     .map { $0.description.replacingOccurrences(of: ".", with: ",") } ?? ""
                                 limitTarget = category
                             },
@@ -117,7 +117,7 @@ struct RulesView: View {
             .alert(limitTarget.map { "Limite mensal de \($0)" } ?? "", isPresented: isEditingLimit) {
                 TextField("Valor, ex.: 800,00", text: $limitText)
                 Button("Salvar") { saveLimit(ValueParser.parse(limitText).map(abs)) }
-                if limitTarget.flatMap(store.limit(for:)) != nil {
+                if limitTarget.flatMap(store.plan.limit(for:)) != nil {
                     Button("Remover limite", role: .destructive) { saveLimit(nil) }
                 }
                 Button("Cancelar", role: .cancel) { limitTarget = nil }
@@ -149,7 +149,7 @@ extension RulesView {
     private func saveLimit(_ value: Money?) {
         guard let category = limitTarget else { return }
         limitTarget = nil
-        Task { await store.setLimit(value, for: category) }
+        Task { await store.plan.setLimit(value, for: category) }
     }
 
     private func rename() {
@@ -162,7 +162,7 @@ extension RulesView {
             : CategoryPath.join(CategoryPath.parent(of: current), typed)
         guard name != current else { return }
         Task {
-            guard let response = await store.renameCategory(current, to: name) else { return }
+            guard let response = await store.rules.renameCategory(current, to: name) else { return }
             resultMessage = "\(response.transactions) lançamento(s), \(response.rules) regra(s) e \(response.commitments) conta(s) fixa(s) atualizado(s)."
         }
     }
@@ -175,7 +175,7 @@ extension RulesView {
             var rules = 0
             var recategorized = 0
             for target in targets {
-                guard let response = await store.deleteCategory(target) else { continue }
+                guard let response = await store.rules.deleteCategory(target) else { continue }
                 rules += response.removedRules
                 recategorized += response.recategorized
             }
@@ -199,7 +199,7 @@ private struct CategoryCard: View {
     private var subcategories: [String] { store.subcategories(of: parent) }
 
     private var rules: [CategoryRule] {
-        store.rules
+        store.rules.all
             .filter { CategoryPath.isWithin($0.category, parent) }
             .sorted { ($0.category, $0.term) < ($1.category, $1.term) }
     }
@@ -210,14 +210,14 @@ private struct CategoryCard: View {
             parts.append(subcategories.count == 1 ? "1 subcategoria" : "\(subcategories.count) subcategorias")
         }
         parts.append(rules.count == 1 ? "1 regra" : "\(rules.count) regras")
-        if let limit = store.limit(for: parent) { parts.append("limite \(limit.brl)") }
+        if let limit = store.plan.limit(for: parent) { parts.append("limite \(limit.brl)") }
         return parts.joined(separator: " · ")
     }
 
     private var essentialBinding: Binding<Bool> {
         Binding(
-            get: { store.isEssential(parent) },
-            set: { value in Task { await store.setEssential(value, for: parent) } }
+            get: { store.plan.isEssential(parent) },
+            set: { value in Task { await store.plan.setEssential(value, for: parent) } }
         )
     }
 
@@ -234,7 +234,7 @@ private struct CategoryCard: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    if store.isEssential(parent) {
+                    if store.plan.isEssential(parent) {
                         DeltaPill(text: "essencial", color: Palette.income)
                     }
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
@@ -249,7 +249,7 @@ private struct CategoryCard: View {
                 Divider()
                 Toggle("Essencial", isOn: essentialBinding)
                 HStack {
-                    Button(store.limit(for: parent).map { "Limite \($0.brl)/mês" } ?? "Definir limite mensal") {
+                    Button(store.plan.limit(for: parent).map { "Limite \($0.brl)/mês" } ?? "Definir limite mensal") {
                         onSetLimit(parent)
                     }
                     .buttonStyle(.borderless)
@@ -282,7 +282,7 @@ private struct CategoryCard: View {
                     .buttonStyle(.plain)
                     .contextMenu {
                         Button("Apagar regra", systemImage: "trash", role: .destructive) {
-                            Task { await store.deleteRule(rule) }
+                            Task { await store.rules.delete(rule) }
                         }
                     }
                 }
@@ -305,22 +305,22 @@ private struct CategoryCard: View {
                 .fill(CategoryStyle.of(parent).color)
                 .frame(width: 6, height: 6)
             Text(CategoryPath.child(of: sub) ?? sub)
-            if let limit = store.limit(for: sub) {
+            if let limit = store.plan.limit(for: sub) {
                 Text("limite \(limit.brl)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
-            if store.isEssential(sub) {
+            if store.plan.isEssential(sub) {
                 DeltaPill(text: "essencial", color: Palette.income)
             }
             Spacer()
             Menu {
                 Button(
-                    store.isEssential(sub) ? "Não é essencial" : "Marcar como essencial",
+                    store.plan.isEssential(sub) ? "Não é essencial" : "Marcar como essencial",
                     systemImage: "checkmark.seal"
                 ) {
-                    let value = !store.isEssential(sub)
-                    Task { await store.setEssential(value, for: sub) }
+                    let value = !store.plan.isEssential(sub)
+                    Task { await store.plan.setEssential(value, for: sub) }
                 }
                 Button("Limite mensal…", systemImage: "gauge.with.needle") { onSetLimit(sub) }
                 Button("Renomear", systemImage: "pencil") { onRename(sub) }
@@ -433,7 +433,7 @@ private struct RuleForm: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Salvar") {
                     Task {
-                        await store.saveRule(draft)
+                        await store.rules.save(draft)
                         dismiss()
                     }
                 }

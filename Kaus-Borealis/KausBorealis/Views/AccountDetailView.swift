@@ -15,7 +15,7 @@ struct AccountDetailView: View {
     @State private var isImporting = false
 
     private var account: AccountDTO? {
-        store.accounts.first { $0.id == accountID }
+        store.accounts.all.first { $0.id == accountID }
     }
 
     private var isCard: Bool { account?.kind == .creditCard }
@@ -75,7 +75,7 @@ struct AccountDetailView: View {
             }
         }
         .task(id: "\(month)-\(store.dataGeneration)") {
-            transactions = await store.transactions(of: accountID, in: month)
+            transactions = await store.accounts.transactions(of: accountID, in: month)
             hasLoaded = true
         }
         .refreshable { await store.reload() }

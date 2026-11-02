@@ -12,7 +12,7 @@ struct RootView: View {
     private var cards: [SidebarAccount] { sidebarAccounts { $0 == .creditCard } }
 
     private func sidebarAccounts(_ include: (AccountKind) -> Bool) -> [SidebarAccount] {
-        store.accounts
+        store.accounts.all
             .filter { include($0.kind) }
             .compactMap { account in account.id.map { SidebarAccount(id: $0, account: account) } }
             .sorted { $0.account.name.localizedStandardCompare($1.account.name) == .orderedAscending }
@@ -59,8 +59,8 @@ struct RootView: View {
         .tint(accent.color)
         .preferredColorScheme(appearance.colorScheme)
         .task { await store.reload() }
-        .onChange(of: store.accounts) {
-            if case let .account(id) = selection, !store.accounts.contains(where: { $0.id == id }) {
+        .onChange(of: store.accounts.all) {
+            if case let .account(id) = selection, !store.accounts.all.contains(where: { $0.id == id }) {
                 selection = .accounts
             }
         }
@@ -138,10 +138,10 @@ private struct SidebarBrand: View {
 private struct SidebarNetWorth: View {
     let store: LedgerStore
 
-    private var total: Money { store.accounts.reduce(0) { $0 + ($1.balance ?? 0) } }
+    private var total: Money { store.accounts.all.reduce(0) { $0 + ($1.balance ?? 0) } }
 
     var body: some View {
-        if !store.accounts.isEmpty {
+        if !store.accounts.all.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Patrimônio")
                     .font(.caption)
@@ -166,7 +166,7 @@ struct AccountFilter: View {
     var body: some View {
         Picker("Conta", selection: $store.selectedAccountID) {
             Text("Todas as contas").tag(UUID?.none)
-            ForEach(store.accounts) { account in
+            ForEach(store.accounts.all) { account in
                 Text(account.name).tag(account.id)
             }
         }

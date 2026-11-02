@@ -51,40 +51,30 @@ struct APIClient: Sendable {
 
     // MARK: Lançamentos
 
-    func transactions(
-        accountID: UUID? = nil,
-        search: String? = nil,
-        includeProjected: Bool = true,
-        from: Date? = nil,
-        to: Date? = nil,
-        category: String? = nil,
-        tag: String? = nil,
-        limit: Int = 500,
-        offset: Int = 0
-    ) async throws -> [TransactionDTO] {
-        var items = [URLQueryItem(name: "limit", value: String(limit))]
-        if offset > 0 {
-            items.append(URLQueryItem(name: "offset", value: String(offset)))
+    func transactions(_ query: TransactionQuery) async throws -> [TransactionDTO] {
+        var items = [URLQueryItem(name: "limit", value: String(query.limit))]
+        if query.offset > 0 {
+            items.append(URLQueryItem(name: "offset", value: String(query.offset)))
         }
-        if let accountID {
+        if let accountID = query.accountID {
             items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))
         }
-        if let from {
+        if let from = query.from {
             items.append(URLQueryItem(name: "from", value: ISO8601DateFormatter().string(from: from)))
         }
-        if let to {
+        if let to = query.to {
             items.append(URLQueryItem(name: "to", value: ISO8601DateFormatter().string(from: to)))
         }
-        if let search, !search.isEmpty {
+        if let search = query.search, !search.isEmpty {
             items.append(URLQueryItem(name: "search", value: search))
         }
-        if !includeProjected {
+        if !query.includeProjected {
             items.append(URLQueryItem(name: "includeProjected", value: "false"))
         }
-        if let category {
+        if let category = query.category {
             items.append(URLQueryItem(name: "category", value: category))
         }
-        if let tag {
+        if let tag = query.tag {
             items.append(URLQueryItem(name: "tag", value: tag))
         }
         return try await send(.get, "api/transactions", query: items)
@@ -121,7 +111,7 @@ struct APIClient: Sendable {
         try await send(.post, "api/imports", body: request)
     }
 
-    func importBatches(accountID: UUID? = nil) async throws -> [ImportBatchDTO] {
+    func importBatches(accountID: UUID?) async throws -> [ImportBatchDTO] {
         var items: [URLQueryItem] = []
         if let accountID {
             items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))
@@ -157,7 +147,7 @@ struct APIClient: Sendable {
         try await send(.post, "api/category-rules/preview", body: request)
     }
 
-    func recategorize(accountID: UUID? = nil, onlyUncategorized: Bool = false) async throws -> RecategorizeResponse {
+    func recategorize(accountID: UUID?, onlyUncategorized: Bool) async throws -> RecategorizeResponse {
         var items: [URLQueryItem] = []
         if let accountID {
             items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))
@@ -204,8 +194,8 @@ struct APIClient: Sendable {
     func spending(
         year: Int,
         grouping: SpendingGrouping,
-        accountID: UUID? = nil,
-        accountKind: AccountKind? = nil
+        accountID: UUID?,
+        accountKind: AccountKind?
     ) async throws -> SpendingReport {
         var items = [
             URLQueryItem(name: "year", value: String(year)),
@@ -262,7 +252,7 @@ struct APIClient: Sendable {
     }
 
     /// Grade anual: linhas por categoria, colunas por mês.
-    func plan(from: YearMonth, to: YearMonth, openingBalance: Money? = nil) async throws -> PlanResponse {
+    func plan(from: YearMonth, to: YearMonth, openingBalance: Money?) async throws -> PlanResponse {
         var items = [
             URLQueryItem(name: "from", value: from.description),
             URLQueryItem(name: "to", value: to.description)
@@ -281,7 +271,7 @@ struct APIClient: Sendable {
 
     // MARK: Resumo
 
-    func summary(accountID: UUID? = nil, forecastMonths: Int = 6) async throws -> LedgerProjection {
+    func summary(accountID: UUID?, forecastMonths: Int) async throws -> LedgerProjection {
         var items = [URLQueryItem(name: "forecastMonths", value: String(forecastMonths))]
         if let accountID {
             items.append(URLQueryItem(name: "accountID", value: accountID.uuidString))

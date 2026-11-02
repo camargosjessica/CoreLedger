@@ -17,19 +17,19 @@ struct TransactionsView: View {
     @State private var exportDocument: CSVFile?
 
     private var grouped: [DayGroup] {
-        Dictionary(grouping: store.transactions) { LedgerCalendar.startOfDay($0.date) }
+        Dictionary(grouping: store.transactions.items) { LedgerCalendar.startOfDay($0.date) }
             .map { DayGroup(day: $0.key, items: $0.value) }
             .sorted { $0.day > $1.day }
     }
 
     /// Projeções ficam de fora do saldo: ainda não saíram da conta.
-    private var realized: [TransactionDTO] { store.transactions.filter { !$0.isProjected } }
+    private var realized: [TransactionDTO] { store.transactions.items.filter { !$0.isProjected } }
     private var total: Money { realized.reduce(0) { $0 + $1.amount } }
     private var income: Money { realized.filter { $0.amount > 0 }.reduce(0) { $0 + $1.amount } }
     private var spending: Money { realized.filter { $0.amount < 0 }.reduce(0) { $0 + $1.amount } }
     /// Com um cartão filtrado num mês futuro, é o valor previsto da fatura.
-    private var totalWithProjected: Money { store.transactions.reduce(0) { $0 + $1.amount } }
-    private var hasProjected: Bool { store.transactions.contains(where: \.isProjected) }
+    private var totalWithProjected: Money { store.transactions.items.reduce(0) { $0 + $1.amount } }
+    private var hasProjected: Bool { store.transactions.items.contains(where: \.isProjected) }
 
     var body: some View {
         NavigationStack {
@@ -57,7 +57,7 @@ struct TransactionsView: View {
 
                 filters
 
-                if store.transactions.isEmpty && !store.isLoading {
+                if store.transactions.items.isEmpty && !store.isLoading {
                     EmptyState(
                         symbol: isFiltered ? "line.3.horizontal.decrease" : "tray",
                         title: emptyTitle,
@@ -65,8 +65,8 @@ struct TransactionsView: View {
                     ) {
                         if hasNarrowingFilter {
                             Button("Limpar filtros", systemImage: "xmark") {
-                                store.selectedCategory = nil
-                                store.selectedTag = nil
+                                store.transactions.selectedCategory = nil
+                                store.transactions.selectedTag = nil
                                 store.selectedAccountID = nil
                             }
                         } else {
@@ -104,7 +104,7 @@ struct TransactionsView: View {
             }
             .navigationTitle("Lançamentos")
             .searchable(text: $search, prompt: "Descrição ou categoria")
-            .onSubmit(of: .search) { Task { await store.search(search) } }
+            .onSubmit(of: .search) { Task { await store.transactions.search(search) } }
             .refreshable { await store.reload() }
             .toolbar { toolbarContent }
             .safeAreaInset(edge: .bottom) { selectionBar }
@@ -157,16 +157,16 @@ struct TransactionsView: View {
                     ) {
                         Picker("Conta", selection: $store.selectedAccountID) {
                             Text("Todas as contas").tag(UUID?.none)
-                            ForEach(store.accounts) { account in
+                            ForEach(store.accounts.all) { account in
                                 Text(account.name).tag(account.id)
                             }
                         }
                         .pickerStyle(.inline)
                     }
                     FilterChip(
-                        title: store.selectedCategory ?? "Todas as categorias",
+                        title: store.transactions.selectedCategory ?? "Todas as categorias",
                         symbol: "tag",
-                        isActive: store.selectedCategory != nil
+                        isActive: store.transactions.selectedCategory != nil
                     ) {
                         CategoryFilter(store: store)
                             .pickerStyle(.inline)
@@ -178,20 +178,20 @@ struct TransactionsView: View {
 
     private func export() {
         Task {
-            guard let transactions = await store.transactionsForExport() else { return }
+            guard let transactions = await store.transactions.allForExport() else { return }
             exportDocument = CSVFile(text: TransactionCSV.export(transactions))
             isExporting = true
         }
     }
 
     private var exportFilename: String {
-        let account = store.accounts.first { $0.id == store.selectedAccountID }?.name
-        let month = store.period == .month ? store.selectedMonth.description : nil
+        let account = store.accounts.all.first { $0.id == store.selectedAccountID }?.name
+        let month = store.transactions.period == .month ? store.transactions.selectedMonth.description : nil
         return (["lancamentos", account, month].compactMap { $0 }).joined(separator: "-")
     }
 
     private var accountTitle: String {
-        store.accounts.first { $0.id == store.selectedAccountID }?.name ?? "Todas as contas"
+        store.accounts.all.first { $0.id == store.selectedAccountID }?.name ?? "Todas as contas"
     }
 
     @ToolbarContentBuilder
@@ -199,7 +199,7 @@ struct TransactionsView: View {
         ToolbarItemGroup(placement: .primaryAction) {
             if isSelecting {
                 Button(allSelected ? "Desmarcar todos" : "Selecionar todos") { toggleSelectAll() }
-                    .disabled(store.transactions.isEmpty)
+                    .disabled(store.transactions.items.isEmpty)
                 Button { isBulkEditing = true } label: {
                     Label("Editar selecionados", systemImage: "square.and.pencil")
                 }
@@ -221,7 +221,7 @@ struct TransactionsView: View {
                 Button { export() } label: {
                     Label("Exportar CSV", systemImage: "square.and.arrow.up")
                 }
-                .disabled(store.transactions.isEmpty)
+                .disabled(store.transactions.items.isEmpty)
                 Button { isAdding = true } label: {
                     Label("Novo", systemImage: "plus")
                 }
@@ -257,7 +257,7 @@ struct TransactionsView: View {
             Button("Editar…", systemImage: "pencil") { editing = transaction }
             Menu("Categoria") {
                 ForEach(store.categories, id: \.self) { name in
-                    Button(name) { Task { await store.setCategory(name, on: transaction) } }
+                    Button(name) { Task { await store.transactions.setCategory(name, on: transaction) } }
                 }
             }
             Divider()
@@ -292,7 +292,7 @@ struct TransactionsView: View {
 
     /// Contrapartidas de transferência ficam de fora: acompanham o original.
     private var selectableIDs: Set<UUID> {
-        Set(store.transactions.filter { $0.transferSourceID == nil }.compactMap(\.id))
+        Set(store.transactions.items.filter { $0.transferSourceID == nil }.compactMap(\.id))
     }
 
     private var allSelected: Bool {
@@ -300,7 +300,7 @@ struct TransactionsView: View {
     }
 
     private var selectedTransactions: [TransactionDTO] {
-        store.transactions.filter { transaction in
+        store.transactions.items.filter { transaction in
             transaction.transferSourceID == nil && transaction.id.map { selection.contains($0) } == true
         }
     }
@@ -317,7 +317,7 @@ struct TransactionsView: View {
     private func deleteSelected() {
         let ids = Array(selection)
         Task {
-            await store.deleteTransactions(ids: ids)
+            await store.transactions.delete(ids: ids)
             endSelection()
         }
     }
@@ -325,16 +325,16 @@ struct TransactionsView: View {
     private func deletePending() {
         guard let transaction = pendingDelete else { return }
         pendingDelete = nil
-        Task { await store.deleteTransaction(transaction) }
+        Task { await store.transactions.delete(transaction) }
     }
 
     private var isFiltered: Bool {
-        store.selectedCategory != nil || store.selectedTag != nil || store.period != .all
+        store.transactions.selectedCategory != nil || store.transactions.selectedTag != nil || store.transactions.period != .all
             || store.selectedAccountID != nil
     }
 
     private var hasNarrowingFilter: Bool {
-        store.selectedCategory != nil || store.selectedTag != nil || store.selectedAccountID != nil
+        store.transactions.selectedCategory != nil || store.transactions.selectedTag != nil || store.selectedAccountID != nil
     }
 
     private var emptyTitle: String {
@@ -404,7 +404,7 @@ private struct BulkEditSheet: View {
             removeTags: Array(removeTags)
         )
         Task {
-            await store.updateTransactions(request)
+            await store.transactions.update(request)
             onSaved()
             dismiss()
         }
@@ -416,16 +416,16 @@ private struct PeriodFilter: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Picker("Período", selection: $store.period) {
-                ForEach(LedgerStore.Period.allCases) { period in
+            Picker("Período", selection: Bindable(store.transactions).period) {
+                ForEach(TransactionsStore.Period.allCases) { period in
                     Text(period.title).tag(period)
                 }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
 
-            if store.period == .month {
-                MonthStepper(month: $store.selectedMonth)
+            if store.transactions.period == .month {
+                MonthStepper(month: Bindable(store.transactions).selectedMonth)
             }
         }
     }
@@ -454,7 +454,7 @@ private struct CategoryFilter: View {
     @Bindable var store: LedgerStore
 
     var body: some View {
-        Picker("Categoria", selection: $store.selectedCategory) {
+        Picker("Categoria", selection: Bindable(store.transactions).selectedCategory) {
             Text("Todas").tag(String?.none)
             ForEach(store.parentCategories, id: \.self) { parent in
                 Text(parent).tag(String?.some(parent))
@@ -539,7 +539,7 @@ private struct NewTransactionSheet: View {
                     DatePicker(installmentCount > 1 ? "Primeira parcela" : "Data", selection: $date, displayedComponents: .date)
                     Picker("Conta", selection: $accountID) {
                         Text("Sem conta").tag(UUID?.none)
-                        ForEach(store.accounts) { account in
+                        ForEach(store.accounts.all) { account in
                             Text(account.name).tag(account.id)
                         }
                     }
@@ -658,7 +658,7 @@ private struct NewTransactionSheet: View {
             ]
         }
         Task {
-            await store.addTransactions(transactions)
+            await store.transactions.add(transactions)
             dismiss()
         }
     }

@@ -10,14 +10,14 @@ struct PlanView: View {
     @State private var editing: RecurringCommitment?
     @State private var isCreating = false
 
-    private var plan: AnnualPlan? { store.plan }
+    private var plan: AnnualPlan? { store.plan.annual }
 
     private let columns = [GridItem(.adaptive(minimum: 280), spacing: 12, alignment: .top)]
 
     var body: some View {
         NavigationStack {
             CardScreen {
-                Picker("Ano", selection: $store.planYear) {
+                Picker("Ano", selection: Bindable(store.plan).year) {
                     ForEach(years, id: \.self) { year in
                         Text(String(year)).tag(year)
                     }
@@ -54,7 +54,7 @@ struct PlanView: View {
                         )
                     }
 
-                    PlanCharts(year: store.planYear, totals: plan.totals)
+                    PlanCharts(year: store.plan.year, totals: plan.totals)
 
                     VStack(alignment: .leading, spacing: 12) {
                         CardHeader(title: "Grade anual") {
@@ -68,7 +68,7 @@ struct PlanView: View {
                 } else {
                     EmptyState(
                         symbol: "calendar",
-                        title: "Nada previsto para \(String(store.planYear))",
+                        title: "Nada previsto para \(String(store.plan.year))",
                         message: "Importe extratos ou cadastre um compromisso para montar a grade."
                     ) {
                         Button("Novo compromisso", systemImage: "plus") { isCreating = true }
@@ -77,12 +77,12 @@ struct PlanView: View {
                 }
 
                 SectionTitle("Compromissos")
-                if store.commitments.isEmpty {
+                if store.plan.commitments.isEmpty {
                     EmptyNote(symbol: "repeat", text: "Cadastre aluguel, luz, salário, aporte na caixinha…")
                         .card()
                 }
                 LazyVGrid(columns: columns, spacing: 12) {
-                    ForEach(store.commitments) { commitment in
+                    ForEach(store.plan.commitments) { commitment in
                         Button {
                             editing = commitment
                         } label: {
@@ -92,7 +92,7 @@ struct PlanView: View {
                         .contextMenu {
                             Button("Editar…", systemImage: "pencil") { editing = commitment }
                             Button("Apagar", systemImage: "trash", role: .destructive) {
-                                Task { await store.deleteCommitment(commitment) }
+                                Task { await store.plan.deleteCommitment(commitment) }
                             }
                         }
                     }
@@ -104,7 +104,7 @@ struct PlanView: View {
                     Button { isCreating = true } label: { Label("Novo compromisso", systemImage: "plus") }
                 }
             }
-            .refreshable { await store.reloadPlan() }
+            .refreshable { await store.plan.reloadGrid() }
             .sheet(isPresented: $isCreating) {
                 CommitmentSheet(store: store, commitment: nil)
             }
@@ -326,7 +326,7 @@ private struct CommitmentSheet: View {
                     Stepper("Dia \(dayOfMonth)", value: $dayOfMonth, in: 1...31)
                     Picker("Conta", selection: $accountID) {
                         Text("Sem conta").tag(UUID?.none)
-                        ForEach(store.accounts) { account in
+                        ForEach(store.accounts.all) { account in
                             Text(account.name).tag(account.id)
                         }
                     }
@@ -455,7 +455,7 @@ private struct CommitmentSheet: View {
             notes: notes.isEmpty ? nil : notes
         )
         Task {
-            await store.saveCommitment(updated)
+            await store.plan.saveCommitment(updated)
             dismiss()
         }
     }

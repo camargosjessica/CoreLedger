@@ -2,131 +2,123 @@ import Foundation
 import Observation
 import KausMedia
 
-/// Estado compartilhado pelas abas. Uma única cópia dos dados evita que cada
-/// tela mantenha (e desatualize) a sua.
+/// Coordenador do estado do app. Cada área tem a sua store
+/// (`accounts`, `transactions`, `plan`, `rules`); aqui ficam a conexão, a
+/// conta em foco, o catálogo de categorias que cruza todas elas e a regra de
+/// quem recarrega o quê depois de cada mudança.
 @MainActor
 @Observable
 final class LedgerStore {
-    private(set) var accounts: [AccountDTO] = []
-    private(set) var transactions: [TransactionDTO] = []
-    private(set) var rules: [CategoryRule] = []
-    private(set) var projection: LedgerProjection?
-    private(set) var batches: [ImportBatchDTO] = []
-    private(set) var position: FinancialPosition?
-    private(set) var plan: AnnualPlan?
-    private(set) var commitments: [RecurringCommitment] = []
-    private(set) var limits: [CategoryLimit] = []
-    private(set) var categorySettings: [CategorySetting] = []
-    private(set) var knownTags: [String] = []
-    /// Próximas parcelas projetadas, independentes do filtro de período da
-    /// lista e do limite de linhas da página de lançamentos.
-    private(set) var upcoming: [TransactionDTO] = []
+    let session: LedgerSession
+    let accounts: AccountsStore
+    let transactions: TransactionsStore
+    let plan: PlanStore
+    let rules: RulesStore
 
-    /// Ano exibido na grade anual, no formato da planilha (janeiro a dezembro).
-    var planYear: Int = YearMonth(date: Date()).year {
-        didSet { Task { await reloadPlan() } }
+    /// Recarga disparada por mudança de filtro ou de conexão; a seguinte cancela a anterior.
+    @ObservationIgnored private var reloadTask: Task<Void, Never>?
+
+    init(
+        configuration: APIConfiguration = .load(),
+        makeAPI: @escaping (APIConfiguration) -> any LedgerAPI = { APIClient(configuration: $0) }
+    ) {
+        let session = LedgerSession(configuration: configuration, makeAPI: makeAPI)
+        let transactions = TransactionsStore(session: session)
+        self.session = session
+        self.accounts = AccountsStore(session: session)
+        self.transactions = transactions
+        self.plan = PlanStore(session: session)
+        self.rules = RulesStore(session: session, transactions: transactions)
+        session.coordinator = self
     }
 
-    private(set) var isLoading = false
-    /// Resultado da última carga completa, para o indicador de conexão.
-    private(set) var isReachable = true
-    var errorMessage: String?
-    private var searchTerm = ""
+    // MARK: Recarga
+
+    /// Partes do estado que uma mudança invalida.
+    nonisolated struct Scope: OptionSet, Sendable {
+        let rawValue: Int
+
+        static let accounts = Scope(rawValue: 1 << 0)
+        static let transactions = Scope(rawValue: 1 << 1)
+        static let summary = Scope(rawValue: 1 << 2)
+        static let batches = Scope(rawValue: 1 << 3)
+        static let plan = Scope(rawValue: 1 << 4)
+        static let rules = Scope(rawValue: 1 << 5)
+
+        /// O que depende da conta selecionada nos filtros.
+        static let accountFilter: Scope = [.transactions, .summary, .batches]
+        /// Tudo o que mostra categorias ou tags.
+        static let labels: Scope = [.transactions, .summary, .plan, .rules]
+        static let all: Scope = [.accounts, .transactions, .summary, .batches, .plan, .rules]
+    }
+
+    /// Recarrega em paralelo só o que `scope` cobre.
+    func reload(_ scope: Scope = .all) async {
+        session.isLoading = true
+        session.batchDepth += 1
+        defer {
+            session.batchDepth -= 1
+            session.isLoading = session.batchDepth > 0
+        }
+        session.errorMessage = nil
+
+        await withTaskGroup(of: Void.self) { group in
+            if scope.contains(.accounts) { group.addTask { await self.accounts.reload() } }
+            if scope.contains(.transactions) { group.addTask { await self.transactions.reloadList() } }
+            if scope.contains(.summary) { group.addTask { await self.transactions.reloadSummary() } }
+            if scope.contains(.batches) { group.addTask { await self.transactions.reloadBatches() } }
+            if scope.contains(.plan) { group.addTask { await self.plan.reload() } }
+            if scope.contains(.rules) { group.addTask { await self.rules.reload() } }
+        }
+        if scope == .all {
+            session.isReachable = session.errorMessage == nil
+        }
+    }
+
+    private func scheduleReload(_ scope: Scope) {
+        reloadTask?.cancel()
+        reloadTask = Task { await reload(scope) }
+    }
+
+    // MARK: Estado compartilhado
+
+    var configuration: APIConfiguration {
+        get { session.configuration }
+        set {
+            guard newValue != session.configuration else { return }
+            session.configuration = newValue
+            newValue.save()
+            scheduleReload(.all)
+        }
+    }
 
     /// Conta selecionada nos filtros; `nil` significa todas.
     var selectedAccountID: UUID? {
-        didSet { Task { await reload() } }
-    }
-
-    /// Filtros da lista de lançamentos.
-    var selectedCategory: String? {
-        didSet { Task { await reloadTransactions() } }
-    }
-
-    var selectedTag: String? {
-        didSet { Task { await reloadTransactions() } }
-    }
-
-    var period: Period = .all {
-        didSet { Task { await reloadTransactions() } }
-    }
-
-    /// Mês do período `.month`. Aceita meses futuros, para ver as parcelas previstas.
-    var selectedMonth = YearMonth(date: Date()) {
-        didSet { if period == .month { Task { await reloadTransactions() } } }
-    }
-
-    /// Só a resposta da consulta mais recente atualiza a lista.
-    private var transactionsGeneration = 0
-
-    private var periodStart: Date? {
-        period == .month ? selectedMonth.startDate : period.start
-    }
-
-    private var periodEnd: Date? {
-        period == .month ? LedgerCalendar.addingDays(-1, to: selectedMonth.adding(months: 1).startDate) : period.end
-    }
-
-    enum Period: String, CaseIterable, Identifiable {
-        case all
-        case thisMonth
-        case last3Months
-        case last12Months
-        case month
-
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .all: return "Tudo"
-            case .thisMonth: return "Mês"
-            case .last3Months: return "3 meses"
-            case .last12Months: return "12 meses"
-            case .month: return "Escolher"
-            }
-        }
-
-        /// Primeiro dia do intervalo; `nil` quando não há limite inferior.
-        var start: Date? {
-            let now = Date()
-            switch self {
-            case .all, .month: return nil
-            case .thisMonth: return LedgerCalendar.startOfMonth(now)
-            case .last3Months: return LedgerCalendar.startOfMonth(LedgerCalendar.addingMonths(-2, to: now))
-            case .last12Months: return LedgerCalendar.startOfMonth(LedgerCalendar.addingMonths(-11, to: now))
-            }
-        }
-
-        /// Último dia do intervalo. Sem ele, um lançamento datado no futuro
-        /// (ou uma parcela projetada) entraria no total do período escolhido.
-        var end: Date? {
-            guard self != .all, self != .month else { return nil }
-            let nextMonth = LedgerCalendar.addingMonths(1, to: LedgerCalendar.startOfMonth(Date()))
-            return LedgerCalendar.addingDays(-1, to: nextMonth)
+        get { session.selectedAccountID }
+        set {
+            guard newValue != session.selectedAccountID else { return }
+            session.selectedAccountID = newValue
+            scheduleReload(.accountFilter)
         }
     }
 
-    var configuration: APIConfiguration {
-        didSet {
-            configuration.save()
-            Task { await reload() }
-        }
+    var errorMessage: String? {
+        get { session.errorMessage }
+        set { session.errorMessage = newValue }
     }
 
-    private var client: APIClient { APIClient(configuration: configuration) }
+    var isLoading: Bool { session.isLoading }
+    var isReachable: Bool { session.isReachable }
+    var dataGeneration: Int { session.dataGeneration }
 
-    init(configuration: APIConfiguration = .load()) {
-        self.configuration = configuration
-    }
+    // MARK: Catálogo de categorias
 
     /// Catálogo do servidor somado ao que já está na tela, para incluir o que
     /// acabou de ser criado antes do próximo `reload`.
     var categories: [String] {
-        Array(Set(categoryCatalog + rules.map(\.category) + commitments.map(\.category)
-            + transactions.compactMap(\.category))).sorted()
+        Array(Set(rules.catalog + rules.all.map(\.category) + plan.commitments.map(\.category)
+            + transactions.items.compactMap(\.category))).sorted()
     }
-
-    private(set) var categoryCatalog: [String] = []
 
     /// Categorias-mãe, para filtros e para a tela de Regras.
     var parentCategories: [String] {
@@ -137,414 +129,18 @@ final class LedgerStore {
         categories.filter { $0 != parent && CategoryPath.isWithin($0, parent) }.sorted()
     }
 
-    /// Só a marcação da própria categoria, sem herdar da categoria-mãe.
-    func isEssential(_ category: String) -> Bool {
-        categorySettings.contains { $0.category == category && $0.isEssential }
-    }
-
-    func setEssential(_ isEssential: Bool, for category: String) async {
-        await run {
-            _ = try await self.client.saveCategorySetting(
-                CategorySetting(category: category, isEssential: isEssential)
-            )
-            self.categorySettings = try await self.client.categorySettings()
-        }
-        await reloadPlan()
-    }
-
-    /// Muda a cada `reload`, para telas com dados próprios (Análise) recarregarem.
-    private(set) var dataGeneration = 0
-
-    func reload() async {
-        transactionsGeneration += 1
-        let generation = transactionsGeneration
-        isLoading = true
-        defer { isLoading = false }
-        await run {
-            let client = self.client
-            async let accounts = client.accounts()
-            async let transactions = client.transactions(
-                accountID: self.selectedAccountID,
-                search: self.searchTerm.isEmpty ? nil : self.searchTerm,
-                from: self.periodStart,
-                to: self.periodEnd,
-                category: self.selectedCategory,
-                tag: self.selectedTag
-            )
-            async let rules = client.categoryRules()
-            async let catalog = client.categories()
-            async let projection = client.summary(accountID: self.selectedAccountID)
-            async let batches = client.importBatches(accountID: self.selectedAccountID)
-            async let position = client.position()
-            async let limits = client.limits()
-            async let settings = client.categorySettings()
-            async let plan = client.plan(from: self.planStart, to: self.planEnd)
-            let today = LedgerCalendar.startOfDay(Date())
-            async let upcoming = client.transactions(
-                accountID: self.selectedAccountID,
-                from: today,
-                to: LedgerCalendar.addingDays(Self.upcomingWindowDays, to: today),
-                limit: 1000
-            )
-
-            self.accounts = try await accounts
-            let loaded = try await transactions
-            if generation == self.transactionsGeneration { self.transactions = loaded }
-            self.rules = try await rules
-            self.projection = try await projection
-            self.batches = try await batches
-            self.position = try await position
-            self.limits = try await limits
-            self.categorySettings = try await settings
-            self.upcoming = try await upcoming
-                .filter(\.isProjected)
-                .sorted { $0.date < $1.date }
-
-            let planResponse = try await plan
-            self.plan = planResponse.plan
-            self.commitments = planResponse.commitments
-            self.knownTags = planResponse.knownTags
-            self.categoryCatalog = try await catalog
-        }
-        isReachable = errorMessage == nil
-        dataGeneration += 1
-    }
-
-    // MARK: Planejamento
-
-    /// Parcelas são mensais, então três meses à frente sempre trazem a próxima.
-    private static let upcomingWindowDays = 92
-
-    private var planStart: YearMonth { YearMonth(year: planYear, month: 1) }
-    private var planEnd: YearMonth { YearMonth(year: planYear, month: 12) }
-
-    func reloadPlan() async {
-        await run {
-            let response = try await self.client.plan(from: self.planStart, to: self.planEnd)
-            self.plan = response.plan
-            self.commitments = response.commitments
-            self.knownTags = response.knownTags
-        }
-    }
-
-    func saveCommitment(_ commitment: RecurringCommitment) async {
-        await run {
-            if let id = commitment.id {
-                _ = try await self.client.updateCommitment(id: id, commitment)
-            } else {
-                _ = try await self.client.createCommitment(commitment)
-            }
-        }
-        await reloadPlan()
-    }
-
-    func deleteCommitment(_ commitment: RecurringCommitment) async {
-        guard let id = commitment.id else { return }
-        await run { try await self.client.deleteCommitment(id: id) }
-        await reloadPlan()
-    }
-
-    // MARK: Limites
-
-    func limit(for category: String) -> Money? {
-        limits.first { $0.category == category }?.monthlyLimit
-    }
-
-    /// Valor `nil` ou zero remove o limite da categoria.
-    func setLimit(_ monthlyLimit: Money?, for category: String) async {
-        await run {
-            if let monthlyLimit, monthlyLimit > 0 {
-                _ = try await self.client.saveLimit(CategoryLimit(category: category, monthlyLimit: monthlyLimit))
-            } else {
-                try await self.client.deleteLimit(category: category)
-            }
-            self.limits = try await self.client.limits()
-        }
-    }
-
-    // MARK: Contas
-
-    func addAccount(name: String, kind: AccountKind) async {
-        await run {
-            _ = try await self.client.createAccount(AccountDTO(name: name, kind: kind))
-        }
-        await reload()
-    }
-
-    func updateAccount(_ account: AccountDTO) async {
-        guard let id = account.id else { return }
-        await run { _ = try await self.client.updateAccount(id: id, account) }
-        await reload()
-    }
-
-    /// Lançamentos de uma conta num mês, sem mexer nos filtros da aba Lançamentos.
-    func transactions(of accountID: UUID, in month: YearMonth) async -> [TransactionDTO] {
-        var loaded: [TransactionDTO] = []
-        await run {
-            loaded = try await self.client.transactions(
-                accountID: accountID,
-                from: month.startDate,
-                to: LedgerCalendar.addingDays(-1, to: month.adding(months: 1).startDate),
-                limit: 1000
-            )
-        }
-        return loaded.sorted { $0.date > $1.date }
-    }
-
-    func deleteAccount(_ account: AccountDTO) async {
-        guard let id = account.id else { return }
-        await run { try await self.client.deleteAccount(id: id) }
-        await reload()
-    }
-
-    // MARK: Lançamentos
-
-    /// Parcelas de um lançamento manual: todas sobem antes de recarregar a lista.
-    func addTransactions(_ transactions: [TransactionDTO]) async {
-        await run {
-            for transaction in transactions {
-                _ = try await self.client.createTransaction(transaction)
-            }
-        }
-        await reload()
-    }
-
-    func updateTransaction(_ transaction: TransactionDTO) async {
-        guard let id = transaction.id else { return }
-        await run { _ = try await self.client.updateTransaction(id: id, transaction) }
-        await reload()
-    }
-
-    /// Salva o lançamento e, se a conta de destino mudou, liga, troca ou
-    /// desfaz a contrapartida da transferência.
-    func updateTransaction(_ transaction: TransactionDTO, transferTo accountID: UUID?) async {
-        guard let id = transaction.id else { return }
-        let transferChanged = accountID != transaction.transferAccountID
-        await run {
-            // Desliga antes de editar: a origem pode estar indo para a conta
-            // que hoje recebe a contrapartida.
-            if transferChanged, transaction.transferAccountID != nil {
-                _ = try await self.client.setTransfer(id: id, accountID: nil)
-            }
-            _ = try await self.client.updateTransaction(id: id, transaction)
-            if transferChanged, let accountID {
-                _ = try await self.client.setTransfer(id: id, accountID: accountID)
-            }
-        }
-        await reload()
-    }
-
-    /// Atalho do menu de contexto da lista, sem abrir o editor.
-    func setCategory(_ category: String, on transaction: TransactionDTO) async {
-        var updated = transaction
-        updated.category = category
-        await updateTransaction(updated)
-    }
-
-    func deleteTransaction(_ transaction: TransactionDTO) async {
-        guard let id = transaction.id else { return }
-        await run { try await self.client.deleteTransaction(id: id) }
-        await reload()
-    }
-
-    func deleteTransactions(ids: [UUID]) async {
-        guard !ids.isEmpty else { return }
-        await run { _ = try await self.client.deleteTransactions(ids: ids) }
-        await reload()
-    }
-
-    func updateTransactions(_ request: BulkUpdateRequest) async {
-        guard !request.ids.isEmpty else { return }
-        await run { _ = try await self.client.updateTransactions(request) }
-        await reload()
-    }
-
-    func search(_ term: String) async {
-        searchTerm = term
-        await reloadTransactions()
-    }
-
-    private func reloadTransactions() async {
-        transactionsGeneration += 1
-        let generation = transactionsGeneration
-        await run {
-            let all = try await self.client.transactions(
-                accountID: self.selectedAccountID,
-                search: self.searchTerm.isEmpty ? nil : self.searchTerm,
-                from: self.periodStart,
-                to: self.periodEnd,
-                category: self.selectedCategory,
-                tag: self.selectedTag
-            )
-            guard generation == self.transactionsGeneration else { return }
-            self.transactions = all
-        }
-    }
-
-    /// Todos os lançamentos dos filtros atuais, sem o limite de uma página da lista.
-    func transactionsForExport() async -> [TransactionDTO]? {
-        let pageSize = 1000
-        var all: [TransactionDTO] = []
-        var finished = false
-        await run {
-            while true {
-                let page = try await self.client.transactions(
-                    accountID: self.selectedAccountID,
-                    search: self.searchTerm.isEmpty ? nil : self.searchTerm,
-                    from: self.periodStart,
-                    to: self.periodEnd,
-                    category: self.selectedCategory,
-                    tag: self.selectedTag,
-                    limit: pageSize,
-                    offset: all.count
-                )
-                all += page
-                if page.count < pageSize { break }
-            }
-            finished = true
-        }
-        return finished ? all : nil
-    }
-
-    // MARK: Importação
-
-    /// Devolve o relatório para a tela mostrar quantos entraram, quantos eram
-    /// duplicados e quais linhas falharam.
-    /// Lança o erro em vez de usar `errorMessage`, para a tela mostrá-lo junto do arquivo.
-    func importStatement(_ request: ImportRequestDTO) async throws -> ImportReportDTO {
-        let report = try await client.importStatement(request)
-        await reload()
-        return report
-    }
-
-    /// Desfaz a importação inteira: apaga o que ela criou e devolve as projeções
-    /// confirmadas ao estado anterior.
-    func undoImport(batchID: UUID) async -> BulkDeleteResponse? {
-        var response: BulkDeleteResponse?
-        await run { response = try await self.client.undoImport(batchID: batchID) }
-        await reload()
-        return response
-    }
-
-    // MARK: Regras
-
-    func saveRule(_ rule: CategoryRule) async {
-        await run {
-            if let id = rule.id {
-                _ = try await self.client.updateRule(id: id, rule)
-            } else {
-                _ = try await self.client.createRule(rule)
-            }
-        }
-        await reload()
-    }
-
-    func deleteRule(_ rule: CategoryRule) async {
-        guard let id = rule.id else { return }
-        await run { try await self.client.deleteRule(id: id) }
-        await reload()
-    }
-
-    /// Apaga a categoria inteira: as regras que a produzem somem e os
-    /// lançamentos que a usavam voltam a passar pelas regras restantes.
-    func deleteCategory(_ name: String) async -> DeleteCategoryResponse? {
-        var response: DeleteCategoryResponse?
-        await run { response = try await self.client.deleteCategory(name) }
-        if selectedCategory == name { selectedCategory = nil }
-        await reload()
-        return response
-    }
-
-    func renameCategory(_ name: String, to newName: String) async -> LabelChangeResponse? {
-        var response: LabelChangeResponse?
-        await run { response = try await self.client.renameCategory(name, to: newName) }
-        if response != nil, selectedCategory == name { selectedCategory = newName }
-        await reload()
-        return response
-    }
-
-    func renameTag(_ tag: String, to newName: String) async -> LabelChangeResponse? {
-        var response: LabelChangeResponse?
-        await run { response = try await self.client.renameTag(tag, to: newName) }
-        if response != nil, selectedTag == tag { selectedTag = TagSet.normalize([newName]).first }
-        await reload()
-        return response
-    }
-
-    func deleteTag(_ tag: String) async -> LabelChangeResponse? {
-        var response: LabelChangeResponse?
-        await run { response = try await self.client.deleteTag(tag) }
-        if selectedTag == tag { selectedTag = nil }
-        await reload()
-        return response
-    }
-
-    // MARK: Análise
-
-    func spending(
-        year: Int,
-        grouping: SpendingGrouping,
-        accountID: UUID?,
-        accountKind: AccountKind?
-    ) async -> SpendingReport? {
-        var report: SpendingReport?
-        await run {
-            report = try await self.client.spending(
-                year: year,
-                grouping: grouping,
-                accountID: accountID,
-                accountKind: accountKind
-            )
-        }
-        return report
-    }
-
     // MARK: Manutenção
 
     func reset(scope: ResetScope) async -> ResetResponse? {
         var response: ResetResponse?
-        await run { response = try await self.client.reset(scope: scope) }
-        selectedAccountID = nil
-        selectedCategory = nil
-        selectedTag = nil
-        await reload()
+        await session.run { response = try await session.api.reset(scope: scope) }
+        session.selectedAccountID = nil
+        transactions.clearLabelFilters()
+        await reload(.all)
         return response
-    }
-
-    func preview(description: String, amount: Money, rule: CategoryRule?) async -> CategoryPreviewResponse? {
-        var response: CategoryPreviewResponse?
-        await run {
-            response = try await self.client.preview(
-                CategoryPreviewRequest(description: description, amount: amount, rule: rule)
-            )
-        }
-        return response
-    }
-
-    /// Reaplica as regras ao histórico — sem isso, uma regra nova só valeria
-    /// para lançamentos futuros.
-    func recategorize(onlyUncategorized: Bool) async -> Int? {
-        var updated: Int?
-        await run {
-            updated = try await self.client.recategorize(
-                accountID: self.selectedAccountID,
-                onlyUncategorized: onlyUncategorized
-            ).updated
-        }
-        await reload()
-        return updated
-    }
-
-    private func run(_ operation: () async throws -> Void) async {
-        do {
-            try await operation()
-            errorMessage = nil
-        } catch {
-            errorMessage = Self.message(for: error)
-        }
     }
 
     static func message(for error: any Error) -> String {
-        (error as? APIError)?.errorDescription ?? error.localizedDescription
+        LedgerSession.message(for: error)
     }
 }

@@ -56,7 +56,7 @@ struct AnalysisView: View {
             year: year,
             grouping: grouping,
             scope: scope,
-            accounts: store.accounts.compactMap(\.id),
+            accounts: store.accounts.all.compactMap(\.id),
             dataGeneration: store.dataGeneration
         )
     }
@@ -69,7 +69,7 @@ struct AnalysisView: View {
         case .cards: (accountID, kind) = (nil, .creditCard)
         case .account(let id): (accountID, kind) = (id, nil)
         }
-        guard let loaded = await store.spending(year: year, grouping: grouping, accountID: accountID, accountKind: kind) else { return }
+        guard let loaded = await store.transactions.spending(year: year, grouping: grouping, accountID: accountID, accountKind: kind) else { return }
         report = loaded
         if let selectedLabel, !loaded.months.contains(where: { label($0.month) == selectedLabel }) {
             self.selectedLabel = nil
@@ -82,7 +82,7 @@ struct AnalysisView: View {
         switch scope {
         case .all: return "Todas as contas"
         case .cards: return "Todos os cartões"
-        case .account(let id): return store.accounts.first { $0.id == id }?.name ?? "Conta"
+        case .account(let id): return store.accounts.all.first { $0.id == id }?.name ?? "Conta"
         }
     }
 
@@ -107,7 +107,7 @@ struct AnalysisView: View {
                 Picker("Contas", selection: $scope) {
                     Text("Todos os cartões").tag(Scope.cards)
                     Text("Todas as contas").tag(Scope.all)
-                    ForEach(store.accounts) { account in
+                    ForEach(store.accounts.all) { account in
                         if let id = account.id {
                             Text(account.name).tag(Scope.account(id))
                         }
